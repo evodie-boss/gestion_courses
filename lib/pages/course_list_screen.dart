@@ -1,7 +1,7 @@
 // lib/pages/course_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../course_model.dart';
+import '../models/course_model.dart';
 import '../course_service.dart';
 import 'add_edit_course_screen.dart';
 

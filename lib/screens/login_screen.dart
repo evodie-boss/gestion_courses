@@ -1,6 +1,6 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // AJOUTEZ CET IMPORT
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/screens/register_screen.dart';
@@ -49,7 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } on FirebaseAuthException catch (e) {
-        // CHANGEMENT ICI
         setState(() {
           _errorMessage = _getErrorMessage(e);
         });
@@ -66,7 +65,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String _getErrorMessage(FirebaseAuthException error) {
-    // CHANGEMENT ICI
     switch (error.code) {
       case 'user-not-found':
         return 'Aucun utilisateur trouvé avec cet email';
@@ -93,26 +91,39 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 40),
 
-              // Logo et titre
+              // Logo et titre - MODIFIÉ ICI
               Center(
                 child: Column(
                   children: [
+                    // REMPLACÉ L'ICÔNE PAR TON LOGO
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 100,
+                      height: 100,
                       decoration: BoxDecoration(
-                        color: AppColors.tropicalTeal,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(
-                        Icons.shopping_basket_rounded,
-                        size: 50,
                         color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 15,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Image.asset(
+                          'assets/images/logo_courses.jpg', // TON LOGO
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'ShopEasy',
+                      'ShopTrack',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,

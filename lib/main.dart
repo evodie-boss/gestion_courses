@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:gestion_courses/screens/login_screen.dart';
 import 'package:gestion_courses/screens/home_screen.dart';
 import 'package:gestion_courses/screens/profile_screen.dart';
+import 'package:gestion_courses/screens/splash_screen.dart'; // NOUVEAU fichier
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
 import 'package:provider/provider.dart';
@@ -15,12 +16,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        // AuthService est un ChangeNotifier, donc on utilise ChangeNotifierProvider
-        ChangeNotifierProvider(
-          create: (_) => AuthService(),
-          lazy:
-              false, // Important: crée immédiatement pour écouter authStateChanges
-        ),
+        ChangeNotifierProvider(create: (_) => AuthService(), lazy: false),
       ],
       child: MyApp(),
     ),
@@ -33,7 +29,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gestion Courses',
+      title: 'Gestion Courses', // GARDE ce nom
       theme: ThemeData(
         primaryColor: const Color(0xFF0F9E99),
         scaffoldBackgroundColor: const Color(0xFFEFE9E0),
@@ -56,23 +52,43 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isInitialized = false;
+  bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Affiche le splash pendant au moins 2 secondes
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showSplash = false;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
-    // Ajoutez un StreamBuilder pour gérer l'état de chargement initial
     return StreamBuilder<UserModel?>(
       stream: authService.user,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // Afficher un écran de chargement pendant l'initialisation
-          return const SplashScreen();
+        // Si on doit encore montrer le splash OU si Firebase charge
+        if (_showSplash ||
+            snapshot.connectionState == ConnectionState.waiting) {
+          return const SplashScreenV2();
         }
 
-        // Utiliser l'utilisateur courant
         if (authService.currentUser != null) {
           return const HomeScreen();
         } else {
@@ -82,45 +98,5 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
-
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFE9E0),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F9E99),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: const Icon(
-                Icons.shopping_basket_rounded,
-                size: 60,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 30),
-            const Text(
-              'ShopEasy',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F9E99),
-              ),
-            ),
-            const SizedBox(height: 10),
-            const CircularProgressIndicator(color: Color(0xFF0F9E99)),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// SUPPRIME cette ancienne classe SplashScreen qui était ici
+// Elle est maintenant dans screens/splash_screen.dart

@@ -1,6 +1,6 @@
 // lib/pages/add_edit_course_screen.dart
 import 'package:flutter/material.dart';
-import '../course_model.dart';
+import '../models/course_model.dart';
 import '../course_service.dart';
 
 class AddEditCourseScreen extends StatefulWidget {
@@ -99,11 +99,11 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
                     const SizedBox(height: 16),
 
                     _buildTextField(
-                      label: 'Titre',
+                      label: 'Produit',
                       initialValue: _title,
-                      hintText: 'Ex: Courses supermarché',
+                      hintText: 'Ex: Lait',
                       validator: (val) =>
-                          val == null || val.isEmpty ? 'Veuillez entrer un titre' : null,
+                          val == null || val.isEmpty ? 'Veuillez entrer un produit' : null,
                       onSaved: (val) => _title = val!,
                       icon: Icons.title,
                     ),

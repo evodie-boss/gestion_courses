@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 import 'package:gestion_courses/screens/profile_screen.dart';
-import 'package:gestion_courses/screens/login_screen.dart'; // IMPORT AJOUTÉ
-import 'package:gestion_courses/screens/register_screen.dart'; // IMPORT AJOUTÉ
+import 'package:gestion_courses/screens/login_screen.dart';
+import 'package:gestion_courses/screens/register_screen.dart';
+// Pages importées pour les onglets
+import 'package:gestion_courses/pages/course_list_screen.dart';
+import 'package:gestion_courses/gestion_portefeuille/screens/wallet_screen.dart';
+import 'package:gestion_courses/gestion_boutiques/pages/boutiques.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
 
@@ -42,9 +46,9 @@ class _HomeScreenState extends State<HomeScreen>
   final List<Map<String, dynamic>> _quickActions = [
     {
       'icon': Icons.add_shopping_cart_rounded,
-      'title': 'Nouvelle Liste',
+      'title': 'Nouvelle Liste de ourse',
       'color': AppColors.tropicalTeal,
-      'subtitle': 'Créer une liste',
+      'subtitle': 'Créer une liste de course',
     },
     {
       'icon': Icons.attach_money_rounded,
@@ -61,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen>
     {
       'icon': Icons.map_rounded,
       'title': 'Carte',
-      'color': Colors.blue.shade700,
+      'color': const Color.fromARGB(255, 159, 169, 179),
       'subtitle': 'Voir la carte',
     },
   ];
@@ -128,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
           const SizedBox(width: 8),
-          // AVATAR AVEC MENU DYNAMIQUE - VERSION CORRIGÉE
+          // AVATAR AVEC MENU DYNAMIQUE
           PopupMenuButton<String>(
             icon: CircleAvatar(
               backgroundColor: Colors.white,
@@ -157,9 +161,7 @@ class _HomeScreenState extends State<HomeScreen>
               }
             },
             itemBuilder: (context) {
-              // Menu dynamique selon l'état de connexion
               if (user != null) {
-                // Menu pour utilisateur connecté
                 return [
                   PopupMenuItem(
                     value: 'profile',
@@ -191,7 +193,6 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ];
               } else {
-                // Menu pour utilisateur non connecté
                 return [
                   PopupMenuItem(
                     value: 'login',
@@ -291,19 +292,26 @@ class _HomeScreenState extends State<HomeScreen>
       case 1:
         return KeyedSubtree(
           key: const ValueKey('courses'),
-          child: _buildCoursesContent(),
+          child: _buildNavigatorPage(CourseListScreen()),
         );
       case 2:
         return KeyedSubtree(
           key: const ValueKey('wallet'),
-          child: _buildWalletContent(user),
+          child: user != null
+              ? _buildNavigatorPage(WalletScreen(userId: user.id))
+              : _buildWalletContent(user),
         );
       case 3:
+        return KeyedSubtree(
+          key: const ValueKey('shops'),
+          child: _buildNavigatorPage(ElegantBoutiquePage()),
+        );
+      case 4:
         return KeyedSubtree(
           key: const ValueKey('map'),
           child: _buildMapContent(),
         );
-      case 4:
+      case 5:
         return KeyedSubtree(
           key: const ValueKey('orders'),
           child: _buildOrdersContent(),
@@ -316,12 +324,24 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // Wraps chaque page dans un Navigator local pour éviter les conflits de navigation
+  Widget _buildNavigatorPage(Widget page) {
+    return Navigator(
+      onGenerateRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => page,
+          settings: settings,
+        );
+      },
+    );
+  }
+
   Widget _buildHomeContent(UserModel? user) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Bannière de bienvenue avec animation
+          // Bannière de bienvenue MODIFIÉE (couleur différente)
           TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 800),
             tween: Tween(begin: 0.0, end: 1.0),
@@ -340,8 +360,8 @@ class _HomeScreenState extends State<HomeScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.tropicalTeal,
-                    AppColors.tropicalTeal.withOpacity(0.9),
+                    const Color.fromARGB(255, 201, 208, 214), // NOUVELLE COULEUR
+                    const Color.fromARGB(255, 82, 85, 88), // NOUVELLE COULEUR
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -473,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.4,
+                    childAspectRatio: 0.8,
                   ),
                   itemCount: _quickActions.length,
                   itemBuilder: (context, index) {
@@ -486,7 +506,12 @@ class _HomeScreenState extends State<HomeScreen>
                           ? 'Solde: ${user.soldePortefeuille} FCFA'
                           : action['subtitle'],
                       onTap: () {
-                        _navigateWithAnimation(index == 3 ? 3 : index + 1);
+                        int targetIndex = index;
+                        if (index == 0) targetIndex = 1; // Courses
+                        else if (index == 1) targetIndex = 2; // Portefeuille
+                        else if (index == 2) targetIndex = 3; // Boutiques
+                        else if (index == 3) targetIndex = 4; // Carte
+                        _navigateWithAnimation(targetIndex);
                       },
                     );
                   },
@@ -502,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Listes Récentes',
+                          'Courses Récentes',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -551,13 +576,48 @@ class _HomeScreenState extends State<HomeScreen>
                 const SizedBox(height: 32),
 
                 // Section Boutiques Proches
-                const Text(
-                  'Boutiques Proches',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.tropicalTeal,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Boutiques Proches',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.tropicalTeal,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _navigateWithAnimation(3),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.tropicalTeal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: const [
+                            Text(
+                              'Voir tout',
+                              style: TextStyle(
+                                color: AppColors.tropicalTeal,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: AppColors.tropicalTeal,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 SingleChildScrollView(
@@ -891,12 +951,12 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildMapContent() {
+  Widget _buildShopsContent() {
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(24),
-          color: AppColors.tropicalTeal,
+          color: Colors.green.shade700,
           child: Row(
             children: [
               IconButton(
@@ -930,73 +990,215 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         Expanded(
-          child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(30),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        blurRadius: 30,
-                        spreadRadius: 5,
-                      ),
-                    ],
+                const Text(
+                  'Boutiques disponibles',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.map_rounded,
-                        size: 80,
-                        color: AppColors.tropicalTeal,
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Carte Interactive',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Visualisez les boutiques autour de vous',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.textColor.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.tropicalTeal,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 30,
-                            vertical: 15,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Découvrez les boutiques autour de vous',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _nearbyShops.length,
+                    itemBuilder: (context, index) {
+                      final shop = _nearbyShops[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 15),
+                        child: ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.storefront_rounded,
+                              color: Colors.green.shade700,
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          title: Text(
+                            shop['name'],
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on_outlined,
+                                    size: 16,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(shop['distance']),
+                                  const Spacer(),
+                                  Icon(Icons.star_rounded,
+                                      size: 16, color: Colors.amber),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    shop['rating'].toString(),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.green.shade700,
+                            ),
+                            onPressed: () {},
                           ),
                         ),
-                        child: const Text(
-                          'Activer la localisation',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapContent() {
+    return Column(
+      children: [
+        // Section de recherche (Garde la hauteur fixe)
+        Container(
+          padding: const EdgeInsets.all(24),
+          color: const Color.fromARGB(255, 115, 121, 128),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.search, color: Colors.white),
+                onPressed: () {},
+              ),
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un lieu...',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    border: InputBorder.none,
+                    fillColor: Colors.white.withOpacity(0.2),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: const Icon(
+                        Icons.filter_list_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {},
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Section de contenu principal (CORRECTION APPLIQUÉE ICI)
+        Expanded(
+          // L'Expanded donne tout l'espace vertical restant à son enfant
+          child: SingleChildScrollView(
+            // Le SingleChildScrollView permet le défilement si le contenu déborde
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0), // Ajout d'un padding pour un meilleur look
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(30),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            blurRadius: 30,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.map_rounded,
+                            size: 80,
+                            color: const Color.fromARGB(255, 154, 166, 179),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Carte Interactive',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Visualisez les boutiques autour de vous',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textColor.withOpacity(0.6),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: () {},
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color.fromARGB(255, 84, 87, 90),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 30,
+                                vertical: 15,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Activer la localisation',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -1039,12 +1241,13 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Drawer(
       backgroundColor: Colors.white,
+      width: 280, // TAILLE FIXÉE POUR LA NAVIGATION VERTICALE
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           // Header du drawer
           Container(
-            height: 200,
+            height: 180, // HAUTEUR RÉDUITE
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -1058,11 +1261,11 @@ class _HomeScreenState extends State<HomeScreen>
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
-                    radius: 35,
+                    radius: 30, // TAILLE RÉDUITE
                     backgroundColor: Colors.white,
                     child: Text(
                       isLoggedIn &&
@@ -1072,41 +1275,45 @@ class _HomeScreenState extends State<HomeScreen>
                           : 'U',
                       style: const TextStyle(
                         color: AppColors.tropicalTeal,
-                        fontSize: 24,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 12),
                   Text(
                     isLoggedIn ? '${user.prenom} ${user.nom}' : 'Invité',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
                     isLoggedIn ? user.email : 'Non connecté',
-                    style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 12,
+                    ),
                   ),
                   if (isLoggedIn) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
+                        horizontal: 8,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       child: Text(
                         'Solde: ${user.soldePortefeuille} FCFA',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -1144,9 +1351,10 @@ class _HomeScreenState extends State<HomeScreen>
               Navigator.pop(context);
             },
           ),
+          // AJOUTÉ: Item Boutiques
           _drawerItem(
-            icon: Icons.map_rounded,
-            title: 'Carte',
+            icon: Icons.store_mall_directory_rounded,
+            title: 'Boutiques',
             selected: _currentIndex == 3,
             onTap: () {
               _navigateWithAnimation(3);
@@ -1154,16 +1362,25 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
           _drawerItem(
-            icon: Icons.list_alt_rounded,
-            title: 'Commandes',
+            icon: Icons.map_rounded,
+            title: 'Carte',
             selected: _currentIndex == 4,
             onTap: () {
               _navigateWithAnimation(4);
               Navigator.pop(context);
             },
           ),
+          _drawerItem(
+            icon: Icons.list_alt_rounded,
+            title: 'Commandes',
+            selected: _currentIndex == 5,
+            onTap: () {
+              _navigateWithAnimation(5);
+              Navigator.pop(context);
+            },
+          ),
 
-          const Divider(height: 40),
+          const Divider(height: 30),
 
           // Items conditionnels selon l'état de connexion
           if (isLoggedIn) ...[
@@ -1180,7 +1397,15 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               },
             ),
-
+            _drawerItem(
+              icon: Icons.settings_rounded,
+              title: 'Paramètres',
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Ajouter écran paramètres
+              },
+            ),
+            const SizedBox(height: 10),
             _drawerItem(
               icon: Icons.logout_rounded,
               title: 'Déconnexion',
@@ -1228,25 +1453,37 @@ class _HomeScreenState extends State<HomeScreen>
         onTap: onTap,
         splashColor: AppColors.tropicalTeal.withOpacity(0.1),
         highlightColor: AppColors.tropicalTeal.withOpacity(0.05),
-        child: ListTile(
-          leading: Icon(
-            icon,
-            color:
-                color ??
-                (selected ? AppColors.tropicalTeal : Colors.grey.shade700),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.tropicalTeal.withOpacity(0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-          title: Text(
-            title,
-            style: TextStyle(
-              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          child: ListTile(
+            dense: true, // RENDU PLUS DENSE
+            leading: Icon(
+              icon,
+              size: 22, // TAILLE RÉDUITE
               color:
                   color ??
-                  (selected ? AppColors.tropicalTeal : Colors.grey.shade800),
+                  (selected ? AppColors.tropicalTeal : Colors.grey.shade700),
             ),
+            title: Text(
+              title,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 14, // TAILLE DE TEXTE RÉDUITE
+                color:
+                    color ??
+                    (selected ? AppColors.tropicalTeal : Colors.grey.shade800),
+              ),
+            ),
+            trailing: selected
+                ? Icon(Icons.circle, size: 6, color: AppColors.tropicalTeal)
+                : null,
           ),
-          trailing: selected
-              ? Icon(Icons.circle, size: 8, color: AppColors.tropicalTeal)
-              : null,
         ),
       ),
     );
@@ -1281,6 +1518,12 @@ class _HomeScreenState extends State<HomeScreen>
           icon: Icon(Icons.account_balance_wallet_rounded),
           activeIcon: Icon(Icons.account_balance_wallet),
           label: 'Portefeuille',
+        ),
+        // AJOUTÉ: Item Boutiques
+        BottomNavigationBarItem(
+          icon: Icon(Icons.store_mall_directory_rounded),
+          activeIcon: Icon(Icons.store_rounded),
+          label: 'Boutiques',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.map_rounded),

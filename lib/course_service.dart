@@ -1,6 +1,6 @@
 // lib/course_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'course_model.dart';
+import 'package:gestion_courses/models/course_model.dart';
 
 class CourseService {
   final CollectionReference _courses =

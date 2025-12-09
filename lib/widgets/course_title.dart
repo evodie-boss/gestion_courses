@@ -1,6 +1,6 @@
 // lib/widgets/course_tile.dart
 import 'package:flutter/material.dart';
-import '../course_model.dart';
+import '../models/course_model.dart';
 import '../course_service.dart';
 import '../pages/add_edit_course_screen.dart';
 import './course_checkbox.dart';

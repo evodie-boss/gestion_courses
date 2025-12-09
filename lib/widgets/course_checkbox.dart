@@ -1,6 +1,6 @@
 // lib/widgets/course_checkbox.dart
 import 'package:flutter/material.dart';
-import '../course_model.dart';
+import '../models/course_model.dart';
 
 // Constantes de couleur partagées
 class CourseCheckboxColors {

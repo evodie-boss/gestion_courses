@@ -48,17 +48,19 @@ class WalletService {
     }
   }
 
-  // 2. Récupérer toutes les transactions d'un utilisateur
+  // 2. Récupérer toutes les transactions d'un utilisateur (sans index composite)
   Stream<List<my_models.Transaction>> getTransactionsStream(String userId) {
     return _firestore
         .collection(_collectionName)
         .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final transactions = snapshot.docs.map((doc) {
         return my_models.Transaction.fromMap(doc.data(), doc.id);
       }).toList();
+      // Trier localement au lieu de demander à Firestore
+      transactions.sort((a, b) => b.date.compareTo(a.date));
+      return transactions;
     });
   }
 
