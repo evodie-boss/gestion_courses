@@ -213,6 +213,7 @@ packages:
     source: hosted
     version: "3.3.0"
 <<<<<<< HEAD
+<<<<<<< HEAD
   fl_chart:
     dependency: "direct main"
     description:
@@ -247,6 +248,8 @@ packages:
     source: hosted
     version: "3.11.0"
 >>>>>>> Mary
+=======
+>>>>>>> Orleane
   flutter:
     dependency: "direct main"
     description: flutter
@@ -279,6 +282,7 @@ packages:
     source: sdk
     version: "0.0.0"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   google_fonts:
     dependency: "direct main"
@@ -289,6 +293,8 @@ packages:
     source: hosted
     version: "6.3.3"
 >>>>>>> Mary
+=======
+>>>>>>> Orleane
   http:
     dependency: transitive
     description:
@@ -305,6 +311,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+<<<<<<< HEAD
 <<<<<<< HEAD
   intl:
     dependency: "direct main"
@@ -396,6 +403,8 @@ packages:
     source: hosted
     version: "0.17.0"
 >>>>>>> Mary
+=======
+>>>>>>> Orleane
   leak_tracker:
     dependency: transitive
     description:
