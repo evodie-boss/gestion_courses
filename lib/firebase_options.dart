@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'gestion-courses-cec47.firebasestorage.app',
     measurementId: 'G-L16WQ35V6K',
   );
+
 }

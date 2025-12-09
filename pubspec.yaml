@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: '>=3.0.0 <4.0.0' # Assure la compatibilité avec les dernières dépendances
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -30,9 +30,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^2.22.0
-  cloud_firestore: ^4.7.1
-  firebase_auth: ^4.4.0
+
+  # Gestion d'état
+  provider: ^6.0.5
+  
+  # Firebase Core et Firestore (Mary-Shanna, Albine, Evodie, Jenny)
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.6
+  cloud_firestore: ^4.13.6
+  
+  # Géolocalisation et Cartes (Votre tâche, Hermine)
+  google_maps_flutter: ^2.5.0 
+  geolocator: ^11.0.0
+  flutter_polyline_points: ^2.0.0 # Ajouté pour le tracé d'itinéraires
+  
+  # Autres fonctionnalités (Statistiques, Modèles, Formatage)
+  intl: ^0.18.0 
+  fl_chart: ^0.60.0 
+  uuid: ^4.3.1 
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
