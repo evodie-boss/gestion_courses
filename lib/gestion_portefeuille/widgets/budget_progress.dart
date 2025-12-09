@@ -93,11 +93,13 @@ class BudgetProgress extends StatelessWidget {
   }
 
   // Formater le montant selon la devise
-  String _formatAmount(double amount) {
-    if (currencySymbol == 'FCFA') {
-      return amount.toStringAsFixed(0);
-    } else {
-      return amount.toStringAsFixed(2);
-    }
+  // MODIFIER budget_progress.dart - méthode _formatAmount
+
+String _formatAmount(double amount) {
+  if (currencySymbol == 'FCFA' || currencySymbol == 'XOF') {
+    return amount.toStringAsFixed(0);
+  } else {
+    return amount.toStringAsFixed(2);
   }
+}
 }

@@ -97,12 +97,15 @@ class BalanceCard extends StatelessWidget {
     );
   }
 
-  // Formater le montant selon la devise
-  String _formatAmount(double amount) {
-    if (currencySymbol == 'FCFA') {
-      return amount.toStringAsFixed(0);
-    } else {
-      return amount.toStringAsFixed(2);
-    }
+  // MODIFIER balance_card.dart - méthode _formatAmount
+
+String _formatAmount(double amount) {
+  if (currencySymbol == 'FCFA' || currencySymbol == 'XOF') {
+    // Pour FCFA, on n'affiche pas de décimales
+    return amount.toStringAsFixed(0);
+  } else {
+    // Pour €, 2 décimales
+    return amount.toStringAsFixed(2);
   }
+}
 }

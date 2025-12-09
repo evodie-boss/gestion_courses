@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // ← AJOUTER cet import
 import '../services/portefeuille_service.dart';
-import '../services/user_preferences.dart';
 import '../models/portefeuille_model.dart';
 
 class BudgetSettingsScreen extends StatefulWidget {

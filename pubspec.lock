@@ -121,7 +121,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
-<<<<<<< HEAD
   file:
     dependency: transitive
     description:
@@ -130,7 +129,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
-=======
   file_selector_linux:
     dependency: transitive
     description:
@@ -163,7 +161,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.9.3+5"
->>>>>>> Mary
   firebase_auth:
     dependency: "direct main"
     description:
@@ -212,8 +209,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.0"
-<<<<<<< HEAD
-<<<<<<< HEAD
   fl_chart:
     dependency: "direct main"
     description:
@@ -222,7 +217,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.66.2"
-=======
   firebase_storage:
     dependency: "direct main"
     description:
@@ -247,9 +241,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.11.0"
->>>>>>> Mary
-=======
->>>>>>> Orleane
   flutter:
     dependency: "direct main"
     description: flutter
@@ -281,9 +272,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
   google_fonts:
     dependency: "direct main"
     description:
@@ -292,9 +280,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.3.3"
->>>>>>> Mary
-=======
->>>>>>> Orleane
   http:
     dependency: transitive
     description:
@@ -311,8 +296,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
-<<<<<<< HEAD
-<<<<<<< HEAD
   intl:
     dependency: "direct main"
     description:
@@ -321,7 +304,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.19.0"
-=======
   image_picker:
     dependency: "direct main"
     description:
@@ -402,9 +384,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.17.0"
->>>>>>> Mary
-=======
->>>>>>> Orleane
   leak_tracker:
     dependency: transitive
     description:
@@ -461,8 +440,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.16.0"
-<<<<<<< HEAD
-=======
   mime:
     dependency: transitive
     description:
@@ -471,7 +448,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
->>>>>>> Mary
   nested:
     dependency: transitive
     description:
@@ -488,8 +464,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
-<<<<<<< HEAD
-=======
   path_provider:
     dependency: transitive
     description:
@@ -514,7 +488,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.1"
->>>>>>> Mary
   path_provider_linux:
     dependency: transitive
     description:
@@ -563,7 +536,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
-<<<<<<< HEAD
   shared_preferences:
     dependency: "direct main"
     description:
@@ -620,8 +592,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
-=======
->>>>>>> Mary
   sky_engine:
     dependency: transitive
     description: flutter

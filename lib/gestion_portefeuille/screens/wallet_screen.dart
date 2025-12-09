@@ -1,4 +1,4 @@
-// MODIFIER votre wallet_screen.dart
+// lib/gestion_portefeuille/screens/wallet_screen.dart
 
 import 'package:flutter/material.dart';
 import '../services/wallet_service.dart';
@@ -10,9 +10,8 @@ import '../widgets/balance_card.dart';
 import '../widgets/budget_progress.dart';
 import 'add_transaction_screen.dart';
 import 'transaction_history_screen.dart';
-import 'statistics_screen.dart'; // ← AJOUTER CET IMPORT
-import 'budget_settings_screen.dart'; // ← AJOUTER CET IMPORT
-
+import 'statistics_screen.dart';
+import 'budget_settings_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   final String userId;
@@ -25,7 +24,7 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   late WalletService walletService;
-  final PortefeuilleService _portefeuilleService = PortefeuilleService(); // ← NOUVEAU
+  final PortefeuilleService _portefeuilleService = PortefeuilleService();
 
   @override
   void initState() {
@@ -103,7 +102,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       monthlyExpenses: monthlyExpenses,
                       remainingBudget: remainingBudget,
                       isLoading: false,
-                      currencySymbol: portefeuille.currencySymbol, // ← AJOUTER ce paramètre
+                      currencySymbol: portefeuille.currencySymbol,
                     ),
                     const SizedBox(height: 20),
 
@@ -112,7 +111,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       monthlyBudget: portefeuille.monthlyBudget,
                       currentExpenses: monthlyExpenses,
                       alerts: alerts,
-                      currencySymbol: portefeuille.currencySymbol, // ← AJOUTER ce paramètre
+                      currencySymbol: portefeuille.currencySymbol,
                     ),
                     const SizedBox(height: 20),
 
@@ -483,22 +482,21 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  // MODIFIER les méthodes _showStatistics et _showSettings dans wallet_screen.dart
+  void _showStatistics() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StatisticsScreen(userId: widget.userId),
+      ),
+    );
+  }
 
-void _showStatistics() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => StatisticsScreen(userId: widget.userId),
-    ),
-  );
-}
-
-void _showSettings() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => BudgetSettingsScreen(userId: widget.userId),
-    ),
-  );
+  void _showSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BudgetSettingsScreen(userId: widget.userId),
+      ),
+    );
+  }
 }

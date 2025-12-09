@@ -148,7 +148,24 @@ class PortefeuilleService {
     }
   }
   
-  // 6. Changer la devise
+  // 6. Mettre à jour le taux de change
+  Future<void> updateExchangeRate(String userId, double newRate) async {
+    try {
+      await _firestore
+          .collection(_collectionName)
+          .doc(userId)
+          .update({
+            'exchangeRate': newRate,
+            'lastUpdated': Timestamp.now(),
+          });
+      print('✅ Taux de change mis à jour: $newRate');
+    } catch (e) {
+      print('❌ Erreur updateExchangeRate: $e');
+      rethrow;
+    }
+  }
+  
+  // 7. Changer la devise
   Future<void> changeCurrency(String userId, String newCurrency) async {
     try {
       final doc = await _firestore
@@ -188,7 +205,7 @@ class PortefeuilleService {
     }
   }
   
-  // 7. Réinitialiser le portefeuille
+  // 8. Réinitialiser le portefeuille
   Future<void> resetPortefeuille(String userId) async {
     try {
       final defaultPortefeuille = Portefeuille.newPortefeuille(userId: userId);
@@ -203,7 +220,7 @@ class PortefeuilleService {
     }
   }
   
-  // 8. Ajouter des fonds directement
+  // 9. Ajouter des fonds directement
   Future<void> addFunds(String userId, double amount, String currency) async {
     try {
       final portefeuille = await getOrCreatePortefeuille(userId);
@@ -234,7 +251,7 @@ class PortefeuilleService {
     }
   }
   
-  // 9. Vérifier si dépense possible
+  // 10. Vérifier si dépense possible
   Future<bool> canMakeExpense(String userId, double amount, String currency) async {
     try {
       final portefeuille = await getOrCreatePortefeuille(userId);
