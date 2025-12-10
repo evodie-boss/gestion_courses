@@ -27,6 +27,18 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   double _cartTotal = 0.0;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
+  // Images pour chaque catégorie de boutique
+  final Map<String, String> _categoryImages = {
+    'supermarche': 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974',
+    'marche': 'assets/images/marchéJenny.png',
+    'boutique': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070',
+    'boulangerie': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=2072',
+    'boucherie': 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2069',
+  };
+
+  // Image par défaut
+  final String _defaultImage = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070';
+
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Tous', 'filter': 'all'},
     {'name': 'Vêtements', 'filter': 'clothing'},
@@ -51,6 +63,36 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     _loadBoutiqueProducts();
   }
 
+  // Méthode pour obtenir l'URL de l'image selon la catégorie
+  String _getCategoryImageUrl() {
+    if (_boutiqueInfo?['categories'] != null) {
+      final category = _boutiqueInfo!['categories'].toString().toLowerCase();
+      
+      // Chercher dans les catégories prédéfinies
+      for (var key in _categoryImages.keys) {
+        if (category.contains(key)) {
+          return _categoryImages[key]!;
+        }
+      }
+      
+      // Vérifier les catégories spécifiques
+      if (category.contains('supermarche') || category.contains('super marché')) {
+        return _categoryImages['supermarche']!;
+      } else if (category.contains('marché') || category.contains('marche')) {
+        return _categoryImages['marche']!;
+      } else if (category.contains('boutique')) {
+        return _categoryImages['boutique']!;
+      } else if (category.contains('boulangerie')) {
+        return _categoryImages['boulangerie']!;
+      } else if (category.contains('boucherie')) {
+        return _categoryImages['boucherie']!;
+      }
+    }
+    
+    // Image par défaut si aucune catégorie ne correspond
+    return _defaultImage;
+  }
+
   Future<void> _loadBoutiqueInfo() async {
     try {
       final doc = await _firestore
@@ -72,17 +114,43 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     try {
       print('🛒 Chargement produits pour boutique ID: ${widget.boutiqueId}');
 
+      // CORRECTION : Rechercher les produits avec le bon champ "boutique_id"
       final snapshot = await _firestore
           .collection('products')
-          .where('boutiqueId', isEqualTo: widget.boutiqueId)
+          .where('boutique_id', isEqualTo: widget.boutiqueId)
           .get();
 
       print('📊 Nombre de documents récupérés: ${snapshot.docs.length}');
 
-      // Affiche les données brutes
+      // Affiche les données brutes pour débogage
       for (var doc in snapshot.docs) {
         print('📄 Document ID: ${doc.id}');
         print('📄 Données: ${doc.data()}');
+        print('📄 boutique_id: ${doc.data()['boutique_id']}');
+      }
+
+      if (snapshot.docs.isEmpty) {
+        // Essayer une autre recherche avec des variations de champ
+        print('⚠️ Aucun produit trouvé avec boutique_id. Tentative alternative...');
+        
+        final alternativeSnapshot = await _firestore
+            .collection('products')
+            .where('boutiqueId', isEqualTo: widget.boutiqueId)
+            .get();
+            
+        print('🔄 Résultat alternatif: ${alternativeSnapshot.docs.length} produits');
+        
+        if (alternativeSnapshot.docs.isNotEmpty) {
+          for (var doc in alternativeSnapshot.docs) {
+            print('📄 Alt - boutiqueId: ${doc.data()['boutiqueId']}');
+          }
+          final products = await FirestoreConverter.queryToProducts(alternativeSnapshot);
+          setState(() {
+            _boutiqueProducts = products;
+            _isLoading = false;
+          });
+          return;
+        }
       }
 
       final products = await FirestoreConverter.queryToProducts(snapshot);
@@ -92,8 +160,11 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         _boutiqueProducts = products;
         _isLoading = false;
       });
+      
+      _debugProductsInfo(products);
     } catch (e) {
       print('❌ Erreur lors du chargement des produits: $e');
+      print('Stack trace: ${e.toString()}');
       setState(() {
         _isLoading = false;
       });
@@ -107,9 +178,11 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     for (var product in products) {
       print('  📦 Produit: ${product.name}');
       print('    Boutique ID: ${product.boutiqueId}');
-      print(
-        '    Image URL: ${product.imageUrl.substring(0, min(product.imageUrl.length, 50))}...',
-      );
+      print('    Catégorie: ${product.category}');
+      print('    Prix: ${product.price} FCFA');
+      print('    Type d\'image: ${_getImageType(product.imageUrl)}');
+      print('    Image URL (50 premiers caractères): ${product.imageUrl.length > 50 ? '${product.imageUrl.substring(0, 50)}...' : product.imageUrl}');
+      print('    ---');
     }
   }
 
@@ -117,7 +190,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     if (url.startsWith('firestore:')) return 'Firestore Reference';
     if (url.startsWith('data:image/')) return 'Base64 Image';
     if (url.startsWith('http')) return 'Network URL';
-    return 'Empty/Unknown';
+    if (url.isEmpty) return 'Empty';
+    return 'Unknown';
   }
 
   int min(int a, int b) => a < b ? a : b;
@@ -183,38 +257,79 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   }
 
   Future<void> _showDeliveryTypeDialog() async {
+    // Sauvegarder le type actuel pour restauration si annulation
+    final previousType = _deliveryType;
+    
     final result = await showDialog<String>(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Type de livraison'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('Prise sur place'),
-              value: 'pickup',
-              groupValue: _deliveryType,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('Livraison à domicile'),
-              value: 'delivery',
-              groupValue: _deliveryType,
-              onChanged: (value) {
-                Navigator.pop(context, value);
-              },
-            ),
-          ],
-        ),
-      ),
+      barrierDismissible: false, // Empêche de fermer en cliquant à l'extérieur
+      builder: (BuildContext context) {
+        String selectedType = _deliveryType;
+        
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Type de livraison'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('Prise sur place'),
+                    subtitle: const Text('Aucuns frais de livraison'),
+                    value: 'pickup',
+                    groupValue: selectedType,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedType = value!;
+                      });
+                    },
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('Livraison à domicile'),
+                    subtitle: const Text('+ 2 000 FCFA de frais de livraison'),
+                    value: 'delivery',
+                    groupValue: selectedType,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedType = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    // Annuler et restaurer l'ancien type
+                    Navigator.pop(context, previousType);
+                  },
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context, selectedType);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F9E99),
+                  ),
+                  child: const Text('Confirmer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    if (result != null) {
+    if (result != null && result != previousType) {
       setState(() {
         _deliveryType = result;
       });
+      
+      // Petite pause pour que l'UI se mette à jour avant de passer la commande
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Passer la commande
       await _placeOrder();
     }
   }
@@ -292,7 +407,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       };
 
       // Créer la commande
-      await _firestore.collection('orders').add(orderData);
+      final orderRef = await _firestore.collection('orders').add(orderData);
 
       // Débiter le portefeuille
       await _firestore.collection('portefeuille').doc(_currentUser.uid).update({
@@ -312,9 +427,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Commande enregistrée avec succès!\n'
-            'Total: ${total.toStringAsFixed(0)} FCFA\n'
-            'Nouveau solde: ${(currentBalance - total).toStringAsFixed(0)} FCFA',
+            'Commande #${orderRef.id.substring(0, 8)} enregistrée!\n'
+            'Total: ${total.toStringAsFixed(0)} FCFA',
           ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 4),
@@ -344,6 +458,85 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       }
     }
     return null;
+  }
+
+  // Méthode pour récupérer une image Firestore
+  Widget _buildFirestoreImage(String firestoreId) {
+    final imageId = firestoreId.replaceFirst('firestore:', '');
+    
+    return FutureBuilder<DocumentSnapshot>(
+      future: _firestore.collection('product_images').doc(imageId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: CircularProgressIndicator(
+              color: const Color(0xFF0F9E99).withOpacity(0.5),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          return _buildImageFallback();
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final base64Image = data['image_base64'] as String?;
+
+        if (base64Image == null || base64Image.isEmpty) {
+          return _buildImageFallback();
+        }
+
+        try {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Image.memory(
+              base64Decode(base64Image),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          );
+        } catch (e) {
+          print('❌ Erreur affichage image base64: $e');
+          return _buildImageFallback();
+        }
+      },
+    );
+  }
+
+  Widget _buildImageFallback({String? name}) {
+    return Container(
+      color: const Color(0xFFEFE9E0),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.shopping_bag_rounded,
+              size: 40,
+              color: const Color(0xFF0F9E99).withOpacity(0.3),
+            ),
+            if (name != null && name.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  name,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: const Color(0xFF0F9E99).withOpacity(0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -481,7 +674,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 ],
               ),
 
-              // Bannière de bienvenue
+              // Bannière de bienvenue AVEC IMAGE DE CATÉGORIE
               SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.all(20),
@@ -489,11 +682,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     image: DecorationImage(
-                      image: _boutiqueInfo?['bannerUrl'] != null
-                          ? NetworkImage(_boutiqueInfo!['bannerUrl'])
-                          : const NetworkImage(
-                              'https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-                            ),
+                      image: NetworkImage(_getCategoryImageUrl()),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -925,6 +1114,14 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 'Aucun produit disponible',
                 style: TextStyle(fontSize: 18, color: Color(0xFF666666)),
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Boutique ID: ${widget.boutiqueId}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
@@ -962,6 +1159,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     final imageBytes = _getImageBytes(product);
     final isBase64Image = imageBytes != null;
     final isNetworkImage = product.imageUrl.startsWith('http');
+    final isFirestoreImage = product.imageUrl.startsWith('firestore:');
 
     return Container(
       decoration: BoxDecoration(
@@ -995,28 +1193,31 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                         width: double.infinity,
                         height: double.infinity,
                         errorBuilder: (context, error, stackTrace) {
-                          return _buildImageFallback(product);
+                          return _buildImageFallback(name: product.name);
                         },
                       )
                     : isNetworkImage
-                    ? Image.network(
-                        product.imageUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildImageFallback(product);
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: const Color(0xFF0F9E99).withOpacity(0.5),
-                            ),
-                          );
-                        },
-                      )
-                    : _buildImageFallback(product),
+                        ? Image.network(
+                            product.imageUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildImageFallback(name: product.name);
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color:
+                                      const Color(0xFF0F9E99).withOpacity(0.5),
+                                ),
+                              );
+                            },
+                          )
+                        : isFirestoreImage
+                            ? _buildFirestoreImage(product.imageUrl)
+                            : _buildImageFallback(name: product.name),
               ),
             ),
           ),
@@ -1108,6 +1309,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     final imageBytes = _getImageBytes(item);
     final isBase64Image = imageBytes != null;
     final isNetworkImage = item.imageUrl.startsWith('http');
+    final isFirestoreImage = item.imageUrl.startsWith('firestore:');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
@@ -1133,24 +1335,19 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                     child: Image.memory(imageBytes, fit: BoxFit.cover),
                   )
                 : isNetworkImage
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Icons.shopping_bag,
-                            color: Color(0xFF0F9E99),
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                : const Center(
-                    child: Icon(Icons.shopping_bag, color: Color(0xFF0F9E99)),
-                  ),
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          item.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildCartImageFallback();
+                          },
+                        ),
+                      )
+                    : isFirestoreImage
+                        ? _buildFirestoreImage(item.imageUrl)
+                        : _buildCartImageFallback(),
           ),
           const SizedBox(width: 15),
 
@@ -1178,6 +1375,16 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                     color: Color(0xFF0F9E99),
                   ),
                 ),
+                if (item.category.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.category,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1192,30 +1399,12 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     );
   }
 
-  Widget _buildImageFallback(Product product) {
+  Widget _buildCartImageFallback() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.shopping_bag_rounded,
-            size: 40,
-            color: const Color(0xFF0F9E99).withOpacity(0.3),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              product.name,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: const Color(0xFF0F9E99).withOpacity(0.7),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
+      child: Icon(
+        Icons.shopping_bag,
+        color: const Color(0xFF0F9E99).withOpacity(0.5),
+        size: 30,
       ),
     );
   }

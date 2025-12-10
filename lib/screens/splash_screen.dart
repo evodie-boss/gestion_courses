@@ -22,7 +22,7 @@ class _SplashScreenV2State extends State<SplashScreenV2>
     
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 5000),
     );
 
     // Animation en 3 étapes : entrée, pause, sortie

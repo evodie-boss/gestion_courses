@@ -59,68 +59,40 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Future<void> _loadAvailableBoutiques() async {
     try {
-      // DEBUG: Afficher le type et contenu des courses sélectionnées
-      print('=== DEBUG _loadAvailableBoutiques ===');
+      print('=== DÉBUT _loadAvailableBoutiques ===');
       print('Nombre de cours sélectionnés: ${widget.selectedCourses.length}');
 
-      // Vérifier le type des éléments
-      if (widget.selectedCourses.isNotEmpty) {
-        final firstItem = widget.selectedCourses.first;
-        print('Type du premier élément: ${firstItem.runtimeType}');
-
-        // Essayer différents accès
-        if (firstItem is Course) {
-          print('C\'est un objet Course');
-          print('Propriétés disponibles:');
-          print('  - title: ${firstItem.title}');
-          print('  - id: ${firstItem.id}');
-          print('  - description: ${firstItem.description}');
-          print('  - amount: ${firstItem.amount}');
-        } else if (firstItem is Map<String, dynamic>) {
-          print('C\'est une Map');
-          print('Clés disponibles: ${firstItem.keys.toList()}');
+      // 1. Récupérer les noms des cours de façon robuste
+      final Set<String> courseNames = {};
+      
+      for (var course in widget.selectedCourses) {
+        String name = '';
+        
+        if (course is Course) {
+          name = course.title.trim();
+          print('→ Objet Course trouvé: "$name"');
+        } else if (course is Map<String, dynamic>) {
+          name = (course['title'] ?? course['nom'] ?? '').toString().trim();
+          print('→ Map trouvée: "$name"');
         } else {
-          print('Type inattendu: $firstItem');
+          try {
+            // Essayer d'accéder par réflexion
+            final dynamicTitle = course.title;
+            final dynamicName = course.nom;
+            name = (dynamicTitle ?? dynamicName ?? '').toString().trim();
+            print('→ Autre type: "$name"');
+          } catch (e) {
+            name = course.toString().trim();
+            print('→ Conversion string: "$name"');
+          }
+        }
+        
+        if (name.isNotEmpty) {
+          courseNames.add(name.toLowerCase());
         }
       }
 
-      // Récupérer les noms des cours selon leur type
-      final courseNames = widget.selectedCourses
-          .map((c) {
-            String name = '';
-
-            // Si c'est un objet Course
-            if (c is Course) {
-              name = c.title;
-              print('→ Objet Course: title = "$name"');
-            }
-            // Si c'est une Map (pour compatibilité)
-            else if (c is Map<String, dynamic>) {
-              name = (c['title'] ?? c['nom'] ?? '').toString();
-              print('→ Map: title/nom = "$name"');
-            }
-            // Si c'est autre chose, essayer d'accéder aux propriétés par réflexion
-            else {
-              try {
-                // Essayer d'accéder à la propriété 'title'
-                name = (c.title ?? '').toString();
-                if (name.isEmpty) {
-                  // Essayer 'nom'
-                  name = (c.nom ?? '').toString();
-                }
-                print('→ Autre type: title/nom = "$name"');
-              } catch (e) {
-                print('→ Erreur d\'accès: $e');
-                name = c.toString();
-              }
-            }
-
-            return name;
-          })
-          .where((nom) => nom.isNotEmpty)
-          .toSet();
-
-      print('Noms uniques à chercher dans les produits: $courseNames');
+      print('Noms uniques des cours: $courseNames');
 
       if (courseNames.isEmpty) {
         print('⚠️ Aucun nom de cours valide à chercher');
@@ -128,112 +100,128 @@ class _OrderScreenState extends State<OrderScreen> {
         return;
       }
 
-      // Chercher les boutiques qui ont ces produits
-      final boutiques = await _firestore.collection('boutiques').get();
-      print('Nombre total de boutiques: ${boutiques.docs.length}');
+      // 2. Chercher TOUS les produits d'abord
+      final productsSnapshot = await _firestore
+          .collection('products')
+          .get();
 
-      final Map<String, Map<String, dynamic>> boutiqueMap = {};
+      print('Total produits dans Firestore: ${productsSnapshot.docs.length}');
 
-      for (var boutique in boutiques.docs) {
-        final boutiqueData = boutique.data();
-        final boutiqueNom = boutiqueData['nom'] ?? 'Boutique sans nom';
-        print('\n🔍 Vérification boutique: $boutiqueNom (${boutique.id})');
+      // 3. Filtrer les produits qui correspondent aux courses
+      final Map<String, List<Map<String, dynamic>>> productsByBoutique = {};
+      final Set<String> boutiqueIds = {};
 
-        try {
-          final products = await _firestore
-              .collection('boutiques')
-              .doc(boutique.id)
-              .collection('products')
-              .get();
+      for (var productDoc in productsSnapshot.docs) {
+        final productData = productDoc.data();
+        final productName = (productData['nom'] ?? '').toString().toLowerCase();
+        final boutiqueId = productData['boutique_id']?.toString();
 
-          print(
-            '  Nombre de produits dans cette boutique: ${products.docs.length}',
-          );
+        if (boutiqueId == null || boutiqueId.isEmpty) {
+          continue;
+        }
 
-          List<Map<String, dynamic>> productsFound = [];
-          for (var product in products.docs) {
-            final productData = product.data();
-            final productName = productData['nom'] as String? ?? '';
-            final productPrice = productData['price'] ?? 0;
-            final productPriority = productData['priority'] ?? 0;
-
-            if (productName.isNotEmpty) {
-              print(
-                '  Produit: "$productName" (prix: $productPrice, priorité: $productPriority)',
-              );
-
-              // Vérifier si ce produit correspond à un cours recherché
-              bool isMatch = false;
-
-              // Recherche exacte
-              if (courseNames.contains(productName)) {
-                isMatch = true;
-                print('    ✓ Correspondance exacte trouvée');
-              }
-              // Recherche partielle (au cas où les noms diffèrent légèrement)
-              else {
-                for (var courseName in courseNames) {
-                  if (productName.toLowerCase().contains(
-                        courseName.toLowerCase(),
-                      ) ||
-                      courseName.toLowerCase().contains(
-                        productName.toLowerCase(),
-                      )) {
-                    isMatch = true;
-                    print(
-                      '    ✓ Correspondance partielle: "$courseName" ↔ "$productName"',
-                    );
-                    break;
-                  }
-                }
-              }
-
-              if (isMatch) {
-                productsFound.add({
-                  'id': product.id,
-                  'nom': productName,
-                  'price': (productPrice as num).toDouble(),
-                  'priority': productPriority as int,
-                });
-              }
-            }
+        // Recherche approximative
+        bool isMatch = false;
+        for (var courseName in courseNames) {
+          // Vérifier les correspondances dans les deux sens
+          if (productName.contains(courseName) || 
+              courseName.contains(productName) ||
+              _areSimilar(productName, courseName)) {
+            isMatch = true;
+            break;
           }
+        }
 
-          if (productsFound.isNotEmpty) {
-            print(
-              '  ✅ Boutique valide avec ${productsFound.length} produit(s) correspondant(s)',
-            );
-            boutiqueMap[boutique.id] = {
-              'id': boutique.id,
-              'nom': boutiqueNom,
-              'adresse': boutiqueData['adresse'] ?? '',
-              'products': productsFound,
-            };
-          } else {
-            print('  ❌ Aucun produit correspondant trouvé dans cette boutique');
+        if (isMatch) {
+          boutiqueIds.add(boutiqueId);
+          
+          if (!productsByBoutique.containsKey(boutiqueId)) {
+            productsByBoutique[boutiqueId] = [];
           }
-        } catch (e) {
-          print('  ❌ Erreur lors de la récupération des produits: $e');
+          
+          productsByBoutique[boutiqueId]!.add({
+            'id': productDoc.id,
+            'nom': productData['nom'] ?? 'Produit sans nom',
+            'price': (productData['prix'] ?? 0).toDouble(),
+            'priority': productData['priority'] ?? 0,
+            'description': productData['description'] ?? '',
+          });
         }
       }
 
-      print('\n=== RÉSULTAT ===');
-      print('Boutiques disponibles: ${boutiqueMap.length}');
-      for (var boutique in boutiqueMap.values) {
-        print(
-          '  - ${boutique['nom']}: ${boutique['products'].length} produit(s)',
-        );
+      print('Boutiques avec produits correspondants: ${boutiqueIds.length}');
+
+      // 4. Récupérer les informations des boutiques
+      final List<Map<String, dynamic>> boutiquesList = [];
+
+      for (var boutiqueId in boutiqueIds) {
+        try {
+          final boutiqueDoc = await _firestore
+              .collection('boutiques')
+              .doc(boutiqueId)
+              .get();
+
+          if (boutiqueDoc.exists) {
+            final boutiqueData = boutiqueDoc.data()!;
+            final boutiqueProducts = productsByBoutique[boutiqueId] ?? [];
+            
+            print('✅ Boutique "${boutiqueData['nom']}" : ${boutiqueProducts.length} produit(s)');
+
+            boutiquesList.add({
+              'id': boutiqueId,
+              'nom': boutiqueData['nom'] ?? 'Boutique sans nom',
+              'adresse': boutiqueData['adresse'] ?? '',
+              'latitude': boutiqueData['latitude'] ?? 0.0,
+              'longitude': boutiqueData['longitude'] ?? 0.0,
+              'rating': boutiqueData['rating'] ?? 0.0,
+              'products': boutiqueProducts,
+            });
+          }
+        } catch (e) {
+          print('❌ Erreur boutique $boutiqueId: $e');
+        }
+      }
+
+      print('\n=== RÉSULTAT FINAL ===');
+      print('Boutiques disponibles: ${boutiquesList.length}');
+      for (var boutique in boutiquesList) {
+        print('  - ${boutique['nom']} : ${boutique['products'].length} produit(s)');
       }
 
       setState(() {
-        _availableBoutiques = boutiqueMap.values.toList();
+        _availableBoutiques = boutiquesList;
         _isLoadingBoutiques = false;
       });
+
     } catch (e) {
       print('❌ ERREUR CRITIQUE dans _loadAvailableBoutiques: $e');
-      print('Stack trace: ${e.toString()}');
       setState(() => _isLoadingBoutiques = false);
     }
+  }
+
+  // Fonction pour vérifier la similarité entre noms
+  bool _areSimilar(String name1, String name2) {
+    // Convertir les pluriels en singulier pour comparaison
+    final singular1 = _toSingular(name1);
+    final singular2 = _toSingular(name2);
+    
+    return singular1 == singular2 ||
+           name1.startsWith(name2) || 
+           name2.startsWith(name1);
+  }
+
+  // Conversion simplifiée du pluriel au singulier
+  String _toSingular(String word) {
+    if (word.endsWith('s') && word.length > 1) {
+      return word.substring(0, word.length - 1);
+    }
+    if (word.endsWith('es') && word.length > 2) {
+      return word.substring(0, word.length - 2);
+    }
+    if (word.endsWith('aux') && word.length > 3) {
+      return word.substring(0, word.length - 3) + 'al';
+    }
+    return word;
   }
 
   double _calculateOrderTotal(Map<String, dynamic> boutique) {
@@ -335,14 +323,24 @@ class _OrderScreenState extends State<OrderScreen> {
   ) async {
     try {
       final userId = _auth.currentUser?.uid;
-      if (userId == null) return;
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez vous connecter'),
+            backgroundColor: errorColor,
+          ),
+        );
+        return;
+      }
 
       // Créer la commande
-      await _firestore.collection('orders').add({
+      final orderRef = await _firestore.collection('orders').add({
         'userId': userId,
         'boutiqueId': boutique['id'],
         'boutiqueName': boutique['nom'],
+        'boutiqueAddress': boutique['adresse'],
         'items': boutique['products'],
+        'itemsCount': (boutique['products'] as List).length,
         'subtotal': boutique['products'].fold<double>(
           0,
           (sum, p) => sum + ((p['price'] as num).toDouble()),
@@ -352,6 +350,7 @@ class _OrderScreenState extends State<OrderScreen> {
         'deliveryType': 'pickup',
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       // Débiter le solde
@@ -362,22 +361,30 @@ class _OrderScreenState extends State<OrderScreen> {
 
       if (!mounted) return;
 
+      // Mettre à jour le solde local
+      setState(() {
+        _userBalance -= total;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Commande placée ! ${total.toStringAsFixed(0)} FCFA débités',
+            'Commande #${orderRef.id.substring(0, 8)} placée ! ${total.toStringAsFixed(0)} FCFA débités',
           ),
           backgroundColor: successColor,
           duration: const Duration(seconds: 3),
         ),
       );
 
-      Navigator.pop(context);
+      // Retourner à l'écran précédent
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: errorColor),
+        SnackBar(
+          content: Text('Erreur lors de la commande: $e'),
+          backgroundColor: errorColor,
+        ),
       );
     }
   }
@@ -406,6 +413,20 @@ class _OrderScreenState extends State<OrderScreen> {
                   const Text(
                     'Aucune boutique disponible',
                     style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Aucun produit correspondant à vos courses',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                    ),
+                    child: const Text('Retour'),
                   ),
                 ],
               ),
@@ -466,6 +487,26 @@ class _OrderScreenState extends State<OrderScreen> {
                     ],
                   ),
                 ),
+                
+                // Nombre de boutiques trouvées
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: primaryColor.withOpacity(0.1),
+                  child: Row(
+                    children: [
+                      Icon(Icons.store, size: 16, color: primaryColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_availableBoutiques.length} boutique(s) trouvée(s)',
+                        style: TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 // Liste des boutiques
                 Expanded(
                   child: ListView.separated(
@@ -489,28 +530,32 @@ class _OrderScreenState extends State<OrderScreen> {
                             children: [
                               // En-tête boutique
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        boutique['nom'],
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          boutique['nom'],
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                      Text(
-                                        boutique['adresse'] ?? '',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                        Text(
+                                          boutique['adresse'] ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                   Row(
                                     children: [
@@ -520,15 +565,29 @@ class _OrderScreenState extends State<OrderScreen> {
                                         color: Colors.amber,
                                       ),
                                       const SizedBox(width: 4),
+                                      Text(
+                                        '${(boutique['rating'] as num?)?.toStringAsFixed(1) ?? '5.0'}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
                                     ],
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              // Produits
+                              
+                              // Produits correspondants
+                              Text(
+                                'Produits correspondants:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              
                               ...((boutique['products'] as List).map((product) {
-                                double price = (product['price'] as num)
-                                    .toDouble();
+                                double price = (product['price'] as num).toDouble();
                                 int priority = product['priority'] as int? ?? 0;
                                 double adjustedPrice = price;
 
@@ -539,17 +598,13 @@ class _OrderScreenState extends State<OrderScreen> {
                                 }
 
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
                                   child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               product['nom'],
@@ -557,7 +612,20 @@ class _OrderScreenState extends State<OrderScreen> {
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
                                               ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
+                                            if (product['description'] != null && 
+                                                (product['description'] as String).isNotEmpty)
+                                              Text(
+                                                product['description'],
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             if (priority > 0)
                                               Text(
                                                 priority == 1
@@ -572,8 +640,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                         ),
                                       ),
                                       Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
                                           if (adjustedPrice != price)
                                             Text(
@@ -581,8 +648,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 color: Colors.grey,
-                                                decoration:
-                                                    TextDecoration.lineThrough,
+                                                decoration: TextDecoration.lineThrough,
                                               ),
                                             ),
                                           Text(
@@ -599,15 +665,15 @@ class _OrderScreenState extends State<OrderScreen> {
                                   ),
                                 );
                               }).toList()),
+                              
                               const Divider(height: 16),
+                              
                               // Total et bouton
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Total',
@@ -642,7 +708,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                     ),
                                     child: Text(
                                       exceedsBalance
-                                          ? 'Solde faible'
+                                          ? 'Solde insuffisant'
                                           : 'Commander',
                                       style: const TextStyle(
                                         color: Colors.white,
