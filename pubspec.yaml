@@ -30,14 +30,27 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^4.2.1
-  cloud_firestore: ^6.1.0
-  firebase_auth: ^6.1.2
-  firebase_storage: ^13.0.4
-  intl: ^0.17.0
-  image_picker: ^1.0.4
-  image_picker_web: ^3.0.3
 
+  # Gestion d'état
+  provider: ^6.0.5 # <== AJOUTÉ : Nécessaire pour le Provider
+  
+  # Firebase Core et Firestore (Mary-Shanna, Albine, Evodie, Jenny)
+  firebase_core: ^2.24.2 # Version moderne
+  firebase_auth: ^4.15.6 
+  cloud_firestore: ^4.13.6
+  firebase_storage: ^11.5.6 # Pour les images
+  
+  # Géolocalisation et Cartes (Votre tâche, Hermine)
+  google_maps_flutter: ^2.5.0 # <== AJOUTÉ : Pour la carte
+  geolocator: ^11.0.0 # <== AJOUTÉ : Pour la position utilisateur
+  flutter_polyline_points: ^2.0.0 # <== AJOUTÉ : Pour le tracé d'itinéraire
+
+  # Autres fonctionnalités (Statistiques, Modèles, Formatage, Images)
+  intl: ^0.18.0 
+  fl_chart: ^0.60.0 # Pour les statistiques (Evodie)
+  uuid: ^4.3.1 # Générateur d'ID
+  image_picker: ^1.0.4 
+  image_picker_web: ^3.0.3 
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
