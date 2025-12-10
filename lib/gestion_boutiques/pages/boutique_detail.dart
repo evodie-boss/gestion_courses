@@ -9,7 +9,7 @@ import 'package:gestion_courses/gestion_boutiques/services/firestore_converter.d
 class BoutiqueDetailScreen extends StatefulWidget {
   final String boutiqueId;
   final String boutiqueName;
-  
+
   const BoutiqueDetailScreen({
     super.key,
     required this.boutiqueId,
@@ -57,7 +57,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           .collection('boutiques')
           .doc(widget.boutiqueId)
           .get();
-      
+
       if (doc.exists) {
         setState(() {
           _boutiqueInfo = doc.data();
@@ -70,19 +70,28 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
   Future<void> _loadBoutiqueProducts() async {
     try {
+      print('🛒 Chargement produits pour boutique ID: ${widget.boutiqueId}');
+
       final snapshot = await _firestore
           .collection('products')
           .where('boutiqueId', isEqualTo: widget.boutiqueId)
           .get();
-      
+
+      print('📊 Nombre de documents récupérés: ${snapshot.docs.length}');
+
+      // Affiche les données brutes
+      for (var doc in snapshot.docs) {
+        print('📄 Document ID: ${doc.id}');
+        print('📄 Données: ${doc.data()}');
+      }
+
       final products = await FirestoreConverter.queryToProducts(snapshot);
+      print('🔄 Nombre de produits convertis: ${products.length}');
 
       setState(() {
         _boutiqueProducts = products;
         _isLoading = false;
       });
-      
-      _debugProductsInfo(products);
     } catch (e) {
       print('❌ Erreur lors du chargement des produits: $e');
       setState(() {
@@ -92,11 +101,15 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   }
 
   void _debugProductsInfo(List<Product> products) {
-    print('📊 Nombre de produits chargés pour boutique ${widget.boutiqueId}: ${products.length}');
+    print(
+      '📊 Nombre de produits chargés pour boutique ${widget.boutiqueId}: ${products.length}',
+    );
     for (var product in products) {
       print('  📦 Produit: ${product.name}');
       print('    Boutique ID: ${product.boutiqueId}');
-      print('    Image URL: ${product.imageUrl.substring(0, min(product.imageUrl.length, 50))}...');
+      print(
+        '    Image URL: ${product.imageUrl.substring(0, min(product.imageUrl.length, 50))}...',
+      );
     }
   }
 
@@ -124,7 +137,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   }
 
   void _addToCart(Product product) {
-    final existingIndex = _cartItems.indexWhere((item) => item.id == product.id);
+    final existingIndex = _cartItems.indexWhere(
+      (item) => item.id == product.id,
+    );
 
     setState(() {
       if (existingIndex != -1) {
@@ -206,20 +221,24 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
   Future<void> _placeOrder() async {
     if (_cartItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Votre panier est vide')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Votre panier est vide')));
       return;
     }
 
     if (_currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez vous connecter pour passer la commande')),
+        const SnackBar(
+          content: Text('Veuillez vous connecter pour passer la commande'),
+        ),
       );
       return;
     }
 
-    setState(() { _isPlacing = true; });
+    setState(() {
+      _isPlacing = true;
+    });
 
     try {
       // Vérifier le solde du portefeuille
@@ -227,7 +246,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           .collection('portefeuille')
           .doc(_currentUser.uid)
           .get();
-      
+
       final currentBalance = (walletDoc.data()?['balance'] ?? 0).toDouble();
       final deliveryFee = _deliveryType == 'delivery' ? 2000.0 : 0.0;
       final total = _cartTotal + deliveryFee;
@@ -247,13 +266,17 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       }
 
       // Construire la liste d'items
-      final items = _cartItems.map((p) => {
-        'productId': p.id,
-        'name': p.name,
-        'qty': 1,
-        'unitPrice': p.price,
-        'boutiqueId': widget.boutiqueId,
-      }).toList();
+      final items = _cartItems
+          .map(
+            (p) => {
+              'productId': p.id,
+              'name': p.name,
+              'qty': 1,
+              'unitPrice': p.price,
+              'boutiqueId': widget.boutiqueId,
+            },
+          )
+          .toList();
 
       final orderData = {
         'userId': _currentUser.uid,
@@ -291,7 +314,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           content: Text(
             'Commande enregistrée avec succès!\n'
             'Total: ${total.toStringAsFixed(0)} FCFA\n'
-            'Nouveau solde: ${(currentBalance - total).toStringAsFixed(0)} FCFA'
+            'Nouveau solde: ${(currentBalance - total).toStringAsFixed(0)} FCFA',
           ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 4),
@@ -301,13 +324,12 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       print('Erreur lors de la création de la commande: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
       );
     } finally {
-      setState(() { _isPlacing = false; });
+      setState(() {
+        _isPlacing = false;
+      });
     }
   }
 
@@ -349,7 +371,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             return Container(
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Color(0xFF0F9E99), Color(0xFF26C6DA)],
+                                  colors: [
+                                    Color(0xFF0F9E99),
+                                    Color(0xFF26C6DA),
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -394,10 +419,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
                               shadows: [
-                                Shadow(
-                                  color: Colors.black45,
-                                  blurRadius: 10,
-                                ),
+                                Shadow(color: Colors.black45, blurRadius: 10),
                               ],
                             ),
                           ),
@@ -408,10 +430,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 color: Colors.white70,
                                 fontSize: 12,
                                 shadows: [
-                                  Shadow(
-                                    color: Colors.black45,
-                                    blurRadius: 5,
-                                  ),
+                                  Shadow(color: Colors.black45, blurRadius: 5),
                                 ],
                               ),
                             ),
@@ -425,7 +444,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                   Stack(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                        icon: const Icon(
+                          Icons.shopping_cart_outlined,
+                          color: Colors.white,
+                        ),
                         onPressed: _toggleCart,
                       ),
                       if (_cartItemCount > 0)
@@ -506,7 +528,11 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             padding: const EdgeInsets.only(top: 10),
                             child: Row(
                               children: [
-                                const Icon(Icons.location_on, color: Colors.white70, size: 16),
+                                const Icon(
+                                  Icons.location_on,
+                                  color: Colors.white70,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -525,7 +551,11 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             padding: const EdgeInsets.only(top: 10),
                             child: Row(
                               children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 16),
+                                const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${_boutiqueInfo!['rating']?.toStringAsFixed(1) ?? '5.0'}',
@@ -587,7 +617,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 8),
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
                         ),
                       );
                     },
@@ -643,9 +675,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 sliver: _buildProductsGrid(),
               ),
 
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 100),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
 
@@ -684,7 +714,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, color: Color(0xFF0F9E99)),
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Color(0xFF0F9E99),
+                                ),
                                 onPressed: _toggleCart,
                               ),
                             ],
@@ -742,7 +775,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 Column(
                                   children: [
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'Sous-total:',
@@ -762,7 +796,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                     ),
                                     const SizedBox(height: 5),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'Livraison:',
@@ -772,7 +807,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                           ),
                                         ),
                                         Text(
-                                          _deliveryType == 'delivery' ? '2 000 FCFA' : 'Gratuit',
+                                          _deliveryType == 'delivery'
+                                              ? '2 000 FCFA'
+                                              : 'Gratuit',
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: Colors.grey[600],
@@ -782,7 +819,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                     ),
                                     const Divider(height: 20),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'Total:',
@@ -806,13 +844,18 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 ElevatedButton(
-                                  onPressed: _isPlacing || _cartItems.isEmpty ? null : () async {
-                                    await _showDeliveryTypeDialog();
-                                  },
+                                  onPressed: _isPlacing || _cartItems.isEmpty
+                                      ? null
+                                      : () async {
+                                          await _showDeliveryTypeDialog();
+                                        },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF2ECC71),
                                     foregroundColor: Colors.white,
-                                    minimumSize: const Size(double.infinity, 50),
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      50,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -824,7 +867,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                           height: 20,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
                                           ),
                                         )
                                       : const Text(
@@ -855,9 +901,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(40),
-            child: CircularProgressIndicator(
-              color: Color(0xFF0F9E99),
-            ),
+            child: CircularProgressIndicator(color: Color(0xFF0F9E99)),
           ),
         ),
       );
@@ -879,10 +923,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
               const SizedBox(height: 16),
               const Text(
                 'Aucun produit disponible',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Color(0xFF666666),
-                ),
+                style: TextStyle(fontSize: 18, color: Color(0xFF666666)),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
@@ -910,13 +951,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         crossAxisSpacing: 15,
         childAspectRatio: 0.85,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final product = filteredProducts[index];
-          return _buildProductCard(product);
-        },
-        childCount: filteredProducts.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final product = filteredProducts[index];
+        return _buildProductCard(product);
+      }, childCount: filteredProducts.length),
     );
   }
 
@@ -961,24 +999,24 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                         },
                       )
                     : isNetworkImage
-                        ? Image.network(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _buildImageFallback(product);
-                            },
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  color: const Color(0xFF0F9E99).withOpacity(0.5),
-                                ),
-                              );
-                            },
-                          )
-                        : _buildImageFallback(product),
+                    ? Image.network(
+                        product.imageUrl,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildImageFallback(product);
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              color: const Color(0xFF0F9E99).withOpacity(0.5),
+                            ),
+                          );
+                        },
+                      )
+                    : _buildImageFallback(product),
               ),
             ),
           ),
@@ -1017,19 +1055,16 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                     ),
                   ],
                 ),
-                
+
                 if (product.category.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       product.category,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ),
-                
+
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -1095,33 +1130,27 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
             child: isBase64Image
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      imageBytes,
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.memory(imageBytes, fit: BoxFit.cover),
                   )
                 : isNetworkImage
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          item.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(
-                                Icons.shopping_bag,
-                                color: Color(0xFF0F9E99),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.shopping_bag,
-                          color: Color(0xFF0F9E99),
-                        ),
-                      ),
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      item.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(
+                            Icons.shopping_bag,
+                            color: Color(0xFF0F9E99),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : const Center(
+                    child: Icon(Icons.shopping_bag, color: Color(0xFF0F9E99)),
+                  ),
           ),
           const SizedBox(width: 15),
 

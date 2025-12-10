@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gestion_courses/models/course_model.dart';
 
 class OrderScreen extends StatefulWidget {
   final List<dynamic> selectedCourses;
 
-  const OrderScreen({Key? key, required this.selectedCourses}) : super(key: key);
+  const OrderScreen({Key? key, required this.selectedCourses})
+    : super(key: key);
 
   @override
   State<OrderScreen> createState() => _OrderScreenState();
@@ -14,14 +16,14 @@ class OrderScreen extends StatefulWidget {
 class _OrderScreenState extends State<OrderScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   // Couleurs
   static const Color primaryColor = Color(0xFF0F9E99);
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color errorColor = Color(0xFFEF4444);
   static const Color successColor = Color(0xFF10B981);
   static const Color backgroundColor = Color(0xFFEFE9E0);
-  
+
   double _userBalance = 0;
   bool _isLoadingBalance = true;
   List<Map<String, dynamic>> _availableBoutiques = [];
@@ -38,7 +40,10 @@ class _OrderScreenState extends State<OrderScreen> {
     try {
       final userId = _auth.currentUser?.uid;
       if (userId != null) {
-        final doc = await _firestore.collection('portefeuille').doc(userId).get();
+        final doc = await _firestore
+            .collection('portefeuille')
+            .doc(userId)
+            .get();
         if (doc.exists) {
           setState(() {
             _userBalance = (doc.data()?['balance'] ?? 0).toDouble();
@@ -54,49 +59,170 @@ class _OrderScreenState extends State<OrderScreen> {
 
   Future<void> _loadAvailableBoutiques() async {
     try {
-      // Récupérer tous les produits des courses sélectionnées
+      // DEBUG: Afficher le type et contenu des courses sélectionnées
+      print('=== DEBUG _loadAvailableBoutiques ===');
+      print('Nombre de cours sélectionnés: ${widget.selectedCourses.length}');
+
+      // Vérifier le type des éléments
+      if (widget.selectedCourses.isNotEmpty) {
+        final firstItem = widget.selectedCourses.first;
+        print('Type du premier élément: ${firstItem.runtimeType}');
+
+        // Essayer différents accès
+        if (firstItem is Course) {
+          print('C\'est un objet Course');
+          print('Propriétés disponibles:');
+          print('  - title: ${firstItem.title}');
+          print('  - id: ${firstItem.id}');
+          print('  - description: ${firstItem.description}');
+          print('  - amount: ${firstItem.amount}');
+        } else if (firstItem is Map<String, dynamic>) {
+          print('C\'est une Map');
+          print('Clés disponibles: ${firstItem.keys.toList()}');
+        } else {
+          print('Type inattendu: $firstItem');
+        }
+      }
+
+      // Récupérer les noms des cours selon leur type
       final courseNames = widget.selectedCourses
-          .map((c) => c.nom?.toString() ?? '')
+          .map((c) {
+            String name = '';
+
+            // Si c'est un objet Course
+            if (c is Course) {
+              name = c.title;
+              print('→ Objet Course: title = "$name"');
+            }
+            // Si c'est une Map (pour compatibilité)
+            else if (c is Map<String, dynamic>) {
+              name = (c['title'] ?? c['nom'] ?? '').toString();
+              print('→ Map: title/nom = "$name"');
+            }
+            // Si c'est autre chose, essayer d'accéder aux propriétés par réflexion
+            else {
+              try {
+                // Essayer d'accéder à la propriété 'title'
+                name = (c.title ?? '').toString();
+                if (name.isEmpty) {
+                  // Essayer 'nom'
+                  name = (c.nom ?? '').toString();
+                }
+                print('→ Autre type: title/nom = "$name"');
+              } catch (e) {
+                print('→ Erreur d\'accès: $e');
+                name = c.toString();
+              }
+            }
+
+            return name;
+          })
           .where((nom) => nom.isNotEmpty)
           .toSet();
 
+      print('Noms uniques à chercher dans les produits: $courseNames');
+
       if (courseNames.isEmpty) {
+        print('⚠️ Aucun nom de cours valide à chercher');
         setState(() => _isLoadingBoutiques = false);
         return;
       }
 
       // Chercher les boutiques qui ont ces produits
       final boutiques = await _firestore.collection('boutiques').get();
+      print('Nombre total de boutiques: ${boutiques.docs.length}');
+
       final Map<String, Map<String, dynamic>> boutiqueMap = {};
 
       for (var boutique in boutiques.docs) {
-        final products = await _firestore
-            .collection('boutiques')
-            .doc(boutique.id)
-            .collection('products')
-            .get();
+        final boutiqueData = boutique.data();
+        final boutiqueNom = boutiqueData['nom'] ?? 'Boutique sans nom';
+        print('\n🔍 Vérification boutique: $boutiqueNom (${boutique.id})');
 
-        List<Map<String, dynamic>> productsFound = [];
-        for (var product in products.docs) {
-          final productName = product.data()['nom'] as String? ?? '';
-          if (courseNames.contains(productName)) {
-            productsFound.add({
-              'id': product.id,
-              'nom': productName,
-              'price': (product.data()['price'] ?? 0).toDouble(),
-              'priority': product.data()['priority'] ?? 0,
-            });
+        try {
+          final products = await _firestore
+              .collection('boutiques')
+              .doc(boutique.id)
+              .collection('products')
+              .get();
+
+          print(
+            '  Nombre de produits dans cette boutique: ${products.docs.length}',
+          );
+
+          List<Map<String, dynamic>> productsFound = [];
+          for (var product in products.docs) {
+            final productData = product.data();
+            final productName = productData['nom'] as String? ?? '';
+            final productPrice = productData['price'] ?? 0;
+            final productPriority = productData['priority'] ?? 0;
+
+            if (productName.isNotEmpty) {
+              print(
+                '  Produit: "$productName" (prix: $productPrice, priorité: $productPriority)',
+              );
+
+              // Vérifier si ce produit correspond à un cours recherché
+              bool isMatch = false;
+
+              // Recherche exacte
+              if (courseNames.contains(productName)) {
+                isMatch = true;
+                print('    ✓ Correspondance exacte trouvée');
+              }
+              // Recherche partielle (au cas où les noms diffèrent légèrement)
+              else {
+                for (var courseName in courseNames) {
+                  if (productName.toLowerCase().contains(
+                        courseName.toLowerCase(),
+                      ) ||
+                      courseName.toLowerCase().contains(
+                        productName.toLowerCase(),
+                      )) {
+                    isMatch = true;
+                    print(
+                      '    ✓ Correspondance partielle: "$courseName" ↔ "$productName"',
+                    );
+                    break;
+                  }
+                }
+              }
+
+              if (isMatch) {
+                productsFound.add({
+                  'id': product.id,
+                  'nom': productName,
+                  'price': (productPrice as num).toDouble(),
+                  'priority': productPriority as int,
+                });
+              }
+            }
           }
-        }
 
-        if (productsFound.isNotEmpty) {
-          boutiqueMap[boutique.id] = {
-            'id': boutique.id,
-            'nom': boutique.data()['nom'] ?? 'Boutique',
-            'adresse': boutique.data()['adresse'] ?? '',
-            'products': productsFound,
-          };
+          if (productsFound.isNotEmpty) {
+            print(
+              '  ✅ Boutique valide avec ${productsFound.length} produit(s) correspondant(s)',
+            );
+            boutiqueMap[boutique.id] = {
+              'id': boutique.id,
+              'nom': boutiqueNom,
+              'adresse': boutiqueData['adresse'] ?? '',
+              'products': productsFound,
+            };
+          } else {
+            print('  ❌ Aucun produit correspondant trouvé dans cette boutique');
+          }
+        } catch (e) {
+          print('  ❌ Erreur lors de la récupération des produits: $e');
         }
+      }
+
+      print('\n=== RÉSULTAT ===');
+      print('Boutiques disponibles: ${boutiqueMap.length}');
+      for (var boutique in boutiqueMap.values) {
+        print(
+          '  - ${boutique['nom']}: ${boutique['products'].length} produit(s)',
+        );
       }
 
       setState(() {
@@ -104,7 +230,8 @@ class _OrderScreenState extends State<OrderScreen> {
         _isLoadingBoutiques = false;
       });
     } catch (e) {
-      print('Erreur chargement boutiques: $e');
+      print('❌ ERREUR CRITIQUE dans _loadAvailableBoutiques: $e');
+      print('Stack trace: ${e.toString()}');
       setState(() => _isLoadingBoutiques = false);
     }
   }
@@ -114,7 +241,7 @@ class _OrderScreenState extends State<OrderScreen> {
     for (var product in boutique['products'] as List) {
       double price = (product['price'] as num).toDouble();
       int priority = product['priority'] as int? ?? 0;
-      
+
       // Ajuster le prix selon la priorité
       if (priority == 1) {
         price *= 0.9; // -10% pour priorité haute
@@ -128,14 +255,16 @@ class _OrderScreenState extends State<OrderScreen> {
 
   void _placeOrder(Map<String, dynamic> boutique) async {
     final total = _calculateOrderTotal(boutique);
-    
+
     // Vérifier les alertes
     List<String> alerts = [];
-    
+
     if (total > _userBalance) {
-      alerts.add('⚠️ Solde insuffisant ! Vous avez ${_userBalance.toStringAsFixed(0)} FCFA');
+      alerts.add(
+        '⚠️ Solde insuffisant ! Vous avez ${_userBalance.toStringAsFixed(0)} FCFA',
+      );
     }
-    
+
     if (_userBalance - total < 5000) {
       alerts.add('⚠️ Votre solde sera faible après cette commande');
     }
@@ -147,8 +276,12 @@ class _OrderScreenState extends State<OrderScreen> {
     }
   }
 
-  void _showAlertDialog(BuildContext context, List<String> alerts, 
-      Map<String, dynamic> boutique, double total) {
+  void _showAlertDialog(
+    BuildContext context,
+    List<String> alerts,
+    Map<String, dynamic> boutique,
+    double total,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -157,14 +290,19 @@ class _OrderScreenState extends State<OrderScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ...alerts.map((alert) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(alert, style: const TextStyle(fontSize: 14)),
-            )),
+            ...alerts.map(
+              (alert) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(alert, style: const TextStyle(fontSize: 14)),
+              ),
+            ),
             const SizedBox(height: 16),
             Text(
               'Solde actuel: ${_userBalance.toStringAsFixed(0)} FCFA',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: warningColor),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: warningColor,
+              ),
             ),
             Text(
               'Total commande: ${total.toStringAsFixed(0)} FCFA',
@@ -191,7 +329,10 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  void _confirmAndPlaceOrder(Map<String, dynamic> boutique, double total) async {
+  void _confirmAndPlaceOrder(
+    Map<String, dynamic> boutique,
+    double total,
+  ) async {
     try {
       final userId = _auth.currentUser?.uid;
       if (userId == null) return;
@@ -220,10 +361,12 @@ class _OrderScreenState extends State<OrderScreen> {
       });
 
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Commande placée ! ${total.toStringAsFixed(0)} FCFA débités'),
+          content: Text(
+            'Commande placée ! ${total.toStringAsFixed(0)} FCFA débités',
+          ),
           backgroundColor: successColor,
           duration: const Duration(seconds: 3),
         ),
@@ -250,255 +393,273 @@ class _OrderScreenState extends State<OrderScreen> {
       body: _isLoadingBoutiques || _isLoadingBalance
           ? const Center(child: CircularProgressIndicator())
           : _availableBoutiques.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.store_mall_directory_outlined,
-                          size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      const Text('Aucune boutique disponible',
-                          style: TextStyle(fontSize: 16, color: Colors.grey)),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.store_mall_directory_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
                   ),
-                )
-              : Column(
-                  children: [
-                    // Affichage du solde
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: backgroundColor,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Aucune boutique disponible',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // Affichage du solde
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  color: backgroundColor,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          const Text(
+                            'Votre solde',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          Text(
+                            '${_userBalance.toStringAsFixed(0)} FCFA',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_userBalance < 10000)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: warningColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
                             children: [
-                              const Text('Votre solde',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              Icon(
+                                Icons.warning_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 8),
                               Text(
-                                '${_userBalance.toStringAsFixed(0)} FCFA',
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold),
+                                'Solde faible',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
                           ),
-                          if (_userBalance < 10000)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: warningColor,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.warning_rounded,
-                                      size: 16, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Text('Solde faible',
-                                      style: TextStyle(
-                                          color: Colors.white, fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    // Liste des boutiques
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _availableBoutiques.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final boutique = _availableBoutiques[index];
-                          final total = _calculateOrderTotal(boutique);
-                          final exceedsBalance = total > _userBalance;
+                        ),
+                    ],
+                  ),
+                ),
+                // Liste des boutiques
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _availableBoutiques.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final boutique = _availableBoutiques[index];
+                      final total = _calculateOrderTotal(boutique);
+                      final exceedsBalance = total > _userBalance;
 
-                          return Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      return Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // En-tête boutique
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  // En-tête boutique
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            boutique['nom'],
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          Text(
-                                            boutique['adresse'] ?? '',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
+                                      Text(
+                                        boutique['nom'],
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.star,
-                                              size: 16,
-                                              color: Colors.amber),
-                                          const SizedBox(width: 4),
-                                          
-                                        ],
+                                      Text(
+                                        boutique['adresse'] ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
-                                  // Produits
-                                  ...((boutique['products'] as List)
-                                      .map((product) {
-                                    double price = (product['price'] as num)
-                                        .toDouble();
-                                    int priority =
-                                        product['priority'] as int? ?? 0;
-                                    double adjustedPrice = price;
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.star,
+                                        size: 16,
+                                        color: Colors.amber,
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // Produits
+                              ...((boutique['products'] as List).map((product) {
+                                double price = (product['price'] as num)
+                                    .toDouble();
+                                int priority = product['priority'] as int? ?? 0;
+                                double adjustedPrice = price;
 
-                                    if (priority == 1) {
-                                      adjustedPrice *= 0.9;
-                                    } else if (priority == 2) {
-                                      adjustedPrice *= 0.95;
-                                    }
+                                if (priority == 1) {
+                                  adjustedPrice *= 0.9;
+                                } else if (priority == 2) {
+                                  adjustedPrice *= 0.95;
+                                }
 
-                                    return Padding(
-                                      padding:
-                                          const EdgeInsets.symmetric(vertical: 4),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  product['nom'],
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                                if (priority > 0)
-                                                  Text(
-                                                    priority == 1
-                                                        ? '🔴 Haute priorité (-10%)'
-                                                        : '🟡 Priorité normale (-5%)',
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                              ],
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              product['nom'],
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
                                             ),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.end,
-                                            children: [
-                                              if (adjustedPrice != price)
-                                                Text(
-                                                  '${price.toStringAsFixed(0)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey,
-                                                    decoration:
-                                                        TextDecoration.lineThrough,
-                                                  ),
-                                                ),
+                                            if (priority > 0)
                                               Text(
-                                                '${adjustedPrice.toStringAsFixed(0)} FCFA',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: primaryColor,
+                                                priority == 1
+                                                    ? '🔴 Haute priorité (-10%)'
+                                                    : '🟡 Priorité normale (-5%)',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey[600],
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    );
-                                  }).toList()),
-                                  const Divider(height: 16),
-                                  // Total et bouton
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
                                       Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment.end,
                                         children: [
-                                          const Text(
-                                            'Total',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
+                                          if (adjustedPrice != price)
+                                            Text(
+                                              '${price.toStringAsFixed(0)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey,
+                                                decoration:
+                                                    TextDecoration.lineThrough,
+                                              ),
                                             ),
-                                          ),
                                           Text(
-                                            '${total.toStringAsFixed(0)} FCFA',
-                                            style: TextStyle(
-                                              fontSize: 14,
+                                            '${adjustedPrice.toStringAsFixed(0)} FCFA',
+                                            style: const TextStyle(
+                                              fontSize: 12,
                                               fontWeight: FontWeight.bold,
-                                              color: exceedsBalance
-                                                  ? errorColor
-                                                  : primaryColor,
+                                              color: primaryColor,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      ElevatedButton(
-                                        onPressed: exceedsBalance
-                                            ? null
-                                            : () => _placeOrder(boutique),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              exceedsBalance ? Colors.grey : primaryColor,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
+                                    ],
+                                  ),
+                                );
+                              }).toList()),
+                              const Divider(height: 16),
+                              // Total et bouton
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Total',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
                                         ),
-                                        child: Text(
-                                          exceedsBalance
-                                              ? 'Solde faible'
-                                              : 'Commander',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
+                                      ),
+                                      Text(
+                                        '${total.toStringAsFixed(0)} FCFA',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: exceedsBalance
+                                              ? errorColor
+                                              : primaryColor,
                                         ),
                                       ),
                                     ],
                                   ),
+                                  ElevatedButton(
+                                    onPressed: exceedsBalance
+                                        ? null
+                                        : () => _placeOrder(boutique),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: exceedsBalance
+                                          ? Colors.grey
+                                          : primaryColor,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      exceedsBalance
+                                          ? 'Solde faible'
+                                          : 'Commander',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
+              ],
+            ),
     );
   }
 }

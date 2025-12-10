@@ -14,6 +14,7 @@ import 'package:gestion_courses/gestion_boutiques/pages/boutiques.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/boutique_detail.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
+import 'package:gestion_courses/gestion_boutiques/pages/my_boutiques_screen.dart'; // AJOUTEZ CET IMPORT
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1237,7 +1238,8 @@ class _HomeScreenState extends State<HomeScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('orders')
-          .where('userId', isEqualTo: user.uid)
+          // Supprimez le where() si vous n'avez pas d'index
+          // .where('userId', isEqualTo: user.uid)
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -1246,11 +1248,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 50,
-                ),
+                const Icon(Icons.error_outline, color: Colors.red, size: 50),
                 const SizedBox(height: 16),
                 Text('Erreur: ${snapshot.error}'),
               ],
@@ -1260,9 +1258,7 @@ class _HomeScreenState extends State<HomeScreen>
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.tropicalTeal,
-            ),
+            child: CircularProgressIndicator(color: AppColors.tropicalTeal),
           );
         }
 
@@ -1295,7 +1291,40 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
 
-        final orders = snapshot.data!.docs;
+        // Filtrer les résultats localement côté client
+        final orders = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['userId'] == user.uid;
+        }).toList();
+
+        if (orders.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 80,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Aucune commande',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Vous n\'avez pas encore passé de commande',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        }
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -1618,6 +1647,23 @@ class _HomeScreenState extends State<HomeScreen>
               Navigator.pop(context);
             },
           ),
+          
+          // AJOUTEZ CE NOUVEL ITEM "MES BOUTIQUES"
+          _drawerItem(
+            icon: Icons.storefront_rounded,
+            title: 'Mes Boutiques',
+            selected: false,
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MyBoutiquesScreen(),
+                ),
+              );
+            },
+          ),
+          
           _drawerItem(
             icon: Icons.map_rounded,
             title: 'Carte',

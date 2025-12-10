@@ -1,3 +1,4 @@
+// lib/gestion_boutiques/admin/admin_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -29,14 +30,24 @@ class MyApp extends StatelessWidget {
         primaryColor: const Color(0xFF6D5DFC),
         scaffoldBackgroundColor: const Color(0xFFF5F7FA),
       ),
-      home: const AdminDashboard(),
+      home: const AdminDashboard(
+        boutiqueId: 'test_boutique',
+        boutiqueName: 'Ma Boutique',
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  final String boutiqueId;
+  final String boutiqueName;
+
+  const AdminDashboard({
+    super.key,
+    required this.boutiqueId,
+    required this.boutiqueName,
+  });
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -98,6 +109,46 @@ class _AdminDashboardState extends State<AdminDashboard> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadClientNames();
+  }
+
+  Future<void> _loadClientNames() async {
+    try {
+      // Charger les noms des clients qui ont commandé dans cette boutique
+      final orders = await _firestore
+          .collection('orders')
+          .where('boutiqueId', isEqualTo: widget.boutiqueId)
+          .get();
+
+      final userIds = orders.docs
+          .map((doc) => (doc.data()['userId'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (userIds.isEmpty) return;
+
+      final usersSnapshot = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIds)
+          .get();
+
+      for (var doc in usersSnapshot.docs) {
+        final userData = doc.data();
+        final nom = userData['nom']?.toString() ?? 'Client inconnu';
+        final prenom = userData['prenom']?.toString() ?? '';
+        final fullName = prenom.isNotEmpty ? '$prenom $nom' : nom;
+
+        _clientNames[doc.id] = fullName;
+      }
+    } catch (e) {
+      print('Erreur lors du chargement des noms des clients: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
@@ -119,12 +170,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         size: 28,
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        'Ma Boutique',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                      SizedBox(
+                        width: 150,
+                        child: Text(
+                          widget.boutiqueName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ],
@@ -187,7 +244,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 2:
         return _buildOrdersTab();
       case 3:
-        return _buildComingSoonTab();
+        return _buildSettingsTab();
       default:
         return _buildDashboardTab();
     }
@@ -242,31 +299,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             // En-tête
             Text(
-              'Tableau de bord',
-              style: TextStyle(
+              'Tableau de bord - ${widget.boutiqueName}',
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF2C3E50),
+                color: Color(0xFF2C3E50),
               ),
             ),
             const SizedBox(height: 10),
             Text(
               'Aperçu général de votre boutique',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
-                color: const Color(0xFF7F8C8D),
+                color: Color(0xFF7F8C8D),
               ),
             ),
             const SizedBox(height: 30),
 
             // Cartes de statistiques
             StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('products').snapshots(),
+              stream: _firestore
+                  .collection('products')
+                  .where('boutique_id', isEqualTo: widget.boutiqueId)
+                  .snapshots(),
               builder: (context, snapshot) {
                 final totalProducts = snapshot.hasData ? snapshot.data!.docs.length : 0;
 
                 return StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('orders').snapshots(),
+                  stream: _firestore
+                      .collection('orders')
+                      .where('boutiqueId', isEqualTo: widget.boutiqueId)
+                      .snapshots(),
                   builder: (context, orderSnapshot) {
                     final totalOrders = orderSnapshot.hasData ? orderSnapshot.data!.docs.length : 0;
                     double totalRevenue = 0;
@@ -287,12 +350,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     return GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: MediaQuery.of(context).size.width > 1000 ? 4 :
-                                  MediaQuery.of(context).size.width > 600 ? 2 : 1,
+                      crossAxisCount: MediaQuery.of(context).size.width > 1000
+                          ? 4
+                          : MediaQuery.of(context).size.width > 600
+                              ? 2
+                              : 1,
                       crossAxisSpacing: 20,
                       mainAxisSpacing: 20,
-                      childAspectRatio: MediaQuery.of(context).size.width > 1000 ? 3.5 : 
-                                     MediaQuery.of(context).size.width > 600 ? 2.8 : 2.2,
+                      childAspectRatio: MediaQuery.of(context).size.width > 1000
+                          ? 3.5
+                          : MediaQuery.of(context).size.width > 600
+                              ? 2.8
+                              : 2.2,
                       children: [
                         _buildStatCard(
                           title: 'Produits',
@@ -399,10 +468,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               children: [
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF2C3E50),
+                    color: Color(0xFF2C3E50),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -452,12 +521,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Commandes récentes',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2C3E50),
+                    color: Color(0xFF2C3E50),
                   ),
                 ),
                 TextButton(
@@ -473,10 +542,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
             const SizedBox(height: 15),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('orders')
-                  .orderBy('createdAt', descending: true)
-                  .limit(5)
-                  .snapshots(),
+                stream: _firestore
+                    .collection('orders')
+                    .where('boutiqueId', isEqualTo: widget.boutiqueId)
+                    .orderBy('createdAt', descending: true)
+                    .limit(5)
+                    .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(child: Text('Erreur: ${snapshot.error}'));
@@ -497,9 +568,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             color: Colors.grey[300],
                           ),
                           const SizedBox(height: 10),
-                          Text(
+                          const Text(
                             'Aucune commande',
-                            style: TextStyle(color: Colors.grey[600]),
+                            style: TextStyle(color: Colors.grey),
                           ),
                         ],
                       ),
@@ -531,7 +602,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           leading: Container(
                             width: 36,
                             height: 36,
@@ -580,7 +652,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    status.length > 10 ? '${status.substring(0, 10)}...' : status,
+                                    status.length > 10
+                                        ? '${status.substring(0, 10)}...'
+                                        : status,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 9,
@@ -625,18 +699,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Produits par catégorie',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF2C3E50),
+                color: Color(0xFF2C3E50),
               ),
             ),
             const SizedBox(height: 15),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('products').snapshots(),
+                stream: _firestore
+                    .collection('products')
+                    .where('boutique_id', isEqualTo: widget.boutiqueId)
+                    .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(child: Text('Erreur: ${snapshot.error}'));
@@ -657,9 +734,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             color: Colors.grey[300],
                           ),
                           const SizedBox(height: 10),
-                          Text(
+                          const Text(
                             'Aucun produit',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ],
                       ),
@@ -687,7 +764,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       final categoryName = _getCategoryName(entry.key);
                       final count = entry.value;
                       final totalProducts = products.length;
-                      final percentage = totalProducts > 0 ? (count / totalProducts * 100) : 0;
+                      final percentage =
+                          totalProducts > 0 ? (count / totalProducts * 100) : 0;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 4),
@@ -720,7 +798,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          categoryName.length > 15 ? '${categoryName.substring(0, 15)}...' : categoryName,
+                                          categoryName.length > 15
+                                              ? '${categoryName.substring(0, 15)}...'
+                                              : categoryName,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w500,
                                             fontSize: 12,
@@ -775,18 +855,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             Expanded(
               child: Text(
-                'Gestion des Produits',
-                style: TextStyle(
+                'Gestion des Produits - ${widget.boutiqueName}',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2C3E50),
+                  color: Color(0xFF2C3E50),
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 20),
             Container(
-              constraints: BoxConstraints(
+              constraints: const BoxConstraints(
                 maxWidth: 300,
                 minWidth: 200,
               ),
@@ -886,7 +966,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildProductsTable() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('products').snapshots(),
+      stream: _firestore
+          .collection('products')
+          .where('boutique_id', isEqualTo: widget.boutiqueId)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -947,7 +1030,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     _searchQuery.isEmpty
-                        ? 'Aucun produit disponible'
+                        ? 'Aucun produit disponible dans cette boutique'
                         : 'Aucun produit trouvé pour "$_searchQuery"',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -1150,18 +1233,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             Expanded(
               child: Text(
-                'Gestion des Commandes',
-                style: TextStyle(
+                'Gestion des Commandes - ${widget.boutiqueName}',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2C3E50),
+                  color: Color(0xFF2C3E50),
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 20),
             Container(
-              constraints: BoxConstraints(
+              constraints: const BoxConstraints(
                 maxWidth: 300,
                 minWidth: 200,
               ),
@@ -1241,7 +1324,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildOrdersTable() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('orders').snapshots(),
+      stream: _firestore
+          .collection('orders')
+          .where('boutiqueId', isEqualTo: widget.boutiqueId)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -1278,15 +1364,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
         final orders = snapshot.data!.docs;
 
-        // Charger les noms des clients
-        final userIds = orders.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['userId']?.toString() ?? '';
-        }).where((id) => id.isNotEmpty).toSet().toList();
-
-        // Charger les noms en arrière-plan
-        _loadClientNames(userIds);
-
         // Filtrer les commandes selon la recherche
         final filteredOrders = orders.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -1317,7 +1394,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     _orderSearchQuery.isEmpty
-                        ? 'Aucune commande disponible'
+                        ? 'Aucune commande pour cette boutique'
                         : 'Aucune commande trouvée pour "$_orderSearchQuery"',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -1521,7 +1598,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               size: 18,
                               color: Color(0xFF2ECC71),
                             ),
-                            onPressed: () => _viewOrderDetails(doc.id, data, clientName),
+                            onPressed: () =>
+                                _viewOrderDetails(doc.id, data, clientName),
                           ),
                         ],
                       ),
@@ -1539,35 +1617,191 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // ============================================
   // ONGLET PARAMÈTRES
   // ============================================
-  Widget _buildComingSoonTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.build,
-            size: 80,
-            color: Color(0xFF6D5DFC),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Paramètres',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF2C3E50),
+  Widget _buildSettingsTab() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Paramètres de la boutique',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF2C3E50),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Fonctionnalité en cours de développement',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFF666666),
+            const SizedBox(height: 10),
+            Text(
+              'Gérez les paramètres de ${widget.boutiqueName}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF7F8C8D),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 30),
+
+            // Informations de la boutique
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Informations de la boutique',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2C3E50),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: _firestore
+                          .collection('boutiques')
+                          .doc(widget.boutiqueId)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+
+                        final data =
+                            snapshot.data!.data() as Map<String, dynamic>? ??
+                                {};
+
+                        return Column(
+                          children: [
+                            _buildSettingItem(
+                              'Nom de la boutique',
+                              data['nom'] ?? widget.boutiqueName,
+                            ),
+                            const SizedBox(height: 15),
+                            _buildSettingItem(
+                              'Adresse',
+                              data['adresse'] ?? 'Non définie',
+                            ),
+                            const SizedBox(height: 15),
+                            _buildSettingItem(
+                              'Catégorie',
+                              data['categories'] ?? 'Général',
+                            ),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: () => _editBoutiqueSettings(data),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6D5DFC),
+                              ),
+                              child: const Text('Modifier les informations'),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // Actions administratives
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Actions administratives',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2C3E50),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.delete_outline,
+                              color: Colors.red),
+                          title: const Text('Supprimer la boutique'),
+                          subtitle: const Text(
+                              'Cette action est irréversible'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.arrow_forward_ios),
+                            onPressed: () => _deleteBoutique(),
+                          ),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.notifications_active,
+                              color: Colors.blue),
+                          title: const Text('Notifications'),
+                          subtitle: const Text('Gérer les notifications'),
+                          trailing: const Icon(Icons.arrow_forward_ios),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.security,
+                              color: Colors.green),
+                          title: const Text('Sécurité'),
+                          subtitle: const Text('Paramètres de sécurité'),
+                          trailing: const Icon(Icons.arrow_forward_ios),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildSettingItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF7F8C8D),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1630,6 +1864,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
       }
     }
     return cat.isNotEmpty ? cat : 'Non catégorisé';
+  }
+
+  String _getClientName(String userId) {
+    return _clientNames[userId] ??
+        'Client ${userId.length > 8 ? userId.substring(0, 8) + '...' : userId}';
   }
 
   // ============================================
@@ -1721,6 +1960,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         'created_at': FieldValue.serverTimestamp(),
         'size_bytes': _selectedImageBytes!.length,
         'type': 'image/jpeg',
+        'boutique_id': widget.boutiqueId,
       });
 
       setState(() => _uploadProgress = 1.0);
@@ -1767,7 +2007,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               borderRadius: BorderRadius.circular(6),
               color: const Color(0xFFEFE9E0),
             ),
-            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+            child:
+                const Icon(Icons.broken_image, color: Colors.grey, size: 24),
           );
         }
 
@@ -1782,7 +2023,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               borderRadius: BorderRadius.circular(6),
               color: const Color(0xFFEFE9E0),
             ),
-            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+            child:
+                const Icon(Icons.broken_image, color: Colors.grey, size: 24),
           );
         }
 
@@ -1813,7 +2055,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               borderRadius: BorderRadius.circular(6),
               color: const Color(0xFFEFE9E0),
             ),
-            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+            child:
+                const Icon(Icons.broken_image, color: Colors.grey, size: 24),
           );
         }
       },
@@ -1908,7 +2151,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         LinearProgressIndicator(
           value: _uploadProgress,
           backgroundColor: Colors.grey[300],
-          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6D5DFC)),
+          valueColor:
+              const AlwaysStoppedAnimation<Color>(Color(0xFF6D5DFC)),
         ),
         const SizedBox(height: 5),
         Text(
@@ -2118,14 +2362,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.category),
                           ),
-                          items: _categories.map<DropdownMenuItem<String>>((
-                            category,
-                          ) {
-                            return DropdownMenuItem<String>(
-                              value: category['value'] as String,
-                              child: Text(category['label'] as String),
-                            );
-                          }).toList(),
+                          items: _categories.map<DropdownMenuItem<String>>(
+                            (category) {
+                              return DropdownMenuItem<String>(
+                                value: category['value'] as String,
+                                child: Text(category['label'] as String),
+                              );
+                            },
+                          ).toList(),
                           onChanged: (String? value) {
                             if (value != null) {
                               selectedCategory = value;
@@ -2184,7 +2428,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           'image': _uploadedImageUrl!,
                           'image_type': 'firestore_base64',
                           'description': descriptionController.text.trim(),
-                          'boutique_id': '',
+                          'boutique_id': widget.boutiqueId,
                           'created_at': FieldValue.serverTimestamp(),
                         });
 
@@ -2374,9 +2618,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   ),
                                   icon: const Icon(Icons.photo_library,
                                       size: 16),
-                                  label: Text(kIsWeb
-                                      ? 'Changer image'
-                                      : 'Galerie'),
+                                  label: Text(
+                                      kIsWeb ? 'Changer image' : 'Galerie'),
                                 ),
                                 const SizedBox(width: 10),
                                 if (!kIsWeb)
@@ -2534,14 +2777,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.category),
                           ),
-                          items: _categories.map<DropdownMenuItem<String>>((
-                            category,
-                          ) {
-                            return DropdownMenuItem<String>(
-                              value: category['value'] as String,
-                              child: Text(category['label'] as String),
-                            );
-                          }).toList(),
+                          items: _categories.map<DropdownMenuItem<String>>(
+                            (category) {
+                              return DropdownMenuItem<String>(
+                                value: category['value'] as String,
+                                child: Text(category['label'] as String),
+                              );
+                            },
+                          ).toList(),
                           onChanged: (String? value) {
                             if (value != null) {
                               setState(() {
@@ -2691,37 +2934,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // ============================================
   // GESTION DES COMMANDES
   // ============================================
-  Future<void> _loadClientNames(List<String> userIds) async {
-    if (userIds.isEmpty) return;
-
-    final missingUserIds = userIds.where((id) => !_clientNames.containsKey(id)).toList();
-
-    if (missingUserIds.isEmpty) return;
-
-    try {
-      final usersSnapshot = await _firestore
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: missingUserIds)
-          .get();
-
-      for (var doc in usersSnapshot.docs) {
-        final userData = doc.data();
-        final nom = userData['nom']?.toString() ?? 'Client inconnu';
-        final prenom = userData['prenom']?.toString() ?? '';
-        final fullName = prenom.isNotEmpty ? '$prenom $nom' : nom;
-
-        _clientNames[doc.id] = fullName;
-      }
-    } catch (e) {
-      print('Erreur lors du chargement des noms des clients: $e');
-    }
-  }
-
-  String _getClientName(String userId) {
-    return _clientNames[userId] ??
-        'Client ${userId.length > 8 ? userId.substring(0, 8) + '...' : userId}';
-  }
-
   Future<void> _editOrderStatus(
       String orderId, Map<String, dynamic> data, String clientName) async {
     String currentStatus = data['status']?.toString() ?? 'En attente';
@@ -2745,7 +2957,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.receipt, size: 20, color: Color(0xFF6D5DFC)),
+                          const Icon(Icons.receipt,
+                              size: 20, color: Color(0xFF6D5DFC)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -2835,7 +3048,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                          const Icon(Icons.calendar_today,
+                              size: 16, color: Colors.grey),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -2913,7 +3127,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Future<void> _viewOrderDetails(String orderId, Map<String, dynamic> data, String clientName) async {
+  Future<void> _viewOrderDetails(
+      String orderId, Map<String, dynamic> data, String clientName) async {
     await showDialog(
       context: context,
       builder: (context) {
@@ -3060,6 +3275,175 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  }
+
+  // ============================================
+  // GESTION DES PARAMÈTRES DE LA BOUTIQUE
+  // ============================================
+  Future<void> _editBoutiqueSettings(Map<String, dynamic> data) async {
+    final TextEditingController nomController =
+        TextEditingController(text: data['nom'] ?? widget.boutiqueName);
+    final TextEditingController adresseController =
+        TextEditingController(text: data['adresse'] ?? '');
+    final TextEditingController categorieController =
+        TextEditingController(text: data['categories'] ?? 'Général');
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Modifier les informations de la boutique'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nomController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom de la boutique',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: adresseController,
+                  decoration: const InputDecoration(
+                    labelText: 'Adresse',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: categorieController,
+                  decoration: const InputDecoration(
+                    labelText: 'Catégorie',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await _firestore
+                      .collection('boutiques')
+                      .doc(widget.boutiqueId)
+                      .update({
+                    'nom': nomController.text.trim(),
+                    'adresse': adresseController.text.trim(),
+                    'categories': categorieController.text.trim(),
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  });
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Boutique mise à jour avec succès !'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.of(context).pop();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erreur: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6D5DFC),
+              ),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteBoutique() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la boutique'),
+        content: const Text(
+          'Êtes-vous sûr de vouloir supprimer cette boutique ?\nTous les produits et commandes associés seront également supprimés.\nCette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE74C3C),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Supprimer la boutique
+        await _firestore
+            .collection('boutiques')
+            .doc(widget.boutiqueId)
+            .delete();
+
+        // Supprimer les produits de cette boutique
+        final products = await _firestore
+            .collection('products')
+            .where('boutique_id', isEqualTo: widget.boutiqueId)
+            .get();
+
+        for (var doc in products.docs) {
+          await doc.reference.delete();
+        }
+
+        // Supprimer les commandes de cette boutique
+        final orders = await _firestore
+            .collection('orders')
+            .where('boutiqueId', isEqualTo: widget.boutiqueId)
+            .get();
+
+        for (var doc in orders.docs) {
+          await doc.reference.delete();
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Boutique supprimée avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
