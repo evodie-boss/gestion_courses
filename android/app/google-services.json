@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "527678259554",
+    "project_id": "gestion-courses-cec47",
+    "storage_bucket": "gestion-courses-cec47.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527678259554:android:d8f423219502808e8a2c3b",
+        "android_client_info": {
+          "package_name": "com.example.gestion_courses"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjhoRJsGrrBp8t_IZgke0OfhFKyy5s_fc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

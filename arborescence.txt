@@ -1,0 +1,882 @@
+Structure du dossier
+Le numéro de série du volume est 7410-EE5A
+C:.
+¦   .flutter-plugins-dependencies
+¦   .gitignore
+¦   .metadata
+¦   analysis_options.yaml
+¦   arborescence.txt
+¦   DESIGN_SYSTEM.md
+¦   firebase.json
+¦   flutter_01.log
+¦   gestion_courses.iml
+¦   hs_err_pid23332.log
+¦   hs_err_pid29196.log
+¦   MAP_CONFIGURATION.md
+¦   pubspec.lock
+¦   pubspec.lock.backup
+¦   pubspec.yaml
+¦   README.md
+¦   STYLE_IMPLEMENTATION.md
+¦   
++---.dart_tool
+¦   ¦   package_config.json
+¦   ¦   package_graph.json
+¦   ¦   version
+¦   ¦   
+¦   +---chrome-device
+¦   ¦   +---Default
+¦   ¦       ¦   Account Web Data
+¦   ¦       ¦   Account Web Data-journal
+¦   ¦       ¦   Affiliation Database
+¦   ¦       ¦   Affiliation Database-journal
+¦   ¦       ¦   BookmarkMergedSurfaceOrdering
+¦   ¦       ¦   BrowsingTopicsSiteData
+¦   ¦       ¦   BrowsingTopicsSiteData-journal
+¦   ¦       ¦   BrowsingTopicsState
+¦   ¦       ¦   DIPS
+¦   ¦       ¦   DIPS-wal
+¦   ¦       ¦   Favicons
+¦   ¦       ¦   Favicons-journal
+¦   ¦       ¦   heavy_ad_intervention_opt_out.db
+¦   ¦       ¦   heavy_ad_intervention_opt_out.db-journal
+¦   ¦       ¦   History
+¦   ¦       ¦   History-journal
+¦   ¦       ¦   LOCK
+¦   ¦       ¦   LOG
+¦   ¦       ¦   LOG.old
+¦   ¦       ¦   Login Data
+¦   ¦       ¦   Login Data For Account
+¦   ¦       ¦   Login Data For Account-journal
+¦   ¦       ¦   Login Data-journal
+¦   ¦       ¦   Network Action Predictor
+¦   ¦       ¦   Network Action Predictor-journal
+¦   ¦       ¦   passkey_enclave_state
+¦   ¦       ¦   Preferences
+¦   ¦       ¦   PreferredApps
+¦   ¦       ¦   README
+¦   ¦       ¦   Secure Preferences
+¦   ¦       ¦   ServerCertificate
+¦   ¦       ¦   ServerCertificate-journal
+¦   ¦       ¦   SharedStorage
+¦   ¦       ¦   SharedStorage-wal
+¦   ¦       ¦   Shortcuts
+¦   ¦       ¦   Shortcuts-journal
+¦   ¦       ¦   Top Sites
+¦   ¦       ¦   Top Sites-journal
+¦   ¦       ¦   trusted_vault.pb
+¦   ¦       ¦   Web Data
+¦   ¦       ¦   Web Data-journal
+¦   ¦       ¦   
+¦   ¦       +---AutofillStrikeDatabase
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---blob_storage
+¦   ¦       ¦   +---1d36c2b9-8a45-4840-a73c-288cf2ffdd04
+¦   ¦       ¦   +---2cf5069d-981d-44f7-8dca-9b2847c332b7
+¦   ¦       ¦   +---3e5b5223-1a27-4b3b-a550-1bf5c0a9aaca
+¦   ¦       ¦   +---5c907787-0bca-4dc6-8fe6-12ecbc72ffdc
+¦   ¦       ¦   +---6d9d3bc7-da89-4b7a-8b1f-25eb547bd97a
+¦   ¦       ¦   +---9003159d-0b04-4ae8-9f92-68b1fc5bd1f5
+¦   ¦       ¦   +---b95935eb-9df4-4648-bfba-4b18d0483bc1
+¦   ¦       ¦   +---b968211c-ae08-40f3-964d-b807c6f04a8f
+¦   ¦       ¦   +---c54fb4ea-5bf1-46b5-b7e3-27889e999b59
+¦   ¦       ¦   +---d33cebdc-3156-47d8-8597-223d2881f563
+¦   ¦       ¦   +---dea83ca2-4eb1-4258-be2e-658892822ee1
+¦   ¦       ¦   +---fd7c654d-43bb-4d4f-b50d-120ed8a60134
+¦   ¦       +---BudgetDatabase
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---chrome_cart_db
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---ClientCertificates
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---commerce_subscription_db
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---discounts_db
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---discount_infos_db
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---Download Service
+¦   ¦       ¦   +---EntryDB
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---Files
+¦   ¦       +---Extension Rules
+¦   ¦       ¦       000003.log
+¦   ¦       ¦       CURRENT
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       MANIFEST-000001
+¦   ¦       ¦       
+¦   ¦       +---Extension Scripts
+¦   ¦       ¦       000003.log
+¦   ¦       ¦       CURRENT
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       MANIFEST-000001
+¦   ¦       ¦       
+¦   ¦       +---Extension State
+¦   ¦       ¦       000003.log
+¦   ¦       ¦       CURRENT
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       MANIFEST-000001
+¦   ¦       ¦       
+¦   ¦       +---Feature Engagement Tracker
+¦   ¦       ¦   +---AvailabilityDB
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---EventDB
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           LOG.old
+¦   ¦       ¦           
+¦   ¦       +---GCM Store
+¦   ¦       ¦   ¦   000003.log
+¦   ¦       ¦   ¦   CURRENT
+¦   ¦       ¦   ¦   LOCK
+¦   ¦       ¦   ¦   LOG
+¦   ¦       ¦   ¦   MANIFEST-000001
+¦   ¦       ¦   ¦   
+¦   ¦       ¦   +---Encryption
+¦   ¦       ¦           000003.log
+¦   ¦       ¦           CURRENT
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           LOG.old
+¦   ¦       ¦           MANIFEST-000001
+¦   ¦       ¦           
+¦   ¦       +---IndexedDB
+¦   ¦       ¦   +---http_localhost_50269.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_50450.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_51310.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_51460.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_51689.indexeddb.leveldb
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       000007.log
+¦   ¦       ¦   ¦       000008.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_52329.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_54126.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_59384.indexeddb.leveldb
+¦   ¦       ¦   ¦       000004.log
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_60120.indexeddb.leveldb
+¦   ¦       ¦   ¦       000005.ldb
+¦   ¦       ¦   ¦       000007.log
+¦   ¦       ¦   ¦       000008.ldb
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---http_localhost_65513.indexeddb.leveldb
+¦   ¦       ¦           000004.log
+¦   ¦       ¦           000005.ldb
+¦   ¦       ¦           CURRENT
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           MANIFEST-000001
+¦   ¦       ¦           
+¦   ¦       +---Local Storage
+¦   ¦       ¦   +---leveldb
+¦   ¦       ¦           000003.log
+¦   ¦       ¦           CURRENT
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           LOG.old
+¦   ¦       ¦           MANIFEST-000001
+¦   ¦       ¦           
+¦   ¦       +---Network
+¦   ¦       ¦       Cookies
+¦   ¦       ¦       Cookies-journal
+¦   ¦       ¦       Network Persistent State
+¦   ¦       ¦       NetworkDataMigrated
+¦   ¦       ¦       Reporting and NEL
+¦   ¦       ¦       Reporting and NEL-journal
+¦   ¦       ¦       TransportSecurity
+¦   ¦       ¦       Trust Tokens
+¦   ¦       ¦       Trust Tokens-journal
+¦   ¦       ¦       
+¦   ¦       +---optimization_guide_hint_cache_store
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---parcel_tracking_db
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---PersistentOriginTrials
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       
+¦   ¦       +---Safe Browsing Network
+¦   ¦       ¦       NetworkDataMigrated
+¦   ¦       ¦       Safe Browsing Cookies
+¦   ¦       ¦       Safe Browsing Cookies-journal
+¦   ¦       ¦       
+¦   ¦       +---Segmentation Platform
+¦   ¦       ¦   +---SegmentInfoDB
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---SignalDB
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---SignalStorageConfigDB
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           LOG.old
+¦   ¦       ¦           
+¦   ¦       +---Service Worker
+¦   ¦       ¦   +---Database
+¦   ¦       ¦   ¦       000003.log
+¦   ¦       ¦   ¦       CURRENT
+¦   ¦       ¦   ¦       LOCK
+¦   ¦       ¦   ¦       LOG
+¦   ¦       ¦   ¦       LOG.old
+¦   ¦       ¦   ¦       MANIFEST-000001
+¦   ¦       ¦   ¦       
+¦   ¦       ¦   +---ScriptCache
+¦   ¦       ¦       ¦   2cc80dabc69f58b6_0
+¦   ¦       ¦       ¦   4cb013792b196a35_0
+¦   ¦       ¦       ¦   4cb013792b196a35_1
+¦   ¦       ¦       ¦   index
+¦   ¦       ¦       ¦   
+¦   ¦       ¦       +---index-dir
+¦   ¦       ¦               the-real-index
+¦   ¦       ¦               
+¦   ¦       +---Session Storage
+¦   ¦       ¦       000003.log
+¦   ¦       ¦       CURRENT
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       MANIFEST-000001
+¦   ¦       ¦       
+¦   ¦       +---Sessions
+¦   ¦       ¦       Session_13409752318119067
+¦   ¦       ¦       Session_13409762414968904
+¦   ¦       ¦       Session_13409768395568208
+¦   ¦       ¦       Session_13409769211371522
+¦   ¦       ¦       Session_13409769403843901
+¦   ¦       ¦       Session_13409769753080357
+¦   ¦       ¦       Session_13409770514975696
+¦   ¦       ¦       Session_13409771400588524
+¦   ¦       ¦       Session_13409772034237394
+¦   ¦       ¦       Session_13409774624780572
+¦   ¦       ¦       Session_13409774713266273
+¦   ¦       ¦       Session_13409774890429942
+¦   ¦       ¦       Session_13409828740074961
+¦   ¦       ¦       Session_13409830464484243
+¦   ¦       ¦       Tabs_13409768325893156
+¦   ¦       ¦       Tabs_13409768396376362
+¦   ¦       ¦       Tabs_13409769211928279
+¦   ¦       ¦       Tabs_13409769404339804
+¦   ¦       ¦       Tabs_13409769754029665
+¦   ¦       ¦       Tabs_13409770515517674
+¦   ¦       ¦       Tabs_13409771401022864
+¦   ¦       ¦       Tabs_13409772035069334
+¦   ¦       ¦       Tabs_13409774625341638
+¦   ¦       ¦       Tabs_13409774714408158
+¦   ¦       ¦       Tabs_13409774890961293
+¦   ¦       ¦       Tabs_13409828741212571
+¦   ¦       ¦       Tabs_13409830464810273
+¦   ¦       ¦       
+¦   ¦       +---Shared Dictionary
+¦   ¦       ¦   ¦   db
+¦   ¦       ¦   ¦   db-journal
+¦   ¦       ¦   ¦   
+¦   ¦       ¦   +---cache
+¦   ¦       ¦       ¦   index
+¦   ¦       ¦       ¦   
+¦   ¦       ¦       +---index-dir
+¦   ¦       ¦               the-real-index
+¦   ¦       ¦               
+¦   ¦       +---shared_proto_db
+¦   ¦       ¦   ¦   000003.log
+¦   ¦       ¦   ¦   000004.log
+¦   ¦       ¦   ¦   000005.ldb
+¦   ¦       ¦   ¦   000007.log
+¦   ¦       ¦   ¦   000008.ldb
+¦   ¦       ¦   ¦   CURRENT
+¦   ¦       ¦   ¦   LOCK
+¦   ¦       ¦   ¦   LOG
+¦   ¦       ¦   ¦   LOG.old
+¦   ¦       ¦   ¦   MANIFEST-000001
+¦   ¦       ¦   ¦   
+¦   ¦       ¦   +---metadata
+¦   ¦       ¦           000003.log
+¦   ¦       ¦           CURRENT
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           LOG.old
+¦   ¦       ¦           MANIFEST-000001
+¦   ¦       ¦           
+¦   ¦       +---Site Characteristics Database
+¦   ¦       ¦       000003.log
+¦   ¦       ¦       CURRENT
+¦   ¦       ¦       LOCK
+¦   ¦       ¦       LOG
+¦   ¦       ¦       LOG.old
+¦   ¦       ¦       MANIFEST-000001
+¦   ¦       ¦       
+¦   ¦       +---Sync Data
+¦   ¦       ¦   +---LevelDB
+¦   ¦       ¦           000003.log
+¦   ¦       ¦           CURRENT
+¦   ¦       ¦           LOCK
+¦   ¦       ¦           LOG
+¦   ¦       ¦           LOG.old
+¦   ¦       ¦           MANIFEST-000001
+¦   ¦       ¦           
+¦   ¦       +---WebStorage
+¦   ¦               QuotaManager
+¦   ¦               QuotaManager-journal
+¦   ¦               
+¦   +---dartpad
+¦   ¦       web_plugin_registrant.dart
+¦   ¦       
+¦   +---extension_discovery
+¦   ¦       vs_code.json
+¦   ¦       
+¦   +---flutter_build
++---.idea
+¦   ¦   .gitignore
+¦   ¦   modules.xml
+¦   ¦   vcs.xml
+¦   ¦   workspace.xml
+¦   ¦   
+¦   +---caches
+¦   ¦       deviceStreaming.xml
+¦   ¦       
+¦   +---libraries
+¦   ¦       Dart_Packages.xml
+¦   ¦       Dart_SDK.xml
+¦   ¦       Flutter_Plugins.xml
+¦   ¦       KotlinJavaRuntime.xml
+¦   ¦       
+¦   +---runConfigurations
+¦           main_dart.xml
+¦           
++---android
+¦   ¦   .gitignore
+¦   ¦   build.gradle.kts
+¦   ¦   gestion_courses_android.iml
+¦   ¦   gradle.properties
+¦   ¦   gradlew
+¦   ¦   gradlew.bat
+¦   ¦   local.properties
+¦   ¦   settings.gradle.kts
+¦   ¦   
+¦   +---.gradle
+¦   ¦   +---8.12
+¦   ¦   ¦   ¦   gc.properties
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---checksums
+¦   ¦   ¦   ¦       checksums.lock
+¦   ¦   ¦   ¦       md5-checksums.bin
+¦   ¦   ¦   ¦       sha1-checksums.bin
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---expanded
+¦   ¦   ¦   +---fileChanges
+¦   ¦   ¦   ¦       last-build.bin
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---fileHashes
+¦   ¦   ¦   ¦       fileHashes.bin
+¦   ¦   ¦   ¦       fileHashes.lock
+¦   ¦   ¦   ¦       resourceHashesCache.bin
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---vcsMetadata
+¦   ¦   +---buildOutputCleanup
+¦   ¦   ¦       buildOutputCleanup.lock
+¦   ¦   ¦       cache.properties
+¦   ¦   ¦       
+¦   ¦   +---noVersion
+¦   ¦   ¦       buildLogic.lock
+¦   ¦   ¦       
+¦   ¦   +---vcs-1
+¦   ¦           gc.properties
+¦   ¦           
+¦   +---app
+¦   ¦   ¦   build.gradle.kts
+¦   ¦   ¦   google-services.json
+¦   ¦   ¦   
+¦   ¦   +---src
+¦   ¦       +---debug
+¦   ¦       ¦       AndroidManifest.xml
+¦   ¦       ¦       
+¦   ¦       +---main
+¦   ¦       ¦   ¦   AndroidManifest.xml
+¦   ¦       ¦   ¦   
+¦   ¦       ¦   +---java
+¦   ¦       ¦   ¦   +---io
+¦   ¦       ¦   ¦       +---flutter
+¦   ¦       ¦   ¦           +---plugins
+¦   ¦       ¦   ¦                   GeneratedPluginRegistrant.java
+¦   ¦       ¦   ¦                   
+¦   ¦       ¦   +---kotlin
+¦   ¦       ¦   ¦   +---com
+¦   ¦       ¦   ¦       +---example
+¦   ¦       ¦   ¦           +---gestion_courses
+¦   ¦       ¦   ¦                   MainActivity.kt
+¦   ¦       ¦   ¦                   
+¦   ¦       ¦   +---res
+¦   ¦       ¦       +---drawable
+¦   ¦       ¦       ¦       launch_background.xml
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---drawable-v21
+¦   ¦       ¦       ¦       launch_background.xml
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---mipmap-hdpi
+¦   ¦       ¦       ¦       ic_launcher.png
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---mipmap-mdpi
+¦   ¦       ¦       ¦       ic_launcher.png
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---mipmap-xhdpi
+¦   ¦       ¦       ¦       ic_launcher.png
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---mipmap-xxhdpi
+¦   ¦       ¦       ¦       ic_launcher.png
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---mipmap-xxxhdpi
+¦   ¦       ¦       ¦       ic_launcher.png
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---values
+¦   ¦       ¦       ¦       styles.xml
+¦   ¦       ¦       ¦       
+¦   ¦       ¦       +---values-night
+¦   ¦       ¦               styles.xml
+¦   ¦       ¦               
+¦   ¦       +---profile
+¦   ¦               AndroidManifest.xml
+¦   ¦               
+¦   +---build
+¦   ¦   +---reports
+¦   ¦       +---problems
+¦   ¦               problems-report.html
+¦   ¦               
+¦   +---gradle
+¦       +---wrapper
+¦               gradle-wrapper.jar
+¦               gradle-wrapper.properties
+¦               
++---assets
+¦   +---images
+¦           logo_courses.jpg
+¦           
++---build
+¦   ¦   892b637c16d52470fb7b14b9d9897587.cache.dill.track.dill
+¦   ¦   last_build_run.json
+¦   ¦   
+¦   +---10726b8117bca5024a80ccbc711f2ba0
+¦   ¦       gen_dart_plugin_registrant.stamp
+¦   ¦       gen_localizations.stamp
+¦   ¦       _composite.stamp
+¦   ¦       
+¦   +---73e07a041243dc822804e18494fff924
+¦   ¦       gen_dart_plugin_registrant.stamp
+¦   ¦       gen_localizations.stamp
+¦   ¦       _composite.stamp
+¦   ¦       
+¦   +---d1a8c124b1bf145335bef4ad9ef273a0
+¦   ¦       gen_dart_plugin_registrant.stamp
+¦   ¦       gen_localizations.stamp
+¦   ¦       _composite.stamp
+¦   ¦       
+¦   +---flutter_assets
+¦       ¦   AssetManifest.bin
+¦       ¦   AssetManifest.bin.json
+¦       ¦   AssetManifest.json
+¦       ¦   FontManifest.json
+¦       ¦   NOTICES
+¦       ¦   
+¦       +---assets
+¦       ¦   +---images
+¦       ¦           logo_courses.jpg
+¦       ¦           
+¦       +---fonts
+¦       ¦       MaterialIcons-Regular.otf
+¦       ¦       
+¦       +---packages
+¦       ¦   +---cupertino_icons
+¦       ¦   ¦   +---assets
+¦       ¦   ¦           CupertinoIcons.ttf
+¦       ¦   ¦           
+¦       ¦   +---flutter_map
+¦       ¦       +---lib
+¦       ¦           +---assets
+¦       ¦                   flutter_map_logo.png
+¦       ¦                   
+¦       +---shaders
+¦               ink_sparkle.frag
+¦               
++---ios
+¦   ¦   .gitignore
+¦   ¦   
+¦   +---Flutter
+¦   ¦   ¦   AppFrameworkInfo.plist
+¦   ¦   ¦   Debug.xcconfig
+¦   ¦   ¦   flutter_export_environment.sh
+¦   ¦   ¦   Generated.xcconfig
+¦   ¦   ¦   Release.xcconfig
+¦   ¦   ¦   
+¦   ¦   +---ephemeral
+¦   ¦           flutter_lldbinit
+¦   ¦           flutter_lldb_helper.py
+¦   ¦           
+¦   +---Runner
+¦   ¦   ¦   AppDelegate.swift
+¦   ¦   ¦   GeneratedPluginRegistrant.h
+¦   ¦   ¦   GeneratedPluginRegistrant.m
+¦   ¦   ¦   Info.plist
+¦   ¦   ¦   Runner-Bridging-Header.h
+¦   ¦   ¦   
+¦   ¦   +---Assets.xcassets
+¦   ¦   ¦   +---AppIcon.appiconset
+¦   ¦   ¦   ¦       Contents.json
+¦   ¦   ¦   ¦       Icon-App-1024x1024@1x.png
+¦   ¦   ¦   ¦       Icon-App-20x20@1x.png
+¦   ¦   ¦   ¦       Icon-App-20x20@2x.png
+¦   ¦   ¦   ¦       Icon-App-20x20@3x.png
+¦   ¦   ¦   ¦       Icon-App-29x29@1x.png
+¦   ¦   ¦   ¦       Icon-App-29x29@2x.png
+¦   ¦   ¦   ¦       Icon-App-29x29@3x.png
+¦   ¦   ¦   ¦       Icon-App-40x40@1x.png
+¦   ¦   ¦   ¦       Icon-App-40x40@2x.png
+¦   ¦   ¦   ¦       Icon-App-40x40@3x.png
+¦   ¦   ¦   ¦       Icon-App-60x60@2x.png
+¦   ¦   ¦   ¦       Icon-App-60x60@3x.png
+¦   ¦   ¦   ¦       Icon-App-76x76@1x.png
+¦   ¦   ¦   ¦       Icon-App-76x76@2x.png
+¦   ¦   ¦   ¦       Icon-App-83.5x83.5@2x.png
+¦   ¦   ¦   ¦       
+¦   ¦   ¦   +---LaunchImage.imageset
+¦   ¦   ¦           Contents.json
+¦   ¦   ¦           LaunchImage.png
+¦   ¦   ¦           LaunchImage@2x.png
+¦   ¦   ¦           LaunchImage@3x.png
+¦   ¦   ¦           README.md
+¦   ¦   ¦           
+¦   ¦   +---Base.lproj
+¦   ¦           LaunchScreen.storyboard
+¦   ¦           Main.storyboard
+¦   ¦           
+¦   +---Runner.xcodeproj
+¦   ¦   ¦   project.pbxproj
+¦   ¦   ¦   
+¦   ¦   +---project.xcworkspace
+¦   ¦   ¦   ¦   contents.xcworkspacedata
+¦   ¦   ¦   ¦   
+¦   ¦   ¦   +---xcshareddata
+¦   ¦   ¦           IDEWorkspaceChecks.plist
+¦   ¦   ¦           WorkspaceSettings.xcsettings
+¦   ¦   ¦           
+¦   ¦   +---xcshareddata
+¦   ¦       +---xcschemes
+¦   ¦               Runner.xcscheme
+¦   ¦               
+¦   +---Runner.xcworkspace
+¦   ¦   ¦   contents.xcworkspacedata
+¦   ¦   ¦   
+¦   ¦   +---xcshareddata
+¦   ¦           IDEWorkspaceChecks.plist
+¦   ¦           WorkspaceSettings.xcsettings
+¦   ¦           
+¦   +---RunnerTests
+¦           RunnerTests.swift
+¦           
++---lib
+¦   ¦   course_service.dart
+¦   ¦   firebase_options.dart
+¦   ¦   main.dart
+¦   ¦   main_boutique.dart
+¦   ¦   test_course_screen.dart
+¦   ¦   test_portefeuille.dart
+¦   ¦   
+¦   +---constants
+¦   ¦       app_colors.dart
+¦   ¦       app_theme.dart
+¦   ¦       app_widgets.dart
+¦   ¦       
+¦   +---gestion_boutiques
+¦   ¦   +---boutiques
+¦   ¦   ¦       dashboard.dart
+¦   ¦   ¦       formulaire_inscription.dart
+¦   ¦   ¦       
+¦   ¦   +---models
+¦   ¦   ¦       boutique.dart
+¦   ¦   ¦       commande.dart
+¦   ¦   ¦       products.dart
+¦   ¦   ¦       
+¦   ¦   +---pages
+¦   ¦   ¦       boutiques.dart
+¦   ¦   ¦       boutique_detail.dart
+¦   ¦   ¦       budget_optimization_screen.dart
+¦   ¦   ¦       commandes.dart
+¦   ¦   ¦       my_boutiques_screen.dart
+¦   ¦   ¦       order_screen.dart
+¦   ¦   ¦       
+¦   ¦   +---services
+¦   ¦           firestore_converter.dart
+¦   ¦           firestore_service.dart
+¦   ¦           
+¦   +---gestion_portefeuille
+¦   ¦   +---models
+¦   ¦   ¦       portefeuille_model.dart
+¦   ¦   ¦       transaction_model.dart
+¦   ¦   ¦       
+¦   ¦   +---screens
+¦   ¦   ¦       add_transaction_screen.dart
+¦   ¦   ¦       budget_settings_screen.dart
+¦   ¦   ¦       statistics_screen.dart
+¦   ¦   ¦       transaction_history_screen.dart
+¦   ¦   ¦       wallet_screen.dart
+¦   ¦   ¦       
+¦   ¦   +---services
+¦   ¦   ¦       budget_calculator.dart
+¦   ¦   ¦       budget_optimizer.dart
+¦   ¦   ¦       portefeuille_service.dart
+¦   ¦   ¦       wallet_service.dart
+¦   ¦   ¦       
+¦   ¦   +---widgets
+¦   ¦           balance_card.dart
+¦   ¦           budget_progress.dart
+¦   ¦           transaction_item.dart
+¦   ¦           
+¦   +---models
+¦   ¦       course_model.dart
+¦   ¦       user_model.dart
+¦   ¦       
+¦   +---pages
+¦   ¦       add_edit_course_screen.dart
+¦   ¦       course_list_screen.dart
+¦   ¦       order_options_page.dart
+¦   ¦       
+¦   +---screens
+¦   ¦       home_screen.dart
+¦   ¦       login_screen.dart
+¦   ¦       map_screen.dart
+¦   ¦       profile_screen.dart
+¦   ¦       register_screen.dart
+¦   ¦       splash_screen.dart
+¦   ¦       
+¦   +---services
+¦   ¦       auth_service.dart
+¦   ¦       boutique_service.dart
+¦   ¦       order_service.dart
+¦   ¦       
+¦   +---widgets
+¦           course_checkbox.dart
+¦           course_title.dart
+¦           
++---linux
+¦   ¦   .gitignore
+¦   ¦   CMakeLists.txt
+¦   ¦   
+¦   +---flutter
+¦   ¦   ¦   CMakeLists.txt
+¦   ¦   ¦   generated_plugins.cmake
+¦   ¦   ¦   generated_plugin_registrant.cc
+¦   ¦   ¦   generated_plugin_registrant.h
+¦   ¦   ¦   
+¦   ¦   +---ephemeral
+¦   ¦       +---.plugin_symlinks
+¦   +---runner
+¦           CMakeLists.txt
+¦           main.cc
+¦           my_application.cc
+¦           my_application.h
+¦           
++---macos
+¦   ¦   .gitignore
+¦   ¦   
+¦   +---Flutter
+¦   ¦   ¦   Flutter-Debug.xcconfig
+¦   ¦   ¦   Flutter-Release.xcconfig
+¦   ¦   ¦   GeneratedPluginRegistrant.swift
+¦   ¦   ¦   
+¦   ¦   +---ephemeral
+¦   ¦           Flutter-Generated.xcconfig
+¦   ¦           flutter_export_environment.sh
+¦   ¦           
+¦   +---Runner
+¦   ¦   ¦   AppDelegate.swift
+¦   ¦   ¦   DebugProfile.entitlements
+¦   ¦   ¦   Info.plist
+¦   ¦   ¦   MainFlutterWindow.swift
+¦   ¦   ¦   Release.entitlements
+¦   ¦   ¦   
+¦   ¦   +---Assets.xcassets
+¦   ¦   ¦   +---AppIcon.appiconset
+¦   ¦   ¦           app_icon_1024.png
+¦   ¦   ¦           app_icon_128.png
+¦   ¦   ¦           app_icon_16.png
+¦   ¦   ¦           app_icon_256.png
+¦   ¦   ¦           app_icon_32.png
+¦   ¦   ¦           app_icon_512.png
+¦   ¦   ¦           app_icon_64.png
+¦   ¦   ¦           Contents.json
+¦   ¦   ¦           
+¦   ¦   +---Base.lproj
+¦   ¦   ¦       MainMenu.xib
+¦   ¦   ¦       
+¦   ¦   +---Configs
+¦   ¦           AppInfo.xcconfig
+¦   ¦           Debug.xcconfig
+¦   ¦           Release.xcconfig
+¦   ¦           Warnings.xcconfig
+¦   ¦           
+¦   +---Runner.xcodeproj
+¦   ¦   ¦   project.pbxproj
+¦   ¦   ¦   
+¦   ¦   +---project.xcworkspace
+¦   ¦   ¦   +---xcshareddata
+¦   ¦   ¦           IDEWorkspaceChecks.plist
+¦   ¦   ¦           
+¦   ¦   +---xcshareddata
+¦   ¦       +---xcschemes
+¦   ¦               Runner.xcscheme
+¦   ¦               
+¦   +---Runner.xcworkspace
+¦   ¦   ¦   contents.xcworkspacedata
+¦   ¦   ¦   
+¦   ¦   +---xcshareddata
+¦   ¦           IDEWorkspaceChecks.plist
+¦   ¦           
+¦   +---RunnerTests
+¦           RunnerTests.swift
+¦           
++---web
+¦   ¦   favicon.png
+¦   ¦   index.html
+¦   ¦   manifest.json
+¦   ¦   
+¦   +---assets
+¦   ¦   +---fonts
+¦   ¦           README.txt
+¦   ¦           Roboto-Bold.woff2
+¦   ¦           Roboto-Regular.woff2
+¦   ¦           
+¦   +---icons
+¦           Icon-192.png
+¦           Icon-512.png
+¦           Icon-maskable-192.png
+¦           Icon-maskable-512.png
+¦           
++---windows
+    ¦   .gitignore
+    ¦   CMakeLists.txt
+    ¦   
+    +---flutter
+    ¦   ¦   CMakeLists.txt
+    ¦   ¦   generated_plugins.cmake
+    ¦   ¦   generated_plugin_registrant.cc
+    ¦   ¦   generated_plugin_registrant.h
+    ¦   ¦   
+    ¦   +---ephemeral
+    ¦       ¦   generated_config.cmake
+    ¦       ¦   
+    ¦       +---.plugin_symlinks
+    +---runner
+        ¦   CMakeLists.txt
+        ¦   flutter_window.cpp
+        ¦   flutter_window.h
+        ¦   main.cpp
+        ¦   resource.h
+        ¦   runner.exe.manifest
+        ¦   Runner.rc
+        ¦   utils.cpp
+        ¦   utils.h
+        ¦   win32_window.cpp
+        ¦   win32_window.h
+        ¦   
+        +---resources
+                app_icon.ico
+                
