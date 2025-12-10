@@ -159,7 +159,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             color: const Color(0xFF2C3E50),
             child: Column(
               children: [
-                Container(
+                Container( 
                   padding: const EdgeInsets.all(25),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -316,87 +316,90 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             const SizedBox(height: 30),
 
-            // Cartes de statistiques
-            StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('products')
-                  .where('boutique_id', isEqualTo: widget.boutiqueId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                final totalProducts = snapshot.hasData ? snapshot.data!.docs.length : 0;
+// Cartes de statistiques
+StreamBuilder<QuerySnapshot>(
+  stream: _firestore
+      .collection('products')
+      .where('boutique_id', isEqualTo: widget.boutiqueId)
+      .snapshots(),
+  builder: (context, snapshot) {
+    final totalProducts = snapshot.hasData ? snapshot.data!.docs.length : 0;
 
-                return StreamBuilder<QuerySnapshot>(
-                  stream: _firestore
-                      .collection('orders')
-                      .where('boutiqueId', isEqualTo: widget.boutiqueId)
-                      .snapshots(),
-                  builder: (context, orderSnapshot) {
-                    final totalOrders = orderSnapshot.hasData ? orderSnapshot.data!.docs.length : 0;
-                    double totalRevenue = 0;
-                    int pendingOrders = 0;
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('orders')
+          .where('boutiqueId', isEqualTo: widget.boutiqueId)
+          .snapshots(),
+      builder: (context, orderSnapshot) {
+        final totalOrders = orderSnapshot.hasData ? orderSnapshot.data!.docs.length : 0;
+        double totalRevenue = 0;
+        int pendingOrders = 0;
 
-                    if (orderSnapshot.hasData) {
-                      for (var doc in orderSnapshot.data!.docs) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        totalRevenue += (data['total'] ?? 0).toDouble();
+        if (orderSnapshot.hasData) {
+          for (var doc in orderSnapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            totalRevenue += (data['total'] ?? 0).toDouble();
 
-                        final status = data['status']?.toString() ?? '';
-                        if (status == 'En attente') {
-                          pendingOrders++;
-                        }
-                      }
-                    }
+            final status = data['status']?.toString() ?? '';
+            if (status == 'En attente') {
+              pendingOrders++;
+            }
+          }
+        }
 
-                    return GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: MediaQuery.of(context).size.width > 1000
-                          ? 4
-                          : MediaQuery.of(context).size.width > 600
-                              ? 2
-                              : 1,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: MediaQuery.of(context).size.width > 1000
-                          ? 3.5
-                          : MediaQuery.of(context).size.width > 600
-                              ? 2.8
-                              : 2.2,
-                      children: [
-                        _buildStatCard(
-                          title: 'Produits',
-                          value: totalProducts.toString(),
-                          icon: Icons.inventory,
-                          color: const Color(0xFF6D5DFC),
-                          subtitle: 'en stock',
-                        ),
-                        _buildStatCard(
-                          title: 'Commandes',
-                          value: totalOrders.toString(),
-                          icon: Icons.shopping_cart,
-                          color: const Color(0xFF2ECC71),
-                          subtitle: 'au total',
-                        ),
-                        _buildStatCard(
-                          title: 'Chiffre d\'affaires',
-                          value: '${totalRevenue.toStringAsFixed(0)} FCFA',
-                          icon: Icons.money,
-                          color: const Color(0xFFF39C12),
-                          subtitle: 'total',
-                        ),
-                        _buildStatCard(
-                          title: 'En attente',
-                          value: pendingOrders.toString(),
-                          icon: Icons.pending,
-                          color: const Color(0xFF3498DB),
-                          subtitle: 'commandes',
-                        ),
-                      ],
-                    );
-                  },
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: MediaQuery.of(context).size.width > 1000 ? 4 : 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.85, // Ratio optimisé - ajustez si nécessaire
+          ),
+          itemCount: 4,
+          itemBuilder: (context, index) {
+            switch (index) {
+              case 0:
+                return _buildStatCard(
+                  title: 'Produits',
+                  value: totalProducts.toString(),
+                  icon: Icons.inventory,
+                  color: const Color(0xFF6D5DFC),
+                  subtitle: 'en stock',
                 );
-              },
-            ),
+              case 1:
+                return _buildStatCard(
+                  title: 'Commandes',
+                  value: totalOrders.toString(),
+                  icon: Icons.shopping_cart,
+                  color: const Color(0xFF2ECC71),
+                  subtitle: 'au total',
+                );
+              case 2:
+                return _buildStatCard(
+                  title: 'Chiffre d\'affaires',
+                  value: '${totalRevenue.toStringAsFixed(0)} FCFA',
+                  icon: Icons.money,
+                  color: const Color(0xFFF39C12),
+                  subtitle: 'total',
+                );
+              case 3:
+                return _buildStatCard(
+                  title: 'En attente',
+                  value: pendingOrders.toString(),
+                  icon: Icons.pending,
+                  color: const Color(0xFF3498DB),
+                  subtitle: 'commandes',
+                );
+              default:
+                return Container();
+            }
+          },
+        );
+      },
+    );
+  },
+),
 
             const SizedBox(height: 40),
 
@@ -545,9 +548,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 stream: _firestore
                     .collection('orders')
                     .where('boutiqueId', isEqualTo: widget.boutiqueId)
-                    .orderBy('createdAt', descending: true)
-                    .limit(5)
-                    .snapshots(),
+                    .snapshots(), // RETIRER .orderBy('createdAt', descending: true)
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(child: Text('Erreur: ${snapshot.error}'));
@@ -577,14 +578,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     );
                   }
 
-                  final orders = snapshot.data!.docs;
+                  // TRI LOCAL des commandes par date (plus récentes d'abord)
+                  final orders = snapshot.data!.docs.toList()
+                    ..sort((a, b) {
+                      final aData = a.data() as Map<String, dynamic>;
+                      final bData = b.data() as Map<String, dynamic>;
+                      final aDate = aData['createdAt'] as Timestamp?;
+                      final bDate = bData['createdAt'] as Timestamp?;
+
+                      final aTime = aDate?.millisecondsSinceEpoch ?? 0;
+                      final bTime = bDate?.millisecondsSinceEpoch ?? 0;
+
+                      // Tri décroissant (plus récent d'abord)
+                      return bTime.compareTo(aTime);
+                    });
+
+                  // Prendre seulement les 5 premières commandes
+                  final recentOrders = orders.take(5).toList();
 
                   return ListView.separated(
                     shrinkWrap: true,
-                    itemCount: orders.length,
-                    separatorBuilder: (context, index) => const Divider(height: 15),
+                    itemCount: recentOrders.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 15),
                     itemBuilder: (context, index) {
-                      final doc = orders[index];
+                      final doc = recentOrders[index];
                       final data = doc.data() as Map<String, dynamic>;
                       final orderId = doc.id;
                       final amount = (data['total'] ?? 0).toDouble();
@@ -593,7 +611,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       String formattedDate = '';
                       if (ts != null) {
                         try {
-                          formattedDate = DateFormat('dd/MM/yy HH:mm').format(ts.toDate());
+                          formattedDate =
+                              DateFormat('dd/MM/yy HH:mm').format(ts.toDate());
                         } catch (e) {
                           formattedDate = ts.toDate().toString();
                         }
@@ -602,8 +621,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           leading: Container(
                             width: 36,
                             height: 36,
@@ -748,8 +767,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
                   for (var doc in products) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final category = data['categorie']?.toString() ?? 'Non catégorisé';
-                    categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+                    final category =
+                        data['categorie']?.toString() ?? 'Non catégorisé';
+                    categoryCounts[category] =
+                        (categoryCounts[category] ?? 0) + 1;
                   }
 
                   final sortedCategories = categoryCounts.entries.toList()
@@ -758,7 +779,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   return ListView.separated(
                     shrinkWrap: true,
                     itemCount: sortedCategories.length,
-                    separatorBuilder: (context, index) => const Divider(height: 12),
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 12),
                     itemBuilder: (context, index) {
                       final entry = sortedCategories[index];
                       final categoryName = _getCategoryName(entry.key);
@@ -1117,7 +1139,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                       fit: BoxFit.cover,
                                       loadingBuilder:
                                           (context, child, loadingProgress) {
-                                        if (loadingProgress == null) return child;
+                                        if (loadingProgress == null)
+                                          return child;
                                         return const Center(
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
@@ -1738,8 +1761,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           leading: const Icon(Icons.delete_outline,
                               color: Colors.red),
                           title: const Text('Supprimer la boutique'),
-                          subtitle: const Text(
-                              'Cette action est irréversible'),
+                          subtitle: const Text('Cette action est irréversible'),
                           trailing: IconButton(
                             icon: const Icon(Icons.arrow_forward_ios),
                             onPressed: () => _deleteBoutique(),
@@ -1755,8 +1777,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ),
                         const Divider(),
                         ListTile(
-                          leading: const Icon(Icons.security,
-                              color: Colors.green),
+                          leading:
+                              const Icon(Icons.security, color: Colors.green),
                           title: const Text('Sécurité'),
                           subtitle: const Text('Paramètres de sécurité'),
                           trailing: const Icon(Icons.arrow_forward_ios),
@@ -2007,8 +2029,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               borderRadius: BorderRadius.circular(6),
               color: const Color(0xFFEFE9E0),
             ),
-            child:
-                const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
           );
         }
 
@@ -2023,8 +2044,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               borderRadius: BorderRadius.circular(6),
               color: const Color(0xFFEFE9E0),
             ),
-            child:
-                const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
           );
         }
 
@@ -2055,8 +2075,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               borderRadius: BorderRadius.circular(6),
               color: const Color(0xFFEFE9E0),
             ),
-            child:
-                const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
           );
         }
       },
@@ -2151,8 +2170,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         LinearProgressIndicator(
           value: _uploadProgress,
           backgroundColor: Colors.grey[300],
-          valueColor:
-              const AlwaysStoppedAnimation<Color>(Color(0xFF6D5DFC)),
+          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6D5DFC)),
         ),
         const SizedBox(height: 5),
         Text(
@@ -2257,7 +2275,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         _uploadedImageUrl = imageUrl;
                                       });
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Erreur lors de l\'enregistrement de l\'image',
@@ -2616,8 +2635,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                       vertical: 8,
                                     ),
                                   ),
-                                  icon: const Icon(Icons.photo_library,
-                                      size: 16),
+                                  icon:
+                                      const Icon(Icons.photo_library, size: 16),
                                   label: Text(
                                       kIsWeb ? 'Changer image' : 'Galerie'),
                                 ),
@@ -2653,7 +2672,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                       setState(() {
                                         _uploadedImageUrl = imageUrl;
                                       });
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Nouvelle image enregistrée',
@@ -2662,7 +2682,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         ),
                                       );
                                     } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Erreur lors de l\'enregistrement de l\'image',
@@ -2974,7 +2995,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                          const Icon(Icons.person,
+                              size: 16, color: Colors.grey),
                           const SizedBox(width: 8),
                           Text(
                             'Client: $clientName',
@@ -3088,7 +3110,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ElevatedButton(
                   onPressed: () async {
                     try {
-                      await _firestore.collection('orders').doc(orderId).update({
+                      await _firestore
+                          .collection('orders')
+                          .doc(orderId)
+                          .update({
                         'status': currentStatus,
                         'deliveryType': currentDeliveryMethod,
                         'updatedAt': FieldValue.serverTimestamp(),
