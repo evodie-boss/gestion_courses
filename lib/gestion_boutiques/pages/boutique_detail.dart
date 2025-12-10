@@ -53,10 +53,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
   Future<void> _loadBoutiqueInfo() async {
     try {
-      final doc = await _firestore
-          .collection('boutiques')
-          .doc(widget.boutiqueId)
-          .get();
+      final doc =
+          await _firestore.collection('boutiques').doc(widget.boutiqueId).get();
 
       if (doc.exists) {
         setState(() {
@@ -244,7 +242,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       // Vérifier le solde du portefeuille
       final walletDoc = await _firestore
           .collection('portefeuille')
-          .doc(_currentUser.uid)
+          .doc(_currentUser!.uid)
           .get();
 
       final currentBalance = (walletDoc.data()?['balance'] ?? 0).toDouble();
@@ -279,7 +277,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           .toList();
 
       final orderData = {
-        'userId': _currentUser.uid,
+        'userId': _currentUser!.uid,
         'boutiqueId': widget.boutiqueId,
         'boutiqueName': widget.boutiqueName,
         'items': items,
@@ -295,7 +293,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       await _firestore.collection('orders').add(orderData);
 
       // Débiter le portefeuille
-      await _firestore.collection('portefeuille').doc(_currentUser.uid).update({
+      await _firestore.collection('portefeuille').doc(_currentUser!.uid).update({
         'balance': FieldValue.increment(-total),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
@@ -723,7 +721,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             ],
                           ),
                         ),
-
                         Expanded(
                           child: _cartItems.isEmpty
                               ? Center(
@@ -756,7 +753,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                   },
                                 ),
                         ),
-
                         if (_cartItems.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.all(20),
@@ -869,8 +865,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                             strokeWidth: 2,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
+                                              Colors.white,
+                                            ),
                                           ),
                                         )
                                       : const Text(
@@ -999,24 +995,25 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                         },
                       )
                     : isNetworkImage
-                    ? Image.network(
-                        product.imageUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildImageFallback(product);
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: const Color(0xFF0F9E99).withOpacity(0.5),
-                            ),
-                          );
-                        },
-                      )
-                    : _buildImageFallback(product),
+                        ? Image.network(
+                            product.imageUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildImageFallback(product);
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color:
+                                      const Color(0xFF0F9E99).withOpacity(0.5),
+                                ),
+                              );
+                            },
+                          )
+                        : _buildImageFallback(product),
               ),
             ),
           ),
@@ -1055,7 +1052,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                     ),
                   ],
                 ),
-
                 if (product.category.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -1064,7 +1060,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                       style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ),
-
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -1133,24 +1128,25 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                     child: Image.memory(imageBytes, fit: BoxFit.cover),
                   )
                 : isNetworkImage
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Icons.shopping_bag,
-                            color: Color(0xFF0F9E99),
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                : const Center(
-                    child: Icon(Icons.shopping_bag, color: Color(0xFF0F9E99)),
-                  ),
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          item.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Icon(
+                                Icons.shopping_bag,
+                                color: Color(0xFF0F9E99),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : const Center(
+                        child:
+                            Icon(Icons.shopping_bag, color: Color(0xFF0F9E99)),
+                      ),
           ),
           const SizedBox(width: 15),
 
