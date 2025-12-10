@@ -22,7 +22,7 @@ class _SplashScreenV2State extends State<SplashScreenV2>
     
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 5000),
+      duration: const Duration(milliseconds: 3000),
     );
 
     // Animation en 3 étapes : entrée, pause, sortie
@@ -73,7 +73,7 @@ class _SplashScreenV2State extends State<SplashScreenV2>
     );
 
     // Démarrer l'animation
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         _controller.forward();
       }

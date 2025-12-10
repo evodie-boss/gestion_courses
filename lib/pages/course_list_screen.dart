@@ -1,4 +1,3 @@
-// lib/pages/course_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/course_model.dart';
@@ -16,7 +15,7 @@ class CourseListScreen extends StatefulWidget {
 class _CourseListScreenState extends State<CourseListScreen> {
   final CourseService _service = CourseService();
   String _sortBy = 'priority';
-  bool _descending = false;
+  bool _descending = true; // Par défaut: haute priorité d'abord
   bool _selectionMode = false;
   final Set<String> _selectedCourseIds = <String>{};
 
@@ -30,6 +29,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color errorColor = Color(0xFFEF4444);
   static const Color infoColor = Color(0xFF3B82F6);
+  static const Color essentialColor = Color(0xFFFFB300); // Jaune pour essentiel
 
   String get _userId {
     final u = FirebaseAuth.instance.currentUser;
@@ -38,26 +38,12 @@ class _CourseListScreenState extends State<CourseListScreen> {
 
   // Méthode pour obtenir la couleur de priorité
   Color _getPriorityColor(CoursePriority priority) {
-    switch (priority) {
-      case CoursePriority.high:
-        return errorColor;
-      case CoursePriority.medium:
-        return warningColor;
-      case CoursePriority.low:
-        return successColor;
-    }
+    return priority.color;
   }
 
   // Méthode pour obtenir l'icône de priorité
   IconData _getPriorityIcon(CoursePriority priority) {
-    switch (priority) {
-      case CoursePriority.high:
-        return Icons.warning_amber;
-      case CoursePriority.medium:
-        return Icons.trending_up;
-      case CoursePriority.low:
-        return Icons.trending_down;
-    }
+    return priority.icon;
   }
 
   // Formater la date
@@ -73,7 +59,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
     )) {
       return "Demain";
     } else {
-      return "${date.day}/${date.month}";
+      return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}";
     }
   }
 
@@ -149,7 +135,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
           const SizedBox(height: 20),
           ListTile(
             leading: Icon(Icons.edit, color: primaryColor),
-            title: Text('Modifier la course'),
+            title: const Text('Modifier la course'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -166,7 +152,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
           ),
           ListTile(
             leading: Icon(Icons.shopping_cart, color: infoColor),
-            title: Text('Commander cette course'),
+            title: const Text('Commander cette course'),
             onTap: () {
               Navigator.pop(context);
               _navigateToOrderScreen(context, [course]);
@@ -175,11 +161,12 @@ class _CourseListScreenState extends State<CourseListScreen> {
           if (course.status == CourseStatus.done)
             ListTile(
               leading: Icon(Icons.replay, color: warningColor),
-              title: Text('Remettre à "À faire"'),
+              title: const Text('Remettre à "À faire"'),
               onTap: () async {
                 Navigator.pop(context);
                 try {
                   await _service.toggleComplete(course.id, false);
+                  _showSuccessSnackbar(context, 'Course remise à "À faire"');
                 } catch (e) {
                   _showErrorSnackbar(context, 'Erreur: $e');
                 }
@@ -188,11 +175,12 @@ class _CourseListScreenState extends State<CourseListScreen> {
           else
             ListTile(
               leading: Icon(Icons.check, color: successColor),
-              title: Text('Marquer comme fait'),
+              title: const Text('Marquer comme fait'),
               onTap: () async {
                 Navigator.pop(context);
                 try {
                   await _service.toggleComplete(course.id, true);
+                  _showSuccessSnackbar(context, 'Course marquée comme faite');
                 } catch (e) {
                   _showErrorSnackbar(context, 'Erreur: $e');
                 }
@@ -200,7 +188,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
             ),
           ListTile(
             leading: Icon(Icons.delete, color: errorColor),
-            title: Text('Supprimer'),
+            title: const Text('Supprimer'),
             onTap: () {
               Navigator.pop(context);
               _confirmDelete(context, course);
@@ -212,11 +200,13 @@ class _CourseListScreenState extends State<CourseListScreen> {
     );
   }
 
-  // Navigation vers l'écran de commande (Jenny)
+  // Navigation vers l'écran de commande
   void _navigateToOrderScreen(BuildContext context, List<Course> courses) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => OrderScreen(selectedCourses: courses)),
+      MaterialPageRoute(
+        builder: (_) => OrderScreen(selectedCourses: courses),
+      ),
     );
   }
 
@@ -244,6 +234,20 @@ class _CourseListScreenState extends State<CourseListScreen> {
     );
   }
 
+  // Calculer le total des courses sélectionnées
+  double _calculateSelectedTotal(List<Course> courses) {
+    return courses
+        .where((course) => _selectedCourseIds.contains(course.id))
+        .fold(0.0, (sum, course) => sum + course.amount);
+  }
+
+  // Obtenir les cours sélectionnées
+  List<Course> _getSelectedCourses(List<Course> allCourses) {
+    return allCourses
+        .where((course) => _selectedCourseIds.contains(course.id))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -251,7 +255,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
       appBar: AppBar(
         title: _selectionMode
             ? Text(
-                '${_selectedCourseIds.length} sélectionné(s)',
+                '${_selectedCourseIds.length} sélectionné${_selectedCourseIds.length > 1 ? 's' : ''}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               )
             : const Text(
@@ -273,7 +277,6 @@ class _CourseListScreenState extends State<CourseListScreen> {
         actions: _buildAppBarActions(),
       ),
       floatingActionButton: _buildFloatingActionButton(),
-
       body: StreamBuilder<List<Course>>(
         stream: _service.coursesStream(
           userId: _userId,
@@ -289,8 +292,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
             return _buildLoadingWidget();
           }
 
-          // STOCKER LES COURSES DANS LA VARIABLE
-          final courses = snapshot.data!; // ← IMPORTANT !
+          final courses = snapshot.data!;
 
           if (courses.isEmpty) {
             return _buildEmptyState();
@@ -305,8 +307,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
                   padding: const EdgeInsets.all(16),
                   itemCount: courses.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) =>
-                      _buildCourseCard(context, courses[i]),
+                  itemBuilder: (context, index) =>
+                      _buildCourseCard(context, courses[index]),
                 ),
               ),
             ],
@@ -343,16 +345,34 @@ class _CourseListScreenState extends State<CourseListScreen> {
                 });
                 break;
               case 'sort_priority':
-                setState(() => _sortBy = 'priority');
+                setState(() {
+                  _sortBy = 'priority';
+                  _descending = true; // Haute priorité d'abord
+                });
                 break;
               case 'sort_date':
-                setState(() => _sortBy = 'dueDate');
+                setState(() {
+                  _sortBy = 'dueDate';
+                  _descending = false; // Dates proches d'abord
+                });
                 break;
               case 'sort_created':
-                setState(() => _sortBy = 'createdAt');
+                setState(() {
+                  _sortBy = 'createdAt';
+                  _descending = true; // Récentes d'abord
+                });
+                break;
+              case 'sort_amount':
+                setState(() {
+                  _sortBy = 'amount';
+                  _descending = true; // Plus chères d'abord
+                });
                 break;
               case 'toggle_order':
                 setState(() => _descending = !_descending);
+                break;
+              case 'show_essential':
+                // TODO: Filtrer pour montrer seulement les essentiels
                 break;
             }
           },
@@ -368,33 +388,67 @@ class _CourseListScreenState extends State<CourseListScreen> {
               ),
             ),
             const PopupMenuDivider(),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'sort_priority',
               child: Row(
                 children: [
-                  Icon(Icons.flag, color: Colors.grey),
-                  SizedBox(width: 12),
-                  Text('Trier par priorité'),
+                  Icon(Icons.flag,
+                      color: _sortBy == 'priority' ? primaryColor : Colors.grey),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Trier par priorité',
+                    style: TextStyle(
+                      color: _sortBy == 'priority' ? primaryColor : null,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'sort_date',
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today, color: Colors.grey),
-                  SizedBox(width: 12),
-                  Text('Trier par date limite'),
+                  Icon(Icons.calendar_today,
+                      color: _sortBy == 'dueDate' ? primaryColor : Colors.grey),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Trier par date limite',
+                    style: TextStyle(
+                      color: _sortBy == 'dueDate' ? primaryColor : null,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'sort_created',
               child: Row(
                 children: [
-                  Icon(Icons.access_time, color: Colors.grey),
-                  SizedBox(width: 12),
-                  Text('Trier par date de création'),
+                  Icon(Icons.access_time,
+                      color: _sortBy == 'createdAt' ? primaryColor : Colors.grey),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Trier par date de création',
+                    style: TextStyle(
+                      color: _sortBy == 'createdAt' ? primaryColor : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'sort_amount',
+              child: Row(
+                children: [
+                  Icon(Icons.attach_money,
+                      color: _sortBy == 'amount' ? primaryColor : Colors.grey),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Trier par montant',
+                    style: TextStyle(
+                      color: _sortBy == 'amount' ? primaryColor : null,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -405,10 +459,10 @@ class _CourseListScreenState extends State<CourseListScreen> {
                 children: [
                   Icon(
                     _descending ? Icons.arrow_upward : Icons.arrow_downward,
-                    color: Colors.grey,
+                    color: primaryColor,
                   ),
                   const SizedBox(width: 12),
-                  Text(_descending ? 'Ordre croissant' : 'Ordre décroissant'),
+                  Text(_descending ? 'Ordre décroissant' : 'Ordre croissant'),
                 ],
               ),
             ),
@@ -525,13 +579,16 @@ class _CourseListScreenState extends State<CourseListScreen> {
 
   // Construire les actions de sélection
   Widget _buildSelectionActions(List<Course> courses) {
+    final selectedTotal = _calculateSelectedTotal(courses);
+    final selectedCount = _selectedCourseIds.length;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: primaryColor.withOpacity(0.1),
       child: Row(
         children: [
           Checkbox(
-            value: _selectedCourseIds.length == courses.length,
+            value: selectedCount == courses.length,
             onChanged: (value) {
               if (value == true) {
                 _selectAllCourses(courses);
@@ -542,29 +599,45 @@ class _CourseListScreenState extends State<CourseListScreen> {
             activeColor: primaryColor,
           ),
           Expanded(
-            child: Text(
-              '${_selectedCourseIds.length} sur ${courses.length} sélectionné(s)',
-              style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$selectedCount sur ${courses.length} sélectionné(s)',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                if (selectedCount > 0)
+                  Text(
+                    'Total: ${selectedTotal.toStringAsFixed(2)} FCFA',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
             ),
           ),
           IconButton(
             icon: Icon(Icons.shopping_cart, color: infoColor),
-            onPressed: _selectedCourseIds.isEmpty
+            onPressed: selectedCount == 0
                 ? null
                 : () {
-                    final selectedCourses = courses
-                        .where((c) => _selectedCourseIds.contains(c.id))
-                        .toList();
+                    final selectedCourses = _getSelectedCourses(courses);
                     _navigateToOrderScreen(context, selectedCourses);
                   },
             tooltip: 'Commander les courses sélectionnées',
           ),
           IconButton(
             icon: Icon(Icons.auto_graph, color: warningColor),
-            onPressed: _selectedCourseIds.isEmpty
+            onPressed: selectedCount == 0
                 ? null
                 : () {
-                    _showOptimizationDialog(context);
+                    _showOptimizationDialog(context, courses);
                   },
             tooltip: 'Optimiser le budget',
           ),
@@ -574,10 +647,47 @@ class _CourseListScreenState extends State<CourseListScreen> {
   }
 
   // Afficher le dialogue d'optimisation
-  void _showOptimizationDialog(BuildContext context) {
-    // Cette fonctionnalité sera implémentée plus tard
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Optimisation budgétaire - À venir')),
+  void _showOptimizationDialog(BuildContext context, List<Course> allCourses) {
+    final selectedCourses = _getSelectedCourses(allCourses);
+    final total = _calculateSelectedTotal(allCourses);
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Optimisation Budgétaire'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${selectedCourses.length} courses sélectionnées',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text('Total: ${total.toStringAsFixed(2)} FCFA'),
+                const SizedBox(height: 16),
+                const Text('Cette fonctionnalité sera bientôt disponible.'),
+                const SizedBox(height: 8),
+                const Text('Elle permettra de :'),
+                const SizedBox(height: 8),
+                const Text('• Réduire automatiquement les prix'),
+                const Text('• Ajuster les quantités'),
+                const Text('• Prioriser les articles essentiels'),
+                const Text('• Suggérer des alternatives'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fermer'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -612,7 +722,11 @@ class _CourseListScreenState extends State<CourseListScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isSelected ? primaryColor : Colors.grey[200]!,
+              color: isSelected
+                  ? primaryColor
+                  : course.isEssential
+                      ? essentialColor.withOpacity(0.3)
+                      : Colors.grey[200]!,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -624,20 +738,33 @@ class _CourseListScreenState extends State<CourseListScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Colonne de gauche : Sélection ou priorité
                   if (_selectionMode)
-                    Checkbox(
-                      value: isSelected,
-                      onChanged: (value) => _toggleCourseSelection(course.id),
-                      activeColor: primaryColor,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Checkbox(
+                        value: isSelected,
+                        onChanged: (value) => _toggleCourseSelection(course.id),
+                        activeColor: primaryColor,
+                      ),
                     )
                   else
                     Container(
                       margin: const EdgeInsets.only(right: 12),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          // Indicateur d'article essentiel
+                          if (course.isEssential)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              child: Icon(
+                                Icons.star,
+                                color: essentialColor,
+                                size: 16,
+                              ),
+                            ),
                           Icon(
                             _getPriorityIcon(course.priority),
                             color: _getPriorityColor(course.priority),
@@ -645,7 +772,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            course.priority.name.toUpperCase(),
+                            course.priority.displayName,
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -665,9 +792,26 @@ class _CourseListScreenState extends State<CourseListScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                course.title,
-                                style: _getTextStyle(isDone),
+                              child: Row(
+                                children: [
+                                  if (course.isEssential && !_selectionMode)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Icon(
+                                        Icons.star,
+                                        color: essentialColor,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      course.title,
+                                      style: _getTextStyle(isDone),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             if (!_selectionMode && isDone)
@@ -695,23 +839,66 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          course.description,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDone ? textSecondary : textPrimary,
-                            fontStyle: FontStyle.normal,
+                        const SizedBox(height: 6),
+                        if (course.description.isNotEmpty)
+                          Text(
+                            course.description,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDone ? textSecondary : textPrimary,
+                              fontStyle: FontStyle.normal,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                         const SizedBox(height: 12),
+                        // Section d'informations détaillées
                         Row(
                           children: [
+                            // Quantité et unité
+                            if (course.quantity > 0)
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.format_list_numbered,
+                                    size: 14,
+                                    color: primaryColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${course.quantity} ${course.unit}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                              ),
+                            // Prix unitaire
+                            if (course.unitPrice > 0)
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.attach_money,
+                                    size: 14,
+                                    color: primaryColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${course.unitPrice.toStringAsFixed(2)} FCFA/${course.unit}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                              ),
+                            // Montant total
                             Icon(
-                              Icons.attach_money,
-                              size: 16,
+                              Icons.calculate,
+                              size: 14,
                               color: primaryColor,
                             ),
                             const SizedBox(width: 4),
@@ -723,27 +910,50 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                 color: primaryColor,
                               ),
                             ),
-                            const Spacer(),
-                            if (course.dueDate != null)
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today,
-                                    size: 16,
-                                    color: textSecondary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatDate(course.dueDate!),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        // Date limite
+                        if (course.dueDate != null)
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                size: 14,
+                                color: textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Échéance: ${_formatDate(course.dueDate!)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: textSecondary,
+                                ),
+                              ),
+                              // Indicateur de retard
+                              if (course.dueDate!.isBefore(DateTime.now()) &&
+                                  !isDone)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: errorColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'EN RETARD',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: errorColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                       ],
                     ),
                   ),

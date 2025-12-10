@@ -30,7 +30,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   // Images pour chaque catégorie de boutique
   final Map<String, String> _categoryImages = {
     'supermarche': 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974',
-    'marche': 'assets/images/marchéJenny.png',
+    'marche': 'https://images.unsplash.com/photo-1624079269790-f8f7bc1ee7c3?q=80&w=2070',
     'boutique': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070',
     'boulangerie': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=2072',
     'boucherie': 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2069',
@@ -39,13 +39,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   // Image par défaut
   final String _defaultImage = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070';
 
-  final List<Map<String, dynamic>> _categories = [
+  // Liste des filtres DYNAMIQUES (sera remplie avec les catégories réelles)
+  List<Map<String, String>> _categories = [
     {'name': 'Tous', 'filter': 'all'},
-    {'name': 'Vêtements', 'filter': 'clothing'},
-    {'name': 'Chaussures', 'filter': 'shoes'},
-    {'name': 'Accessoires', 'filter': 'accessories'},
-    {'name': 'Électronique', 'filter': 'electronics'},
-    {'name': 'Aliments', 'filter': 'food'},
   ];
 
   List<Product> _cartItems = [];
@@ -93,6 +89,44 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     return _defaultImage;
   }
 
+  // Méthode pour extraire les catégories UNIQUES des produits
+  void _extractCategoriesFromProducts(List<Product> products) {
+    final categorySet = <String>{};
+    
+    for (var product in products) {
+      if (product.category.isNotEmpty) {
+        categorySet.add(product.category);
+      }
+    }
+    
+    // Convertir les catégories en format pour les filtres
+    final categoryList = categorySet.map((category) {
+      // Formater le nom pour l'affichage
+      String displayName = category;
+      
+      // Capitaliser la première lettre
+      if (displayName.isNotEmpty) {
+        displayName = displayName[0].toUpperCase() + displayName.substring(1);
+      }
+      
+      return {
+        'name': displayName,
+        'filter': category,
+      };
+    }).toList();
+    
+    // Trier par nom
+    categoryList.sort((a, b) => a['name']!.compareTo(b['name']!));
+    
+    // Mettre à jour la liste des catégories
+    setState(() {
+      _categories = [
+        {'name': 'Tous', 'filter': 'all'},
+        ...categoryList,
+      ];
+    });
+  }
+
   Future<void> _loadBoutiqueInfo() async {
     try {
       final doc = await _firestore
@@ -127,6 +161,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         print('📄 Document ID: ${doc.id}');
         print('📄 Données: ${doc.data()}');
         print('📄 boutique_id: ${doc.data()['boutique_id']}');
+        print('📄 Catégorie: ${doc.data()['categorie']}');
       }
 
       if (snapshot.docs.isEmpty) {
@@ -149,6 +184,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
             _boutiqueProducts = products;
             _isLoading = false;
           });
+          
+          // Extraire les catégories des produits
+          _extractCategoriesFromProducts(products);
           return;
         }
       }
@@ -160,6 +198,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         _boutiqueProducts = products;
         _isLoading = false;
       });
+      
+      // Extraire les catégories des produits
+      _extractCategoriesFromProducts(products);
       
       _debugProductsInfo(products);
     } catch (e) {
@@ -175,14 +216,16 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     print(
       '📊 Nombre de produits chargés pour boutique ${widget.boutiqueId}: ${products.length}',
     );
+    
+    // Compter les produits par catégorie
+    final categoryCount = <String, int>{};
     for (var product in products) {
-      print('  📦 Produit: ${product.name}');
-      print('    Boutique ID: ${product.boutiqueId}');
-      print('    Catégorie: ${product.category}');
-      print('    Prix: ${product.price} FCFA');
-      print('    Type d\'image: ${_getImageType(product.imageUrl)}');
-      print('    Image URL (50 premiers caractères): ${product.imageUrl.length > 50 ? '${product.imageUrl.substring(0, 50)}...' : product.imageUrl}');
-      print('    ---');
+      categoryCount[product.category] = (categoryCount[product.category] ?? 0) + 1;
+    }
+    
+    print('📊 Catégories trouvées:');
+    for (var entry in categoryCount.entries) {
+      print('  - ${entry.key}: ${entry.value} produit(s)');
     }
   }
 
@@ -199,8 +242,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   List<Product> _getFilteredProducts() {
     List<Product> filteredProducts = _boutiqueProducts;
 
-    if (_selectedCategory > 0) {
-      final filter = _categories[_selectedCategory]['filter'];
+    if (_selectedCategory > 0 && _categories.length > _selectedCategory) {
+      final filter = _categories[_selectedCategory]['filter']!; // Ajout de ! car on sait que c'est non-null
       filteredProducts = filteredProducts
           .where((product) => product.category == filter)
           .toList();
@@ -558,7 +601,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 flexibleSpace: FlexibleSpaceBar(
                   background: _boutiqueInfo?['imageUrl'] != null
                       ? Image.network(
-                          _boutiqueInfo!['imageUrl'],
+                          _boutiqueInfo!['imageUrl'] as String, // Cast en String
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
@@ -618,7 +661,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                           ),
                           if (_boutiqueInfo?['categories'] != null)
                             Text(
-                              _boutiqueInfo!['categories'],
+                              _boutiqueInfo!['categories'] as String, // Cast en String
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -725,7 +768,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    _boutiqueInfo!['location'],
+                                    _boutiqueInfo!['location'] as String, // Cast en String
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 14,
@@ -747,7 +790,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${_boutiqueInfo!['rating']?.toStringAsFixed(1) ?? '5.0'}',
+                                  (_boutiqueInfo!['rating'] as num).toStringAsFixed(1), // Cast en num
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -755,7 +798,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '(${_boutiqueInfo!['reviewCount'] ?? 0} avis)',
+                                  '(${(_boutiqueInfo!['reviewCount'] as num? ?? 0).toString()} avis)', // Cast en num
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -770,50 +813,83 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 ),
               ),
 
-              // Filtres de catégories
+              // FILTRES DYNAMIQUES basés sur les catégories réelles
               SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 60,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilterChip(
-                          label: Text(
-                            _categories[index]['name'],
-                            style: TextStyle(
-                              color: _selectedCategory == index
-                                  ? Colors.white
-                                  : const Color(0xFF0F9E99),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          selected: _selectedCategory == index,
-                          onSelected: (selected) {
-                            setState(() {
-                              _selectedCategory = index;
-                            });
+                child: _categories.length > 1
+                    ? SizedBox(
+                        height: 60,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: _categories.length,
+                          itemBuilder: (context, index) {
+                            final category = _categories[index];
+                            final isSelected = _selectedCategory == index;
+                            final categoryName = category['name']!;
+                            final categoryFilter = category['filter']!;
+                            
+                            final productCount = index == 0
+                                ? _boutiqueProducts.length
+                                : _boutiqueProducts
+                                    .where((p) => p.category == categoryFilter)
+                                    .length;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: FilterChip(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(categoryName),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Colors.white.withOpacity(0.3)
+                                            : const Color(0xFF0F9E99)
+                                                .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$productCount',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : const Color(0xFF0F9E99),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedCategory = index;
+                                  });
+                                },
+                                backgroundColor: Colors.white,
+                                selectedColor: const Color(0xFF0F9E99),
+                                side: BorderSide(
+                                  color:
+                                      const Color(0xFF0F9E99).withOpacity(0.3),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                              ),
+                            );
                           },
-                          backgroundColor: Colors.white,
-                          selectedColor: const Color(0xFF0F9E99),
-                          side: BorderSide(
-                            color: const Color(0xFF0F9E99).withOpacity(0.3),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
                         ),
-                      );
-                    },
-                  ),
-                ),
+                      )
+                    : const SizedBox.shrink(),
               ),
 
               // Titre des produits
@@ -1114,6 +1190,17 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 'Aucun produit disponible',
                 style: TextStyle(fontSize: 18, color: Color(0xFF666666)),
               ),
+              if (_selectedCategory > 0 && _categories.length > _selectedCategory)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Aucun produit dans la catégorie "${_categories[_selectedCategory]['name']!}"',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 8),
               Text(
                 'Boutique ID: ${widget.boutiqueId}',
@@ -1188,7 +1275,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 color: const Color(0xFFEFE9E0),
                 child: isBase64Image
                     ? Image.memory(
-                        imageBytes,
+                        imageBytes!,
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: double.infinity,
@@ -1332,7 +1419,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
             child: isBase64Image
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(imageBytes, fit: BoxFit.cover),
+                    child: Image.memory(imageBytes!, fit: BoxFit.cover),
                   )
                 : isNetworkImage
                     ? ClipRRect(

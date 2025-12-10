@@ -4,6 +4,9 @@ import 'package:gestion_courses/constants/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
+// AJOUTEZ CES IMPORTS
+import 'package:gestion_courses/gestion_portefeuille/screens/recharge_wallet_screen.dart';
+import 'package:gestion_courses/gestion_portefeuille/screens/transaction_history_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -407,7 +410,6 @@ class ProfileScreen extends StatelessWidget {
   }
 
 
-
   Widget _buildInfoItem({
     required BuildContext context,
     required IconData icon,
@@ -502,7 +504,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-
   // Méthodes utilitaires
   String _formatDate(String date) {
     try {
@@ -564,59 +565,29 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  // CORRIGEZ CES 3 MÉTHODES :
+
   void _rechargeWallet(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Recharger le portefeuille'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Choisissez un montant:'),
-              SizedBox(height: 20),
-              Text('Fonctionnalité en développement...'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Recharger'),
-            ),
-          ],
-        );
-      },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RechargeWalletScreen(),
+      ),
     );
   }
 
   void _viewTransactionHistory(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Historique des transactions'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Aucune transaction pour le moment.'),
-              SizedBox(height: 20),
-              Text('Vos transactions apparaîtront ici.'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+    
+    if (user != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TransactionHistoryScreen(userId: user.id),
+        ),
+      );
+    }
   }
 
-
-}
+ }
