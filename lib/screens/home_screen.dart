@@ -384,24 +384,24 @@ class _HomeScreenState extends State<HomeScreen>
       case 1:
         return KeyedSubtree(
           key: const ValueKey('courses'),
-          child: _buildNavigatorPage(CourseListScreen()),
+          child: const CourseListScreen(),
         );
       case 2:
         return KeyedSubtree(
           key: const ValueKey('wallet'),
           child: user != null
-              ? _buildNavigatorPage(WalletScreen(userId: user.id))
+              ? WalletScreen(userId: user.id)
               : _buildWalletContent(user),
         );
       case 3:
         return KeyedSubtree(
           key: const ValueKey('boutiques'),
-          child: _buildBoutiquesNavigator(context),
+          child: const ElegantBoutiquePage(),
         );
       case 4:
         return KeyedSubtree(
           key: const ValueKey('map'),
-          child: _buildNavigatorPage(const MapScreen()),
+          child: const MapScreen(),
         );
       case 5:
         return KeyedSubtree(
@@ -414,41 +414,6 @@ class _HomeScreenState extends State<HomeScreen>
           child: _buildHomeContent(user),
         );
     }
-  }
-
-  // Wraps chaque page dans un Navigator local pour éviter les conflits de navigation
-  Widget _buildNavigatorPage(Widget page) {
-    return Navigator(
-      onGenerateRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (context) => page,
-          settings: settings,
-        );
-      },
-    );
-  }
-
-  // Navigator spécial pour les boutiques avec navigation vers détail
-  // Remplacez cette fonction
-  Widget _buildBoutiquesNavigator(BuildContext context) {
-    return Navigator(
-      onGenerateRoute: (settings) {
-        if (settings.name == '/boutiqueDetail') {
-          final args = settings.arguments as Map<String, dynamic>;
-          final boutiqueId = args['boutiqueId'] as String;
-          final boutiqueName = args['boutiqueName'] as String;
-          return MaterialPageRoute(
-            builder: (context) => BoutiqueDetailScreen(
-              boutiqueId: boutiqueId,
-              boutiqueName: boutiqueName,
-            ),
-          );
-        }
-        return MaterialPageRoute(
-          builder: (context) => const ElegantBoutiquePage(),
-        );
-      },
-    );
   }
 
   Widget _buildHomeContent(UserModel? user) {
@@ -1069,15 +1034,13 @@ class _HomeScreenState extends State<HomeScreen>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: GestureDetector(
-          // Dans la fonction _buildShopCard
           onTap: () {
-            // Naviguer vers le détail de la boutique
-            Navigator.of(context).push(
+            Navigator.push(
+              context,
               MaterialPageRoute(
                 builder: (context) => BoutiqueDetailScreen(
                   boutiqueId: shop['id'],
-                  boutiqueName:
-                      shop['name'], // <-- ASSUREZ-VOUS DE FOURNIR CE PARAMÈTRE
+                  boutiqueName: shop['name'],
                 ),
               ),
             );
@@ -1271,98 +1234,96 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Mes Commandes',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.purple,
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('orders')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 50,
+                ),
+                const SizedBox(height: 16),
+                Text('Erreur: ${snapshot.error}'),
+              ],
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.tropicalTeal,
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 80,
+                  color: Colors.grey.withOpacity(0.3),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Aucune commande',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Vous n\'avez pas encore passé de commande',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data!.docs;
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            // Rafraîchir les données si nécessaire
+            setState(() {});
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text(
+                'Mes Commandes',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.purple,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Suivi de vos commandes passées',
-              style: TextStyle(fontSize: 16, color: AppColors.textColor),
-            ),
-            const SizedBox(height: 30),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('orders')
-                  .where('userId', isEqualTo: user.uid)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 50,
-                        ),
-                        const SizedBox(height: 16),
-                        Text('Erreur: ${snapshot.error}'),
-                      ],
-                    ),
-                  );
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.shopping_cart_outlined,
-                          size: 80,
-                          color: Colors.grey.withOpacity(0.3),
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Aucune commande',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Vous n\'avez pas encore passé de commande',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final orders = snapshot.data!.docs;
-
-                return Column(
-                  children: [
-                    for (int i = 0; i < orders.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 12),
-                      _buildOrderCard(orders[i]),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 8),
+              const Text(
+                'Suivi de vos commandes passées',
+                style: TextStyle(fontSize: 14, color: AppColors.textColor),
+              ),
+              const SizedBox(height: 20),
+              ...orders.map((doc) => _buildOrderCard(doc)).toList(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1379,6 +1340,7 @@ class _HomeScreenState extends State<HomeScreen>
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1420,15 +1382,7 @@ class _HomeScreenState extends State<HomeScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    status == 'pending'
-                        ? 'En attente'
-                        : status == 'confirmed'
-                        ? 'Confirmée'
-                        : status == 'shipped'
-                        ? 'Expédiée'
-                        : status == 'delivered'
-                        ? 'Livrée'
-                        : 'En cours',
+                    _getStatusText(status),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1501,16 +1455,39 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'pending':
+        return 'En attente';
+      case 'confirmed':
+        return 'Confirmée';
+      case 'processing':
+        return 'En traitement';
+      case 'shipped':
+        return 'Expédiée';
+      case 'delivered':
+        return 'Livrée';
+      case 'cancelled':
+        return 'Annulée';
+      default:
+        return 'En cours';
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'pending':
         return Colors.orange;
       case 'confirmed':
         return Colors.blue;
-      case 'shipped':
+      case 'processing':
         return Colors.purple;
+      case 'shipped':
+        return Colors.indigo;
       case 'delivered':
         return Colors.green;
+      case 'cancelled':
+        return Colors.red;
       default:
         return Colors.grey;
     }
