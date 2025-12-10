@@ -11,7 +11,7 @@ class ElegantBoutiquePage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Créer une boutique'),
-        content: const Text('Cette fonctionnalité sera bientôt disponible !'),
+        content: const Text('Cette fonctionnalité sera bientôt disponible ici !'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

@@ -1534,7 +1534,7 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           // Header du drawer
           Container(
-            height: 180,
+            height: 200,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -1546,7 +1546,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1698,14 +1698,6 @@ class _HomeScreenState extends State<HomeScreen>
                     builder: (context) => const ProfileScreen(),
                   ),
                 );
-              },
-            ),
-            _drawerItem(
-              icon: Icons.settings_rounded,
-              title: 'Paramètres',
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Ajouter écran paramètres
               },
             ),
             const SizedBox(height: 10),

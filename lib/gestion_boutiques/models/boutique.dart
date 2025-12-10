@@ -8,6 +8,7 @@ class Boutique {
   DateTime? updatedAt;
   double latitude;
   double longitude;
+  double distanceKm = 0.0;
   String nom;
 
   Boutique({
@@ -18,6 +19,7 @@ class Boutique {
     this.updatedAt,
     required this.latitude,
     required this.longitude,
+    this.distanceKm = 0.0, // <==== AJOUTEZ CETTE INITIALISATION
     required this.nom,
   });
 

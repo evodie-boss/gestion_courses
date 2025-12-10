@@ -30,14 +30,15 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   // Images pour chaque catégorie de boutique
   final Map<String, String> _categoryImages = {
     'supermarche': 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974',
-    'marche': 'https://images.unsplash.com/photo-1624079269790-f8f7bc1ee7c3?q=80&w=2070',
+    'marche': 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1974',
     'boutique': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070',
     'boulangerie': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=2072',
     'boucherie': 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2069',
   };
 
   // Image par défaut
-  final String _defaultImage = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070';
+  final String _defaultImage =
+      'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070';
 
   // Liste des filtres DYNAMIQUES (sera remplie avec les catégories réelles)
   List<Map<String, String>> _categories = [
@@ -61,30 +62,29 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
   // Méthode pour obtenir l'URL de l'image selon la catégorie
   String _getCategoryImageUrl() {
-    if (_boutiqueInfo?['categories'] != null) {
-      final category = _boutiqueInfo!['categories'].toString().toLowerCase();
-      
-      // Chercher dans les catégories prédéfinies
-      for (var key in _categoryImages.keys) {
-        if (category.contains(key)) {
-          return _categoryImages[key]!;
+    if (_boutiqueInfo?['categories'] != null && 
+        _boutiqueInfo!['categories'] is String) {
+      final category = (_boutiqueInfo!['categories'] as String).toLowerCase();
+
+      // Utiliser une Map pour une recherche plus efficace
+      final categoryMap = {
+        'supermarche': _categoryImages['supermarche'],
+        'super marché': _categoryImages['supermarche'],
+        'marché': _categoryImages['marche'],
+        'marche': _categoryImages['marche'],
+        'boutique': _categoryImages['boutique'],
+        'boulangerie': _categoryImages['boulangerie'],
+        'boucherie': _categoryImages['boucherie'],
+      };
+
+      // Chercher la correspondance
+      for (var entry in categoryMap.entries) {
+        if (category.contains(entry.key)) {
+          return entry.value ?? _defaultImage;
         }
       }
-      
-      // Vérifier les catégories spécifiques
-      if (category.contains('supermarche') || category.contains('super marché')) {
-        return _categoryImages['supermarche']!;
-      } else if (category.contains('marché') || category.contains('marche')) {
-        return _categoryImages['marche']!;
-      } else if (category.contains('boutique')) {
-        return _categoryImages['boutique']!;
-      } else if (category.contains('boulangerie')) {
-        return _categoryImages['boulangerie']!;
-      } else if (category.contains('boucherie')) {
-        return _categoryImages['boucherie']!;
-      }
     }
-    
+
     // Image par défaut si aucune catégorie ne correspond
     return _defaultImage;
   }
@@ -92,32 +92,31 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   // Méthode pour extraire les catégories UNIQUES des produits
   void _extractCategoriesFromProducts(List<Product> products) {
     final categorySet = <String>{};
-    
     for (var product in products) {
       if (product.category.isNotEmpty) {
         categorySet.add(product.category);
       }
     }
-    
+
     // Convertir les catégories en format pour les filtres
     final categoryList = categorySet.map((category) {
       // Formater le nom pour l'affichage
       String displayName = category;
-      
-      // Capitaliser la première lettre
+      // Mettre la première lettre en majuscule
       if (displayName.isNotEmpty) {
-        displayName = displayName[0].toUpperCase() + displayName.substring(1);
+        displayName = displayName[0].toUpperCase() + 
+                     displayName.substring(1).toLowerCase();
       }
-      
+
       return {
         'name': displayName,
         'filter': category,
       };
     }).toList();
-    
+
     // Trier par nom
     categoryList.sort((a, b) => a['name']!.compareTo(b['name']!));
-    
+
     // Mettre à jour la liste des catégories
     setState(() {
       _categories = [
@@ -129,10 +128,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
   Future<void> _loadBoutiqueInfo() async {
     try {
-      final doc = await _firestore
-          .collection('boutiques')
-          .doc(widget.boutiqueId)
-          .get();
+      final doc =
+          await _firestore.collection('boutiques').doc(widget.boutiqueId).get();
 
       if (doc.exists) {
         setState(() {
@@ -148,7 +145,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     try {
       print('🛒 Chargement produits pour boutique ID: ${widget.boutiqueId}');
 
-      // CORRECTION : Rechercher les produits avec le bon champ "boutique_id"
+      // Rechercher les produits avec le bon champ "boutique_id"
       final snapshot = await _firestore
           .collection('products')
           .where('boutique_id', isEqualTo: widget.boutiqueId)
@@ -166,25 +163,27 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
       if (snapshot.docs.isEmpty) {
         // Essayer une autre recherche avec des variations de champ
-        print('⚠️ Aucun produit trouvé avec boutique_id. Tentative alternative...');
-        
+        print(
+            '⚠️ Aucun produit trouvé avec boutique_id. Tentative alternative...');
+
         final alternativeSnapshot = await _firestore
             .collection('products')
             .where('boutiqueId', isEqualTo: widget.boutiqueId)
             .get();
-            
-        print('🔄 Résultat alternatif: ${alternativeSnapshot.docs.length} produits');
-        
+
+        print(
+            '🔄 Résultat alternatif: ${alternativeSnapshot.docs.length} produits');
+
         if (alternativeSnapshot.docs.isNotEmpty) {
           for (var doc in alternativeSnapshot.docs) {
             print('📄 Alt - boutiqueId: ${doc.data()['boutiqueId']}');
           }
-          final products = await FirestoreConverter.queryToProducts(alternativeSnapshot);
+          final products =
+              await FirestoreConverter.queryToProducts(alternativeSnapshot);
           setState(() {
             _boutiqueProducts = products;
             _isLoading = false;
           });
-          
           // Extraire les catégories des produits
           _extractCategoriesFromProducts(products);
           return;
@@ -198,10 +197,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         _boutiqueProducts = products;
         _isLoading = false;
       });
-      
+
       // Extraire les catégories des produits
       _extractCategoriesFromProducts(products);
-      
+
       _debugProductsInfo(products);
     } catch (e) {
       print('❌ Erreur lors du chargement des produits: $e');
@@ -216,13 +215,14 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
     print(
       '📊 Nombre de produits chargés pour boutique ${widget.boutiqueId}: ${products.length}',
     );
-    
+
     // Compter les produits par catégorie
     final categoryCount = <String, int>{};
     for (var product in products) {
-      categoryCount[product.category] = (categoryCount[product.category] ?? 0) + 1;
+      categoryCount[product.category] =
+          (categoryCount[product.category] ?? 0) + 1;
     }
-    
+
     print('📊 Catégories trouvées:');
     for (var entry in categoryCount.entries) {
       print('  - ${entry.key}: ${entry.value} produit(s)');
@@ -242,8 +242,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   List<Product> _getFilteredProducts() {
     List<Product> filteredProducts = _boutiqueProducts;
 
-    if (_selectedCategory > 0 && _categories.length > _selectedCategory) {
-      final filter = _categories[_selectedCategory]['filter']!; // Ajout de ! car on sait que c'est non-null
+    if (_selectedCategory > 0 && 
+        _categories.length > _selectedCategory &&
+        _categories[_selectedCategory]['filter'] != null) {
+      final filter = _categories[_selectedCategory]['filter']!;
       filteredProducts = filteredProducts
           .where((product) => product.category == filter)
           .toList();
@@ -302,13 +304,13 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   Future<void> _showDeliveryTypeDialog() async {
     // Sauvegarder le type actuel pour restauration si annulation
     final previousType = _deliveryType;
-    
+
     final result = await showDialog<String>(
       context: context,
-      barrierDismissible: false, // Empêche de fermer en cliquant à l'extérieur
+      barrierDismissible: false,
       builder: (BuildContext context) {
         String selectedType = _deliveryType;
-        
+
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -343,7 +345,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    // Annuler et restaurer l'ancien type
                     Navigator.pop(context, previousType);
                   },
                   child: const Text('Annuler'),
@@ -368,11 +369,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       setState(() {
         _deliveryType = result;
       });
-      
-      // Petite pause pour que l'UI se mette à jour avant de passer la commande
+
       await Future.delayed(const Duration(milliseconds: 300));
-      
-      // Passer la commande
       await _placeOrder();
     }
   }
@@ -402,7 +400,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       // Vérifier le solde du portefeuille
       final walletDoc = await _firestore
           .collection('portefeuille')
-          .doc(_currentUser.uid)
+          .doc(_currentUser!.uid)
           .get();
 
       final currentBalance = (walletDoc.data()?['balance'] ?? 0).toDouble();
@@ -437,7 +435,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           .toList();
 
       final orderData = {
-        'userId': _currentUser.uid,
+        'userId': _currentUser!.uid,
         'boutiqueId': widget.boutiqueId,
         'boutiqueName': widget.boutiqueName,
         'items': items,
@@ -453,7 +451,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       final orderRef = await _firestore.collection('orders').add(orderData);
 
       // Débiter le portefeuille
-      await _firestore.collection('portefeuille').doc(_currentUser.uid).update({
+      await _firestore.collection('portefeuille').doc(_currentUser!.uid).update({
         'balance': FieldValue.increment(-total),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
@@ -481,12 +479,17 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       print('Erreur lors de la création de la commande: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'), 
+          backgroundColor: Colors.red
+        ),
       );
     } finally {
-      setState(() {
-        _isPlacing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isPlacing = false;
+        });
+      }
     }
   }
 
@@ -506,7 +509,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   // Méthode pour récupérer une image Firestore
   Widget _buildFirestoreImage(String firestoreId) {
     final imageId = firestoreId.replaceFirst('firestore:', '');
-    
+
     return FutureBuilder<DocumentSnapshot>(
       future: _firestore.collection('product_images').doc(imageId).get(),
       builder: (context, snapshot) {
@@ -522,8 +525,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           return _buildImageFallback();
         }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>;
-        final base64Image = data['image_base64'] as String?;
+        final data = snapshot.data!.data() as Map<String, dynamic>?;
+        final base64Image = data?['image_base64'] as String?;
 
         if (base64Image == null || base64Image.isEmpty) {
           return _buildImageFallback();
@@ -599,9 +602,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 elevation: 2,
                 shadowColor: Colors.black12,
                 flexibleSpace: FlexibleSpaceBar(
-                  background: _boutiqueInfo?['imageUrl'] != null
+                  background: _boutiqueInfo?['imageUrl'] != null &&
+                          _boutiqueInfo!['imageUrl'] is String
                       ? Image.network(
-                          _boutiqueInfo!['imageUrl'] as String, // Cast en String
+                          _boutiqueInfo!['imageUrl'] as String,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
@@ -659,9 +663,10 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                               ],
                             ),
                           ),
-                          if (_boutiqueInfo?['categories'] != null)
+                          if (_boutiqueInfo?['categories'] != null &&
+                              _boutiqueInfo!['categories'] is String)
                             Text(
-                              _boutiqueInfo!['categories'] as String, // Cast en String
+                              _boutiqueInfo!['categories'] as String,
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -755,7 +760,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             height: 1.4,
                           ),
                         ),
-                        if (_boutiqueInfo?['location'] != null)
+                        if (_boutiqueInfo?['location'] != null &&
+                            _boutiqueInfo!['location'] is String)
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
                             child: Row(
@@ -768,7 +774,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    _boutiqueInfo!['location'] as String, // Cast en String
+                                    _boutiqueInfo!['location'] as String,
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 14,
@@ -778,7 +784,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                               ],
                             ),
                           ),
-                        if (_boutiqueInfo?['rating'] != null)
+                        if (_boutiqueInfo?['rating'] != null &&
+                            _boutiqueInfo!['rating'] is num)
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
                             child: Row(
@@ -790,7 +797,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  (_boutiqueInfo!['rating'] as num).toStringAsFixed(1), // Cast en num
+                                  (_boutiqueInfo!['rating'] as num)
+                                      .toStringAsFixed(1),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -798,7 +806,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '(${(_boutiqueInfo!['reviewCount'] as num? ?? 0).toString()} avis)', // Cast en num
+                                  '(${(_boutiqueInfo!['reviewCount'] as num? ?? 0).toString()} avis)',
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -827,7 +835,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             final isSelected = _selectedCategory == index;
                             final categoryName = category['name']!;
                             final categoryFilter = category['filter']!;
-                            
                             final productCount = index == 0
                                 ? _boutiqueProducts.length
                                 : _boutiqueProducts
@@ -988,7 +995,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                             ],
                           ),
                         ),
-
                         Expanded(
                           child: _cartItems.isEmpty
                               ? Center(
@@ -1017,11 +1023,13 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                   itemCount: _cartItems.length,
                                   itemBuilder: (context, index) {
                                     final item = _cartItems[index];
-                                    return _buildCartItem(item);
+                                    return KeyedSubtree(
+                                      key: ValueKey(item.id + index.toString()),
+                                      child: _buildCartItem(item),
+                                    );
                                   },
                                 ),
                         ),
-
                         if (_cartItems.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.all(20),
@@ -1134,8 +1142,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                             strokeWidth: 2,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
+                                              Colors.white,
+                                            ),
                                           ),
                                         )
                                       : const Text(
@@ -1190,7 +1198,9 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 'Aucun produit disponible',
                 style: TextStyle(fontSize: 18, color: Color(0xFF666666)),
               ),
-              if (_selectedCategory > 0 && _categories.length > _selectedCategory)
+              if (_selectedCategory > 0 &&
+                  _categories.length > _selectedCategory &&
+                  _categories[_selectedCategory]['name'] != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
@@ -1343,7 +1353,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                     ),
                   ],
                 ),
-
                 if (product.category.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -1352,7 +1361,6 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                       style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ),
-
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
