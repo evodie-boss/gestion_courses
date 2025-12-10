@@ -1,9 +1,6 @@
-// lib/gestion_portefeuille/screens/wallet_screen.dart
-
 import 'package:flutter/material.dart';
 import '../services/wallet_service.dart';
 import '../services/portefeuille_service.dart';
-import '../services/budget_calculator.dart';
 import '../models/transaction_model.dart' as my_models;
 import '../models/portefeuille_model.dart';
 import '../widgets/balance_card.dart';
@@ -55,85 +52,93 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<Portefeuille>(
-        stream: _portefeuilleService.getPortefeuilleStream(widget.userId),
-        builder: (context, portefeuilleSnapshot) {
-          if (!portefeuilleSnapshot.hasData) {
+      body: StreamBuilder<Map<String, dynamic>>(
+        stream: _portefeuilleService.getStatsStream(widget.userId),
+        builder: (context, statsSnapshot) {
+          if (statsSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final portefeuille = portefeuilleSnapshot.data!;
+          if (statsSnapshot.hasError) {
+            return Center(
+              child: Text('Erreur: ${statsSnapshot.error}'),
+            );
+          }
+
+          final stats = statsSnapshot.data ?? {};
+          final portefeuille = stats['portefeuille'] as Portefeuille?;
+          
+          if (portefeuille == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final monthlyExpenses = stats['monthlyExpenses'] as double? ?? 0.0;
+          final remainingBudget = stats['remainingBudget'] as double? ?? 0.0;
+          final monthlyBudget = stats['monthlyBudget'] as double? ?? 0.0;
+          final budgetPercentage = stats['budgetPercentage'] as double? ?? 0.0;
+          final isBudgetWarning = stats['isBudgetWarning'] as bool? ?? false;
+          final isBudgetExceeded = stats['isBudgetExceeded'] as bool? ?? false;
+          final isLowBalance = stats['isLowBalance'] as bool? ?? false;
 
           return StreamBuilder<List<my_models.Transaction>>(
             stream: walletService.getTransactionsStream(widget.userId),
             builder: (context, transactionsSnapshot) {
               if (transactionsSnapshot.hasError) {
                 return Center(
-                  child: Text('Erreur: ${transactionsSnapshot.error}'),
+                  child: Text('Erreur transactions: ${transactionsSnapshot.error}'),
                 );
               }
 
-              if (!transactionsSnapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final transactions = transactionsSnapshot.data!;
-              
-              // Calculs basés sur la devise du portefeuille
-              final monthlyExpenses = _calculateMonthlyExpensesInPortefeuilleCurrency(
-                transactions, 
-                portefeuille
-              );
-              
-              final remainingBudget = portefeuille.monthlyBudget - monthlyExpenses;
-              final alerts = BudgetCalculator.checkAlerts(
-                portefeuille.monthlyBudget, 
-                transactions
-              );
+              final transactions = transactionsSnapshot.data ?? [];
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Carte du solde et budget (MAJ)
+                    // Carte du solde et budget (DYNAMIQUE)
                     BalanceCard(
                       balance: portefeuille.balance,
                       monthlyExpenses: monthlyExpenses,
                       remainingBudget: remainingBudget,
                       isLoading: false,
                       currencySymbol: portefeuille.currencySymbol,
+                      monthlyBudget: monthlyBudget, // NOUVEAU
                     ),
                     const SizedBox(height: 20),
 
-                    // Barre de progression du budget (MAJ)
+                    // Barre de progression du budget (DYNAMIQUE)
                     BudgetProgress(
-                      monthlyBudget: portefeuille.monthlyBudget,
+                      monthlyBudget: monthlyBudget,
                       currentExpenses: monthlyExpenses,
-                      alerts: alerts,
                       currencySymbol: portefeuille.currencySymbol,
+                      budgetPercentage: budgetPercentage, // NOUVEAU
+                      isBudgetWarning: isBudgetWarning,   // NOUVEAU
+                      isBudgetExceeded: isBudgetExceeded, // NOUVEAU
                     ),
                     const SizedBox(height: 20),
 
-                    // Alertes
-                    if (alerts['isBudgetExceeded'] == true)
+                    // Alertes dynamiques
+                    if (isBudgetExceeded)
                       _buildAlertCard(
                         '⚠️ Budget dépassé !',
-                        'Vous avez dépensé ${portefeuille.formatAmount(monthlyExpenses)} sur ${portefeuille.formattedBudget}',
+                        'Vous avez dépensé ${portefeuille.formatAmount(monthlyExpenses)} sur ${portefeuille.formatAmount(monthlyBudget)}',
                         Colors.red,
+                        Icons.warning,
                       ),
-                    if (alerts['isBudgetWarning'] == true &&
-                        alerts['isBudgetExceeded'] == false)
+                    if (isBudgetWarning && !isBudgetExceeded)
                       _buildAlertCard(
                         '⚠️ Attention',
-                        'Vous avez utilisé ${alerts['percentageUsed'].toStringAsFixed(1)}% de votre budget',
+                        'Vous avez utilisé ${budgetPercentage.toStringAsFixed(1)}% de votre budget',
                         Colors.orange,
+                        Icons.warning_amber,
                       ),
-                    if (alerts['isLowBalance'] == true && portefeuille.balance < 50000)
+                    if (isLowBalance && portefeuille.balance < 50000)
                       _buildAlertCard(
                         '💰 Solde faible',
                         'Votre solde est de ${portefeuille.formattedBalance}',
                         Colors.blue,
+                        Icons.account_balance_wallet,
                       ),
 
                     const SizedBox(height: 30),
@@ -176,35 +181,7 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  // Calculer les dépenses mensuelles dans la devise du portefeuille
-  double _calculateMonthlyExpensesInPortefeuilleCurrency(
-    List<my_models.Transaction> transactions, 
-    Portefeuille portefeuille
-  ) {
-    final now = DateTime.now();
-    double total = 0.0;
-    
-    for (var transaction in transactions) {
-      if (transaction.type == 'depense' && 
-          transaction.date.month == now.month && 
-          transaction.date.year == now.year) {
-        
-        // Convertir si la devise de la transaction est différente
-        double amount = transaction.amount;
-        if (transaction.currency != portefeuille.currency) {
-          if (transaction.currency == 'EUR' && portefeuille.currency == 'XOF') {
-            amount = portefeuille.convertToFCFA(amount);
-          } else if (transaction.currency == 'XOF' && portefeuille.currency == 'EUR') {
-            amount = portefeuille.convertToEUR(amount);
-          }
-        }
-        total += amount;
-      }
-    }
-    return total;
-  }
-
-  Widget _buildAlertCard(String title, String message, Color color) {
+  Widget _buildAlertCard(String title, String message, Color color, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -215,7 +192,7 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.warning, color: color),
+          Icon(icon, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -465,7 +442,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       ),
                       Text(
-                        '${transaction.currency == 'XOF' ? 'FCFA' : '€'}',
+                        transaction.currencySymbol,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,

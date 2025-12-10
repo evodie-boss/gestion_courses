@@ -109,15 +109,36 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId != null) {
+        // Récupérer les courses de l'utilisateur, trier côté client par createdAt
         final snapshot = await FirebaseFirestore.instance
             .collection('courses')
             .where('userId', isEqualTo: userId)
-            .orderBy('createdAt', descending: true)
-            .limit(3)
             .get();
 
+// Trier localement par createdAt (desc) puis prendre les 3 premiers
+        final docs = snapshot.docs.toList();
+        docs.sort((a, b) {
+          final aCreated = a.data()['createdAt'];
+          final bCreated = b.data()['createdAt'];
+
+          DateTime aDate;
+          DateTime bDate;
+          if (aCreated is Timestamp)
+            aDate = aCreated.toDate();
+          else
+            aDate = DateTime.tryParse(aCreated?.toString() ?? '') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+          if (bCreated is Timestamp)
+            bDate = bCreated.toDate();
+          else
+            bDate = DateTime.tryParse(bCreated?.toString() ?? '') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+
+          return bDate.compareTo(aDate);
+        });
+
         setState(() {
-          _recentCourses = snapshot.docs.map((doc) {
+          _recentCourses = docs.take(3).map((doc) {
             final data = doc.data();
             return {
               'id': doc.id,
@@ -519,8 +540,7 @@ class _HomeScreenState extends State<HomeScreen>
                           targetIndex = 2; // Portefeuille
                         else if (index == 2)
                           targetIndex = 3; // Boutiques
-                        else if (index == 3)
-                          targetIndex = 4; // Carte
+                        else if (index == 3) targetIndex = 4; // Carte
                         _navigateWithAnimation(targetIndex);
                       },
                     );
@@ -589,9 +609,9 @@ class _HomeScreenState extends State<HomeScreen>
                       )
                     else
                       ..._recentCourses.asMap().entries.map(
-                        (entry) =>
-                            _buildAnimatedListCard(entry.key, entry.value),
-                      ),
+                            (entry) =>
+                                _buildAnimatedListCard(entry.key, entry.value),
+                          ),
                   ],
                 ),
 
@@ -1647,7 +1667,7 @@ class _HomeScreenState extends State<HomeScreen>
               Navigator.pop(context);
             },
           ),
-          
+
           // AJOUTEZ CE NOUVEL ITEM "MES BOUTIQUES"
           _drawerItem(
             icon: Icons.storefront_rounded,
@@ -1663,7 +1683,7 @@ class _HomeScreenState extends State<HomeScreen>
               );
             },
           ),
-          
+
           _drawerItem(
             icon: Icons.map_rounded,
             title: 'Carte',
@@ -1761,8 +1781,7 @@ class _HomeScreenState extends State<HomeScreen>
             leading: Icon(
               icon,
               size: 22,
-              color:
-                  color ??
+              color: color ??
                   (selected ? AppColors.tropicalTeal : Colors.grey.shade700),
             ),
             title: Text(
@@ -1770,8 +1789,7 @@ class _HomeScreenState extends State<HomeScreen>
               style: TextStyle(
                 fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 14,
-                color:
-                    color ??
+                color: color ??
                     (selected ? AppColors.tropicalTeal : Colors.grey.shade800),
               ),
             ),

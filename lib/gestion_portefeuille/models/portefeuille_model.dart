@@ -43,16 +43,35 @@ class Portefeuille {
     };
   }
   
-  // Convertir depuis Firestore
+  // Convertir depuis Firestore - CORRIGÉ
   factory Portefeuille.fromMap(Map<String, dynamic> map, String documentId) {
+    // Fonction pour parser la date de manière sécurisée
+    DateTime parseLastUpdated(dynamic dateField) {
+      if (dateField is Timestamp) {
+        return dateField.toDate();
+      } else if (dateField is DateTime) {
+        return dateField;
+      } else if (dateField is String) {
+        try {
+          return DateTime.parse(dateField);
+        } catch (e) {
+          print('⚠️ Erreur parsing lastUpdated: $dateField');
+        }
+      } else if (dateField != null) {
+        print('⚠️ Type de lastUpdated inattendu: ${dateField.runtimeType}');
+      }
+      // Fallback: date actuelle
+      return DateTime.now();
+    }
+    
     return Portefeuille(
       id: documentId,
-      userId: map['userId'] ?? '',
+      userId: map['userId']?.toString() ?? '',
       balance: (map['balance'] ?? 0.0).toDouble(),
       monthlyBudget: (map['monthlyBudget'] ?? 655960.0).toDouble(),
-      currency: map['currency'] ?? 'XOF',
+      currency: map['currency']?.toString() ?? 'XOF',
       exchangeRate: (map['exchangeRate'] ?? 655.96).toDouble(),
-      lastUpdated: (map['lastUpdated'] as Timestamp).toDate(),
+      lastUpdated: parseLastUpdated(map['lastUpdated']),
     );
   }
   
@@ -92,5 +111,102 @@ class Portefeuille {
   // Calculer le budget restant
   double calculateRemainingBudget(double monthlyExpenses) {
     return monthlyBudget - monthlyExpenses;
+  }
+  
+  // Pourcentage d'utilisation du budget
+  double getBudgetUsagePercentage(double monthlyExpenses) {
+    if (monthlyBudget <= 0) return 0.0;
+    return (monthlyExpenses / monthlyBudget) * 100;
+  }
+  
+  // Vérifier si budget est dépassé
+  bool isBudgetExceeded(double monthlyExpenses) {
+    return monthlyExpenses > monthlyBudget;
+  }
+  
+  // Vérifier si budget approche de la limite (80%)
+  bool isBudgetWarning(double monthlyExpenses) {
+    return getBudgetUsagePercentage(monthlyExpenses) >= 80.0;
+  }
+  
+  // Vérifier si solde est bas
+  bool isLowBalance([double threshold = 10000.0]) {
+    return balance < threshold;
+  }
+  
+  // Mettre à jour le solde
+  Portefeuille updateBalance(double newBalance) {
+    return Portefeuille(
+      id: id,
+      userId: userId,
+      balance: newBalance,
+      monthlyBudget: monthlyBudget,
+      currency: currency,
+      exchangeRate: exchangeRate,
+      lastUpdated: DateTime.now(),
+    );
+  }
+  
+  // Mettre à jour le budget
+  Portefeuille updateBudget(double newBudget) {
+    return Portefeuille(
+      id: id,
+      userId: userId,
+      balance: balance,
+      monthlyBudget: newBudget,
+      currency: currency,
+      exchangeRate: exchangeRate,
+      lastUpdated: DateTime.now(),
+    );
+  }
+  
+  // Changer de devise
+  Portefeuille changeCurrency(String newCurrency) {
+    double newBalance = balance;
+    double newBudget = monthlyBudget;
+    
+    if (currency == 'EUR' && newCurrency == 'XOF') {
+      newBalance = convertToFCFA(balance);
+      newBudget = convertToFCFA(monthlyBudget);
+    } else if (currency == 'XOF' && newCurrency == 'EUR') {
+      newBalance = convertToEUR(balance);
+      newBudget = convertToEUR(monthlyBudget);
+    }
+    
+    return Portefeuille(
+      id: id,
+      userId: userId,
+      balance: newBalance,
+      monthlyBudget: newBudget,
+      currency: newCurrency,
+      exchangeRate: exchangeRate,
+      lastUpdated: DateTime.now(),
+    );
+  }
+  
+  // Méthode pour dupliquer
+  Portefeuille copyWith({
+    String? id,
+    String? userId,
+    double? balance,
+    double? monthlyBudget,
+    String? currency,
+    double? exchangeRate,
+    DateTime? lastUpdated,
+  }) {
+    return Portefeuille(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      balance: balance ?? this.balance,
+      monthlyBudget: monthlyBudget ?? this.monthlyBudget,
+      currency: currency ?? this.currency,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+    );
+  }
+  
+  @override
+  String toString() {
+    return 'Portefeuille{id: $id, balance: $balance, budget: $monthlyBudget, currency: $currency}';
   }
 }
