@@ -12,6 +12,14 @@ import 'package:intl/intl.dart';
 // Import conditionnel pour web
 import 'package:image_picker_web/image_picker_web.dart';
 
+// Couleurs du design
+const Color softIvory = Color(0xFFEFE9E0);
+const Color tropicalTeal = Color(0xFF0F9E99);
+const Color darkText = Color(0xFF2C3E50);
+const Color mediumText = Color(0xFF5D6D7E);
+const Color lightText = Color(0xFF95A5A6);
+const Color accentColor = Color(0xFF6D5DFC); // Gardé pour certains éléments
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -27,8 +35,26 @@ class MyApp extends StatelessWidget {
       title: 'Gestion Produits',
       theme: ThemeData(
         fontFamily: 'Poppins',
-        primaryColor: const Color(0xFF6D5DFC),
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        primaryColor: tropicalTeal,
+        scaffoldBackgroundColor: softIvory,
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: MaterialColor(
+            tropicalTeal.value,
+            const {
+              50: Color(0xFFE0F2F1),
+              100: Color(0xFFB2DFDB),
+              200: Color(0xFF80CBC4),
+              300: Color(0xFF4DB6AC),
+              400: Color(0xFF26A69A),
+              500: tropicalTeal,
+              600: Color(0xFF00897B),
+              700: Color(0xFF00796B),
+              800: Color(0xFF00695C),
+              900: Color(0xFF004D40),
+            },
+          ),
+          backgroundColor: softIvory,
+        ),
       ),
       home: const AdminDashboard(
         boutiqueId: 'test_boutique',
@@ -74,20 +100,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
     {
       'value': 'clothing',
       'label': 'Vêtements',
-      'color': const Color(0xFF6D5DFC),
+      'color': tropicalTeal,
     },
-    {'value': 'shoes', 'label': 'Chaussures', 'color': const Color(0xFF2ECC71)},
+    {
+      'value': 'shoes',
+      'label': 'Chaussures',
+      'color': Color(0xFF2ECC71),
+    },
     {
       'value': 'accessories',
       'label': 'Accessoires',
-      'color': const Color(0xFFF39C12),
+      'color': Color(0xFFF39C12),
     },
     {
       'value': 'electronics',
       'label': 'Électronique',
-      'color': const Color(0xFF3498DB),
+      'color': Color(0xFF3498DB),
     },
-    {'value': 'food', 'label': 'Aliments', 'color': const Color(0xFF9B59B6)},
+    {
+      'value': 'food',
+      'label': 'Aliments',
+      'color': Color(0xFF9B59B6),
+    },
   ];
 
   // Statuts des commandes
@@ -148,93 +182,271 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  // Dans la méthode build de _AdminDashboardState, remplacez ce code :
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
+      body: Column(
         children: [
-          // Sidebar
+          // Barre de navigation supérieure (code inchangé)
           Container(
-            width: 250,
-            color: const Color(0xFF2C3E50),
-            child: Column(
-              children: [
-                Container( 
-                  padding: const EdgeInsets.all(25),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.store,
-                        color: Color(0xFF6D5DFC),
-                        size: 28,
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 150,
-                        child: Text(
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: Row(
+                children: [
+                  // Bouton retour
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    color: tropicalTeal,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  const SizedBox(width: 15),
+                  // Logo/Nom de la boutique
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: tropicalTeal.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.store,
+                      color: tropicalTeal,
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                           widget.boutiqueName,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: darkText,
                           ),
                           overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          'Tableau de bord administrateur',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: mediumText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Espace pour d'éventuelles actions supplémentaires
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                // Sidebar
+                Container(
+                  width: 250,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 5,
+                        offset: const Offset(0, 0),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(25),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: tropicalTeal.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: tropicalTeal.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.store_mall_directory,
+                                color: tropicalTeal,
+                                size: 40,
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+                            Text(
+                              widget.boutiqueName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: darkText,
+                              ),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Boutique ID: ${widget.boutiqueId.substring(0, 8)}...',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: lightText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(color: softIvory, height: 1),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.all(10),
+                          children: [
+                            _buildNavItem(
+                              0,
+                              Icons.dashboard_rounded,
+                              'Tableau de bord',
+                              isActive: _selectedIndex == 0,
+                            ),
+                            _buildNavItem(
+                              1,
+                              Icons.inventory_2_rounded,
+                              'Produits',
+                              isActive: _selectedIndex == 1,
+                            ),
+                            _buildNavItem(
+                              2,
+                              Icons.shopping_cart_checkout_rounded,
+                              'Commandes',
+                              isActive: _selectedIndex == 2,
+                            ),
+                            _buildNavItem(
+                              3,
+                              Icons.settings_rounded,
+                              'Paramètres',
+                              isActive: _selectedIndex == 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: tropicalTeal.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                color: tropicalTeal,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Admin Dashboard',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: tropicalTeal,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(color: Colors.white24, height: 1),
+                const VerticalDivider(width: 1, color: softIvory),
+
+                // Contenu principal - CORRECTION ICI
                 Expanded(
-                  child: ListView(
-                    children: [
-                      _buildNavItem(
-                        0,
-                        Icons.dashboard,
-                        'Tableau de bord',
-                        isActive: _selectedIndex == 0,
-                      ),
-                      _buildNavItem(
-                        1,
-                        Icons.inventory,
-                        'Produits',
-                        isActive: _selectedIndex == 1,
-                      ),
-                      _buildNavItem(
-                        2,
-                        Icons.shopping_cart,
-                        'Commandes',
-                        isActive: _selectedIndex == 2,
-                      ),
-                      _buildNavItem(
-                        3,
-                        Icons.settings,
-                        'Paramètres',
-                        isActive: _selectedIndex == 3,
-                      ),
-                    ],
+                  child: Container(
+                    color: softIvory,
+                    padding: const EdgeInsets.all(25),
+                    child: _buildSelectedTab(), // Appel correct de la méthode
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // Contenu principal
-          Expanded(
-            child: Container(
-              color: const Color(0xFFF5F7FA),
-              padding: const EdgeInsets.all(25),
-              child: _buildSelectedTab(),
             ),
           ),
         ],
       ),
     );
   }
-
+  Widget _buildNavItem(
+    int index,
+    IconData icon,
+    String title, {
+    bool isActive = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      decoration: BoxDecoration(
+        color: isActive ? tropicalTeal : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: isActive ? Colors.white : mediumText,
+          size: 22,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isActive ? Colors.white : darkText,
+            fontSize: 14,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+        trailing: isActive
+            ? Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              )
+            : null,
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+      ),
+    );
+  }
+  // Ajoutez cette méthode juste après _buildNavItem()
   Widget _buildSelectedTab() {
     switch (_selectedIndex) {
       case 0:
@@ -250,43 +462,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  Widget _buildNavItem(
-    int index,
-    IconData icon,
-    String title, {
-    bool isActive = false,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white.withOpacity(0.05) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        border: isActive
-            ? const Border(left: BorderSide(color: Color(0xFF6D5DFC), width: 4))
-            : null,
-      ),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: isActive ? Colors.white : const Color(0xFFB0B7C3),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : const Color(0xFFB0B7C3),
-            fontSize: 14,
-            fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
-          ),
-        ),
-        onTap: () {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-      ),
-    );
-  }
-
   // ============================================
   // TABLEAU DE BORD
   // ============================================
@@ -299,107 +474,103 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             // En-tête
             Text(
-              'Tableau de bord - ${widget.boutiqueName}',
-              style: const TextStyle(
-                fontSize: 24,
+              'Tableau de bord',
+              style: TextStyle(
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF2C3E50),
+                color: tropicalTeal,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 5),
             Text(
               'Aperçu général de votre boutique',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                color: Color(0xFF7F8C8D),
+                color: mediumText,
               ),
             ),
             const SizedBox(height: 30),
 
-// Cartes de statistiques
-StreamBuilder<QuerySnapshot>(
-  stream: _firestore
-      .collection('products')
-      .where('boutique_id', isEqualTo: widget.boutiqueId)
-      .snapshots(),
-  builder: (context, snapshot) {
-    final totalProducts = snapshot.hasData ? snapshot.data!.docs.length : 0;
+            // Cartes de statistiques
+            StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('products')
+                  .where('boutique_id', isEqualTo: widget.boutiqueId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final totalProducts =
+                    snapshot.hasData ? snapshot.data!.docs.length : 0;
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('orders')
-          .where('boutiqueId', isEqualTo: widget.boutiqueId)
-          .snapshots(),
-      builder: (context, orderSnapshot) {
-        final totalOrders = orderSnapshot.hasData ? orderSnapshot.data!.docs.length : 0;
-        double totalRevenue = 0;
-        int pendingOrders = 0;
+                return StreamBuilder<QuerySnapshot>(
+                  stream: _firestore
+                      .collection('orders')
+                      .where('boutiqueId', isEqualTo: widget.boutiqueId)
+                      .snapshots(),
+                  builder: (context, orderSnapshot) {
+                    final totalOrders = orderSnapshot.hasData
+                        ? orderSnapshot.data!.docs.length
+                        : 0;
+                    double totalRevenue = 0;
+                    int pendingOrders = 0;
 
-        if (orderSnapshot.hasData) {
-          for (var doc in orderSnapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            totalRevenue += (data['total'] ?? 0).toDouble();
+                    if (orderSnapshot.hasData) {
+                      for (var doc in orderSnapshot.data!.docs) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        totalRevenue += (data['total'] ?? 0).toDouble();
 
-            final status = data['status']?.toString() ?? '';
-            if (status == 'En attente') {
-              pendingOrders++;
-            }
-          }
-        }
+                        final status = data['status']?.toString() ?? '';
+                        if (status == 'En attente') {
+                          pendingOrders++;
+                        }
+                      }
+                    }
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: MediaQuery.of(context).size.width > 1000 ? 4 : 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.85, // Ratio optimisé - ajustez si nécessaire
-          ),
-          itemCount: 4,
-          itemBuilder: (context, index) {
-            switch (index) {
-              case 0:
-                return _buildStatCard(
-                  title: 'Produits',
-                  value: totalProducts.toString(),
-                  icon: Icons.inventory,
-                  color: const Color(0xFF6D5DFC),
-                  subtitle: 'en stock',
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount:
+                            MediaQuery.of(context).size.width > 1000 ? 4 : 2,
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                        childAspectRatio: 1.8,
+                      ),
+                      itemCount: 4,
+                      itemBuilder: (context, index) {
+                        switch (index) {
+                          case 0:
+                            return _buildStatCard(
+                              title: 'Produits',
+                              value: totalProducts.toString(),
+                              icon: Icons.inventory_2_rounded,
+                              color: tropicalTeal,
+                              subtitle: 'en stock',
+                            );
+                          case 1:
+                            return _buildStatCard(
+                              title: 'Commandes',
+                              value: totalOrders.toString(),
+                              icon: Icons.shopping_cart_checkout_rounded,
+                              color: Color(0xFF2ECC71),
+                              subtitle: 'au total',
+                            );
+                          case 2:
+                            return _buildStatCard(
+                              title: 'En attente',
+                              value: pendingOrders.toString(),
+                              icon: Icons.pending_actions_rounded,
+                              color: Color(0xFF3498DB),
+                              subtitle: 'commandes',
+                            );
+                          default:
+                            return Container();
+                        }
+                      },
+                    );
+                  },
                 );
-              case 1:
-                return _buildStatCard(
-                  title: 'Commandes',
-                  value: totalOrders.toString(),
-                  icon: Icons.shopping_cart,
-                  color: const Color(0xFF2ECC71),
-                  subtitle: 'au total',
-                );
-              case 2:
-                return _buildStatCard(
-                  title: 'Chiffre d\'affaires',
-                  value: '${totalRevenue.toStringAsFixed(0)} FCFA',
-                  icon: Icons.money,
-                  color: const Color(0xFFF39C12),
-                  subtitle: 'total',
-                );
-              case 3:
-                return _buildStatCard(
-                  title: 'En attente',
-                  value: pendingOrders.toString(),
-                  icon: Icons.pending,
-                  color: const Color(0xFF3498DB),
-                  subtitle: 'commandes',
-                );
-              default:
-                return Container();
-            }
-          },
-        );
-      },
-    );
-  },
-),
+              },
+            ),
 
             const SizedBox(height: 40),
 
@@ -442,28 +613,31 @@ StreamBuilder<QuerySnapshot>(
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Row(
         children: [
           Container(
-            width: 45,
-            height: 45,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withOpacity(0.2), width: 2),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Center(
+              child: Icon(icon, color: color, size: 28),
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,29 +645,34 @@ StreamBuilder<QuerySnapshot>(
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2C3E50),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: darkText,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF7F8C8D),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: mediumText,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFBDC3C7),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: lightText,
                   ),
                 ),
               ],
             ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: color.withOpacity(0.5),
           ),
         ],
       ),
@@ -508,12 +687,12 @@ StreamBuilder<QuerySnapshot>(
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -524,12 +703,12 @@ StreamBuilder<QuerySnapshot>(
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Commandes récentes',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF2C3E50),
+                    fontWeight: FontWeight.w700,
+                    color: tropicalTeal,
                   ),
                 ),
                 TextButton(
@@ -538,7 +717,16 @@ StreamBuilder<QuerySnapshot>(
                       _selectedIndex = 2;
                     });
                   },
-                  child: const Text('Voir tout'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: tropicalTeal,
+                  ),
+                  child: const Row(
+                    children: [
+                      Text('Voir tout'),
+                      SizedBox(width: 5),
+                      Icon(Icons.arrow_forward_ios, size: 12),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -548,14 +736,16 @@ StreamBuilder<QuerySnapshot>(
                 stream: _firestore
                     .collection('orders')
                     .where('boutiqueId', isEqualTo: widget.boutiqueId)
-                    .snapshots(), // RETIRER .orderBy('createdAt', descending: true)
+                    .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(child: Text('Erreur: ${snapshot.error}'));
                   }
 
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                      child: CircularProgressIndicator(color: tropicalTeal),
+                    );
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -569,16 +759,16 @@ StreamBuilder<QuerySnapshot>(
                             color: Colors.grey[300],
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             'Aucune commande',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(color: lightText),
                           ),
                         ],
                       ),
                     );
                   }
 
-                  // TRI LOCAL des commandes par date (plus récentes d'abord)
+                  // TRI LOCAL des commandes par date
                   final orders = snapshot.data!.docs.toList()
                     ..sort((a, b) {
                       final aData = a.data() as Map<String, dynamic>;
@@ -589,7 +779,6 @@ StreamBuilder<QuerySnapshot>(
                       final aTime = aDate?.millisecondsSinceEpoch ?? 0;
                       final bTime = bDate?.millisecondsSinceEpoch ?? 0;
 
-                      // Tri décroissant (plus récent d'abord)
                       return bTime.compareTo(aTime);
                     });
 
@@ -600,7 +789,7 @@ StreamBuilder<QuerySnapshot>(
                     shrinkWrap: true,
                     itemCount: recentOrders.length,
                     separatorBuilder: (context, index) =>
-                        const Divider(height: 15),
+                        Divider(height: 1, color: softIvory),
                     itemBuilder: (context, index) {
                       final doc = recentOrders[index];
                       final data = doc.data() as Map<String, dynamic>;
@@ -620,64 +809,72 @@ StreamBuilder<QuerySnapshot>(
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                              horizontal: 15, vertical: 10),
                           leading: Container(
-                            width: 36,
-                            height: 36,
+                            width: 45,
+                            height: 45,
                             decoration: BoxDecoration(
                               color: _getStatusColor(status).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _getStatusColor(status).withOpacity(0.3),
+                                width: 1,
+                              ),
                             ),
                             child: Icon(
                               _getOrderStatusIcon(status),
                               color: _getStatusColor(status),
-                              size: 18,
+                              size: 20,
                             ),
                           ),
                           title: Text(
                             'Commande #${orderId.length > 8 ? orderId.substring(0, 8) + '...' : orderId}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: darkText,
                             ),
                           ),
                           subtitle: Text(
                             formattedDate,
-                            style: const TextStyle(fontSize: 11),
+                            style: TextStyle(fontSize: 12, color: mediumText),
                           ),
                           trailing: SizedBox(
-                            width: 100,
+                            width: 120,
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
                                   '${amount.toStringAsFixed(0)} FCFA',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: tropicalTeal,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
+                                    horizontal: 8,
+                                    vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
                                     color: _getStatusColor(status),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    status.length > 10
-                                        ? '${status.substring(0, 10)}...'
-                                        : status,
+                                    status,
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
@@ -705,12 +902,12 @@ StreamBuilder<QuerySnapshot>(
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -718,12 +915,12 @@ StreamBuilder<QuerySnapshot>(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Produits par catégorie',
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2C3E50),
+                fontWeight: FontWeight.w700,
+                color: tropicalTeal,
               ),
             ),
             const SizedBox(height: 15),
@@ -739,7 +936,9 @@ StreamBuilder<QuerySnapshot>(
                   }
 
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                      child: CircularProgressIndicator(color: tropicalTeal),
+                    );
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -753,9 +952,9 @@ StreamBuilder<QuerySnapshot>(
                             color: Colors.grey[300],
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             'Aucun produit',
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                            style: TextStyle(color: lightText, fontSize: 12),
                           ),
                         ],
                       ),
@@ -780,7 +979,7 @@ StreamBuilder<QuerySnapshot>(
                     shrinkWrap: true,
                     itemCount: sortedCategories.length,
                     separatorBuilder: (context, index) =>
-                        const Divider(height: 12),
+                        Divider(height: 1, color: softIvory),
                     itemBuilder: (context, index) {
                       final entry = sortedCategories[index];
                       final categoryName = _getCategoryName(entry.key);
@@ -791,67 +990,97 @@ StreamBuilder<QuerySnapshot>(
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: _getCategoryColor(entry.key),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  categoryName.substring(0, 1),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 0, vertical: 5),
+                          leading: Container(
+                            width: 35,
+                            height: 35,
+                            decoration: BoxDecoration(
+                              color: _getCategoryColor(entry.key),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _getCategoryColor(entry.key)
+                                      .withOpacity(0.3),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                categoryName.substring(0, 1),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          categoryName.length > 15
-                                              ? '${categoryName.substring(0, 15)}...'
-                                              : categoryName,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '$count',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  categoryName.length > 15
+                                      ? '${categoryName.substring(0, 15)}...'
+                                      : categoryName,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: darkText,
                                   ),
-                                  const SizedBox(height: 4),
-                                  LinearProgressIndicator(
-                                    value: percentage / 100,
-                                    backgroundColor: Colors.grey[200],
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      _getCategoryColor(entry.key),
+                                ),
+                              ),
+                              Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: tropicalTeal,
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(2),
+                                child: LinearProgressIndicator(
+                                  value: percentage / 100,
+                                  backgroundColor: softIvory,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _getCategoryColor(entry.key),
+                                  ),
+                                  minHeight: 4,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${percentage.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: mediumText,
                                     ),
-                                    minHeight: 3,
-                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  Text(
+                                    '${count} sur $totalProducts',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: lightText,
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -872,110 +1101,127 @@ StreamBuilder<QuerySnapshot>(
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // En-tête - FIXE
+        Text(
+          'Gestion des Produits',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: tropicalTeal,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'Gérez les produits de votre boutique',
+          style: TextStyle(
+            fontSize: 16,
+            color: mediumText,
+          ),
+        ),
+        const SizedBox(height: 30),
+
+        // Barre de recherche et bouton d'ajout - FIXE
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
-              child: Text(
-                'Gestion des Produits - ${widget.boutiqueName}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF2C3E50),
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                overflow: TextOverflow.ellipsis,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search_rounded,
+                      color: tropicalTeal,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher un produit...',
+                          border: InputBorder.none,
+                          hintStyle: TextStyle(
+                            color: lightText,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value.toLowerCase();
+                          });
+                        },
+                      ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      IconButton(
+                        icon: Icon(Icons.clear, size: 18, color: lightText),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 15),
             Container(
-              constraints: const BoxConstraints(
-                maxWidth: 300,
-                minWidth: 200,
-              ),
-              height: 50,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: tropicalTeal.withOpacity(0.3),
                     blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.search,
-                    color: Color(0xFF7F8C8D),
-                    size: 20,
+              child: ElevatedButton.icon(
+                onPressed: () => _showAddProductDialog(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: tropicalTeal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(
-                        hintText: 'Rechercher un produit...',
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(
-                          color: Color(0xFF7F8C8D),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value.toLowerCase();
-                        });
-                      },
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  if (_searchQuery.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {
-                          _searchQuery = '';
-                        });
-                      },
-                    ),
-                ],
+                ),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: const Text('Ajouter un produit'),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 30),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton.icon(
-            onPressed: () => _showAddProductDialog(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6D5DFC),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 12,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('Ajouter un produit'),
-          ),
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 25),
+
+        // Table des produits - EXPANDABLE
         Expanded(
+          // ← CHANGEMENT ICI : Ajout de Expanded
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -998,14 +1244,15 @@ StreamBuilder<QuerySnapshot>(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error, color: Colors.red, size: 40),
-                const SizedBox(height: 10),
+                Icon(Icons.error_outline_rounded,
+                    color: Color(0xFFE74C3C), size: 50),
+                const SizedBox(height: 15),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Erreur: ${snapshot.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14),
+                    style: TextStyle(fontSize: 14, color: mediumText),
                   ),
                 ),
               ],
@@ -1014,13 +1261,14 @@ StreamBuilder<QuerySnapshot>(
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 10),
-                Text('Chargement des produits...'),
+                CircularProgressIndicator(color: tropicalTeal),
+                const SizedBox(height: 15),
+                Text('Chargement des produits...',
+                    style: TextStyle(color: mediumText)),
               ],
             ),
           );
@@ -1042,12 +1290,12 @@ StreamBuilder<QuerySnapshot>(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.inventory_2_outlined,
-                  size: 50,
-                  color: Color(0xFFCCCCCC),
+                  size: 60,
+                  color: Colors.grey[300],
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
@@ -1055,18 +1303,30 @@ StreamBuilder<QuerySnapshot>(
                         ? 'Aucun produit disponible dans cette boutique'
                         : 'Aucun produit trouvé pour "$_searchQuery"',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF666666),
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: mediumText,
                     ),
                   ),
                 ),
                 if (_searchQuery.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: TextButton(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: ElevatedButton.icon(
                       onPressed: () => _showAddProductDialog(),
-                      child: const Text('Ajouter votre premier produit'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: tropicalTeal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Ajouter votre premier produit'),
                     ),
                   ),
               ],
@@ -1079,39 +1339,59 @@ StreamBuilder<QuerySnapshot>(
           child: SingleChildScrollView(
             scrollDirection: Axis.vertical,
             child: DataTable(
-              columnSpacing: 20,
-              horizontalMargin: 20,
-              headingRowHeight: 50,
-              dataRowHeight: 60,
-              columns: const [
+              columnSpacing: 25,
+              horizontalMargin: 25,
+              headingRowHeight: 60,
+              dataRowHeight: 70,
+              headingRowColor: MaterialStateProperty.resolveWith<Color?>(
+                (Set<MaterialState> states) {
+                  return softIvory;
+                },
+              ),
+              columns: [
                 DataColumn(
                   label: Text(
                     'Image',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Nom',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Prix',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Catégorie',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Actions',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
               ],
@@ -1123,17 +1403,19 @@ StreamBuilder<QuerySnapshot>(
                   cells: [
                     DataCell(
                       Container(
-                        width: 45,
-                        height: 45,
+                        width: 50,
+                        height: 50,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          color: const Color(0xFFEFE9E0),
+                          borderRadius: BorderRadius.circular(8),
+                          color: softIvory,
+                          border: Border.all(
+                              color: tropicalTeal.withOpacity(0.2), width: 1),
                         ),
                         child: imageRef != null && imageRef.isNotEmpty
                             ? imageRef.startsWith('firestore:')
                                 ? _buildFirestoreImage(imageRef)
                                 : ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.circular(8),
                                     child: Image.network(
                                       imageRef,
                                       fit: BoxFit.cover,
@@ -1141,26 +1423,28 @@ StreamBuilder<QuerySnapshot>(
                                           (context, child, loadingProgress) {
                                         if (loadingProgress == null)
                                           return child;
-                                        return const Center(
+                                        return Center(
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
+                                            color: tropicalTeal,
                                           ),
                                         );
                                       },
                                       errorBuilder:
                                           (context, error, stackTrace) {
-                                        return const Center(
+                                        return Center(
                                           child: Icon(
-                                            Icons.broken_image,
-                                            color: Colors.grey,
+                                            Icons.broken_image_rounded,
+                                            color: tropicalTeal,
+                                            size: 24,
                                           ),
                                         );
                                       },
                                     ),
                                   )
-                            : const Icon(
-                                Icons.shopping_bag,
-                                color: Color(0xFF6D5DFC),
+                            : Icon(
+                                Icons.shopping_bag_rounded,
+                                color: tropicalTeal,
                                 size: 24,
                               ),
                       ),
@@ -1170,9 +1454,10 @@ StreamBuilder<QuerySnapshot>(
                         width: 150,
                         child: Text(
                           data['nom']?.toString() ?? 'Sans nom',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: darkText,
                           ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 2,
@@ -1182,29 +1467,35 @@ StreamBuilder<QuerySnapshot>(
                     DataCell(
                       Text(
                         '${(data['prix'] ?? 0).toStringAsFixed(0)} FCFA',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2C3E50),
-                          fontSize: 13,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: tropicalTeal,
+                          fontSize: 14,
                         ),
                       ),
                     ),
                     DataCell(
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                          horizontal: 12,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: _getCategoryColor(data['categorie']),
+                          color: _getCategoryColor(data['categorie'])
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _getCategoryColor(data['categorie'])
+                                .withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Text(
                           _getCategoryName(data['categorie']),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                          style: TextStyle(
+                            color: _getCategoryColor(data['categorie']),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -1212,23 +1503,36 @@ StreamBuilder<QuerySnapshot>(
                     DataCell(
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              size: 18,
-                              color: Color(0xFF3498DB),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF3498DB).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            onPressed: () => _editProduct(doc.id, data),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.edit_rounded,
+                                size: 18,
+                                color: Color(0xFF3498DB),
+                              ),
+                              onPressed: () => _editProduct(doc.id, data),
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              size: 18,
-                              color: Color(0xFFE74C3C),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Color(0xFFE74C3C).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            onPressed: () => _deleteProduct(
-                              doc.id,
-                              data['nom']?.toString() ?? 'ce produit',
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.delete_rounded,
+                                size: 18,
+                                color: Color(0xFFE74C3C),
+                              ),
+                              onPressed: () => _deleteProduct(
+                                doc.id,
+                                data['nom']?.toString() ?? 'ce produit',
+                              ),
                             ),
                           ),
                         ],
@@ -1251,90 +1555,91 @@ StreamBuilder<QuerySnapshot>(
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                'Gestion des Commandes - ${widget.boutiqueName}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF2C3E50),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Container(
-              constraints: const BoxConstraints(
-                maxWidth: 300,
-                minWidth: 200,
-              ),
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.search,
-                    color: Color(0xFF7F8C8D),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _orderSearchController,
-                      decoration: const InputDecoration(
-                        hintText: 'Rechercher une commande...',
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(
-                          color: Color(0xFF7F8C8D),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _orderSearchQuery = value.toLowerCase();
-                        });
-                      },
-                    ),
-                  ),
-                  if (_orderSearchQuery.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        _orderSearchController.clear();
-                        setState(() {
-                          _orderSearchQuery = '';
-                        });
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ],
+        // En-tête
+        Text(
+          'Gestion des Commandes',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: tropicalTeal,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'Suivez et gérez les commandes de votre boutique',
+          style: TextStyle(
+            fontSize: 16,
+            color: mediumText,
+          ),
         ),
         const SizedBox(height: 30),
+
+        // Barre de recherche
+        Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Row(
+            children: [
+              Icon(
+                Icons.search_rounded,
+                color: tropicalTeal,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _orderSearchController,
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher une commande...',
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(
+                      color: lightText,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _orderSearchQuery = value.toLowerCase();
+                    });
+                  },
+                ),
+              ),
+              if (_orderSearchQuery.isNotEmpty)
+                IconButton(
+                  icon: Icon(Icons.clear, size: 18, color: lightText),
+                  onPressed: () {
+                    _orderSearchController.clear();
+                    setState(() {
+                      _orderSearchQuery = '';
+                    });
+                  },
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 25),
+
+        // Table des commandes
         Expanded(
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -1357,14 +1662,15 @@ StreamBuilder<QuerySnapshot>(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error, color: Colors.red, size: 40),
-                const SizedBox(height: 10),
+                Icon(Icons.error_outline_rounded,
+                    color: Color(0xFFE74C3C), size: 50),
+                const SizedBox(height: 15),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Erreur: ${snapshot.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14),
+                    style: TextStyle(fontSize: 14, color: mediumText),
                   ),
                 ),
               ],
@@ -1373,13 +1679,14 @@ StreamBuilder<QuerySnapshot>(
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 10),
-                Text('Chargement des commandes...'),
+                CircularProgressIndicator(color: tropicalTeal),
+                const SizedBox(height: 15),
+                Text('Chargement des commandes...',
+                    style: TextStyle(color: mediumText)),
               ],
             ),
           );
@@ -1407,12 +1714,12 @@ StreamBuilder<QuerySnapshot>(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.shopping_cart_outlined,
-                  size: 50,
-                  color: Color(0xFFCCCCCC),
+                  size: 60,
+                  color: Colors.grey[300],
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
@@ -1420,9 +1727,9 @@ StreamBuilder<QuerySnapshot>(
                         ? 'Aucune commande pour cette boutique'
                         : 'Aucune commande trouvée pour "$_orderSearchQuery"',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF666666),
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: mediumText,
                     ),
                   ),
                 ),
@@ -1436,51 +1743,68 @@ StreamBuilder<QuerySnapshot>(
           child: SingleChildScrollView(
             scrollDirection: Axis.vertical,
             child: DataTable(
-              columnSpacing: 20,
-              horizontalMargin: 20,
-              headingRowHeight: 50,
-              dataRowHeight: 60,
-              columns: const [
+              columnSpacing: 25,
+              horizontalMargin: 25,
+              headingRowHeight: 60,
+              dataRowHeight: 70,
+              headingRowColor: MaterialStateProperty.resolveWith<Color?>(
+                (Set<MaterialState> states) {
+                  return softIvory;
+                },
+              ),
+              columns: [
                 DataColumn(
                   label: Text(
                     'ID Commande',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Date',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Montant',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Statut',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Livraison',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Client',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
                 DataColumn(
                   label: Text(
                     'Actions',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
                   ),
                 ),
               ],
@@ -1492,11 +1816,7 @@ StreamBuilder<QuerySnapshot>(
                     : 'N/A';
                 final amount = (data['total'] ?? 0).toDouble();
                 final status = data['status']?.toString() ?? 'pending';
-                final deliveryMethod =
-                    data['deliveryType']?.toString() ?? 'pickup';
                 final userId = data['userId']?.toString() ?? 'N/A';
-
-                // Obtenir le nom du client
                 final clientName = _getClientName(userId);
 
                 // Formater la date
@@ -1515,16 +1835,18 @@ StreamBuilder<QuerySnapshot>(
                   cells: [
                     DataCell(
                       SizedBox(
-                        width: 80,
+                        width: 100,
                         child: Tooltip(
                           message: orderId,
                           child: Text(
                             orderId.length > 8
                                 ? '#${orderId.substring(0, 8)}...'
                                 : '#$orderId',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: darkText,
                             ),
                           ),
                         ),
@@ -1535,68 +1857,53 @@ StreamBuilder<QuerySnapshot>(
                         width: 120,
                         child: Text(
                           formattedDate,
-                          style: const TextStyle(fontSize: 12),
+                          style: TextStyle(fontSize: 12, color: mediumText),
                         ),
                       ),
                     ),
                     DataCell(
                       Text(
                         '${amount.toStringAsFixed(0)} FCFA',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2C3E50),
-                          fontSize: 13,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: tropicalTeal,
+                          fontSize: 14,
                         ),
                       ),
                     ),
                     DataCell(
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                          horizontal: 12,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(status),
+                          color: _getStatusColor(status).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _getStatusColor(status).withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Text(
                           status,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _getStatusColor(status),
                             fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3498DB),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          deliveryMethod,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
                     DataCell(
                       SizedBox(
-                        width: 100,
+                        width: 120,
                         child: Text(
                           clientName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: darkText,
                           ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 2,
@@ -1606,23 +1913,36 @@ StreamBuilder<QuerySnapshot>(
                     DataCell(
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              size: 18,
-                              color: Color(0xFF3498DB),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF3498DB).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            onPressed: () =>
-                                _editOrderStatus(doc.id, data, clientName),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.edit_rounded,
+                                size: 18,
+                                color: Color(0xFF3498DB),
+                              ),
+                              onPressed: () =>
+                                  _editOrderStatus(doc.id, data, clientName),
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.visibility,
-                              size: 18,
-                              color: Color(0xFF2ECC71),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF2ECC71).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            onPressed: () =>
-                                _viewOrderDetails(doc.id, data, clientName),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.visibility_rounded,
+                                size: 18,
+                                color: Color(0xFF2ECC71),
+                              ),
+                              onPressed: () =>
+                                  _viewOrderDetails(doc.id, data, clientName),
+                            ),
                           ),
                         ],
                       ),
@@ -1643,150 +1963,170 @@ StreamBuilder<QuerySnapshot>(
   Widget _buildSettingsTab() {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.only(bottom: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            // En-tête
+            Text(
               'Paramètres de la boutique',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF2C3E50),
+                color: tropicalTeal,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 5),
             Text(
               'Gérez les paramètres de ${widget.boutiqueName}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                color: Color(0xFF7F8C8D),
+                color: mediumText,
               ),
             ),
             const SizedBox(height: 30),
 
             // Informations de la boutique
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Informations de la boutique',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2C3E50),
-                      ),
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Informations de la boutique',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
                     ),
-                    const SizedBox(height: 20),
-                    StreamBuilder<DocumentSnapshot>(
-                      stream: _firestore
-                          .collection('boutiques')
-                          .doc(widget.boutiqueId)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
+                  ),
+                  const SizedBox(height: 25),
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: _firestore
+                        .collection('boutiques')
+                        .doc(widget.boutiqueId)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return Center(
+                            child:
+                                CircularProgressIndicator(color: tropicalTeal));
+                      }
 
-                        final data =
-                            snapshot.data!.data() as Map<String, dynamic>? ??
-                                {};
+                      final data =
+                          snapshot.data!.data() as Map<String, dynamic>? ?? {};
 
-                        return Column(
-                          children: [
-                            _buildSettingItem(
-                              'Nom de la boutique',
-                              data['nom'] ?? widget.boutiqueName,
-                            ),
-                            const SizedBox(height: 15),
-                            _buildSettingItem(
-                              'Adresse',
-                              data['adresse'] ?? 'Non définie',
-                            ),
-                            const SizedBox(height: 15),
-                            _buildSettingItem(
-                              'Catégorie',
-                              data['categories'] ?? 'Général',
-                            ),
-                            const SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: () => _editBoutiqueSettings(data),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF6D5DFC),
+                      return Column(
+                        children: [
+                          _buildSettingItem(
+                            'Nom de la boutique',
+                            data['nom'] ?? widget.boutiqueName,
+                            icon: Icons.store_rounded,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSettingItem(
+                            'Adresse',
+                            data['adresse'] ?? 'Non définie',
+                            icon: Icons.location_on_rounded,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSettingItem(
+                            'Catégorie',
+                            data['categories'] ?? 'Général',
+                            icon: Icons.category_rounded,
+                          ),
+                          const SizedBox(height: 30),
+                          ElevatedButton.icon(
+                            onPressed: () => _editBoutiqueSettings(data),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tropicalTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 25,
+                                vertical: 15,
                               ),
-                              child: const Text('Modifier les informations'),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                            icon: const Icon(Icons.edit_rounded, size: 18),
+                            label: const Text('Modifier les informations'),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 30),
 
             // Actions administratives
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Actions administratives',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2C3E50),
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Actions administratives',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: tropicalTeal,
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+                  Column(
+                    children: [
+                      _buildActionTile(
+                        Icons.delete_outline_rounded,
+                        'Supprimer la boutique',
+                        'Cette action est irréversible',
+                        Color(0xFFE74C3C),
+                        () => _deleteBoutique(),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.delete_outline,
-                              color: Colors.red),
-                          title: const Text('Supprimer la boutique'),
-                          subtitle: const Text('Cette action est irréversible'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.arrow_forward_ios),
-                            onPressed: () => _deleteBoutique(),
-                          ),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.notifications_active,
-                              color: Colors.blue),
-                          title: const Text('Notifications'),
-                          subtitle: const Text('Gérer les notifications'),
-                          trailing: const Icon(Icons.arrow_forward_ios),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading:
-                              const Icon(Icons.security, color: Colors.green),
-                          title: const Text('Sécurité'),
-                          subtitle: const Text('Paramètres de sécurité'),
-                          trailing: const Icon(Icons.arrow_forward_ios),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      const Divider(color: softIvory),
+                      _buildActionTile(
+                        Icons.notifications_active_rounded,
+                        'Notifications',
+                        'Gérer les notifications',
+                        Color(0xFF3498DB),
+                        () {},
+                      ),
+                      const Divider(color: softIvory),
+                      _buildActionTile(
+                        Icons.security_rounded,
+                        'Sécurité',
+                        'Paramètres de sécurité',
+                        Color(0xFF2ECC71),
+                        () {},
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -1795,35 +2135,99 @@ StreamBuilder<QuerySnapshot>(
     );
   }
 
-  Widget _buildSettingItem(String label, String value) {
+  Widget _buildSettingItem(String label, String value, {IconData? icon}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF7F8C8D),
-            fontWeight: FontWeight.w500,
-          ),
+        Row(
+          children: [
+            if (icon != null)
+              Icon(
+                icon,
+                color: tropicalTeal,
+                size: 18,
+              ),
+            if (icon != null) const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: mediumText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 8),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
+            color: softIvory,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: tropicalTeal.withOpacity(0.2), width: 1),
           ),
           child: Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
+              color: darkText,
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildActionTile(
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      leading: Container(
+        width: 45,
+        height: 45,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3), width: 1),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: darkText,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: mediumText,
+          fontSize: 12,
+        ),
+      ),
+      trailing: Container(
+        width: 35,
+        height: 35,
+        decoration: BoxDecoration(
+          color: tropicalTeal.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: IconButton(
+          icon: Icon(Icons.arrow_forward_ios_rounded,
+              size: 14, color: tropicalTeal),
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 
@@ -2993,19 +3397,12 @@ StreamBuilder<QuerySnapshot>(
                         ],
                       ),
                       const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          const Icon(Icons.person,
-                              size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Client: $clientName',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Client: $clientName',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
                       ),
                       const SizedBox(height: 15),
                       const Text('Statut de la commande:',
@@ -3171,12 +3568,6 @@ StreamBuilder<QuerySnapshot>(
                     Icons.receipt,
                     'Commande',
                     '#${orderId.length > 12 ? orderId.substring(0, 12) + "..." : orderId}',
-                  ),
-                  const SizedBox(height: 15),
-                  _buildDetailCard(
-                    Icons.person,
-                    'Client',
-                    clientName,
                   ),
                   const SizedBox(height: 15),
                   _buildDetailCard(
