@@ -57,13 +57,8 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
     {'value': 'supermarche', 'label': 'Supermarché', 'icon': Icons.shopping_cart},
     {'value': 'marche', 'label': 'Marché', 'icon': Icons.storefront},
     {'value': 'boutique', 'label': 'Boutique', 'icon': Icons.store},
-    {'value': 'restaurant', 'label': 'Restaurant', 'icon': Icons.restaurant},
-    {'value': 'pharmacie', 'label': 'Pharmacie', 'icon': Icons.local_pharmacy},
     {'value': 'boulangerie', 'label': 'Boulangerie', 'icon': Icons.bakery_dining},
-    {'value': 'epicerie', 'label': 'Épicerie', 'icon': Icons.local_grocery_store},
     {'value': 'boucherie', 'label': 'Boucherie', 'icon': Icons.set_meal},
-    {'value': 'primeur', 'label': 'Primeur', 'icon': Icons.grass},
-    {'value': 'autre', 'label': 'Autre', 'icon': Icons.more_horiz},
   ];
   
   bool _isSubmitting = false;

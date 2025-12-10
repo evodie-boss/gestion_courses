@@ -55,15 +55,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     return amount;
   }
 
-  // Formater selon devise
-  String _formatAmount(double amount) {
-    if (_selectedCurrency == 'XOF') {
-      return '${amount.toStringAsFixed(0)} FCFA';
-    } else {
-      return '${amount.toStringAsFixed(2)} €';
-    }
-  }
-
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       try {

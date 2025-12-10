@@ -40,11 +40,14 @@ dependencies:
   firebase_storage: ^13.0.4
   image_picker: ^1.0.4
   image_picker_web: ^3.0.3
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
-  smooth_page_indicator: ^1.1.0  # Pour les indicateurs de page
+  smooth_page_indicator: ^1.1.0
+  google_maps_flutter: ^2.5.0
+  geolocator: ^9.0.2
+  url_launcher: ^6.2.4
+  flutter_map: ^8.1.0
+  latlong2: ^0.9.0
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +59,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.10.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -98,3 +102,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Configuration for flutter_launcher_icons
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo_courses.jpg"

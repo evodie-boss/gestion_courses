@@ -1,14 +1,17 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 import 'package:gestion_courses/screens/profile_screen.dart';
 import 'package:gestion_courses/screens/login_screen.dart';
 import 'package:gestion_courses/screens/register_screen.dart';
+import 'package:gestion_courses/screens/map_screen.dart';
 // Pages importées pour les onglets
 import 'package:gestion_courses/pages/course_list_screen.dart';
 import 'package:gestion_courses/gestion_portefeuille/screens/wallet_screen.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/boutiques.dart';
+import 'package:gestion_courses/gestion_boutiques/pages/boutique_detail.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
 
@@ -35,6 +38,10 @@ class _HomeScreenState extends State<HomeScreen>
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
     );
+    _initializeQuickActions();
+    _loadUserData();
+    _loadRecentCourses();
+    _loadNearbyShops();
   }
 
   @override
@@ -43,44 +50,129 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  final List<Map<String, dynamic>> _quickActions = [
-    {
-      'icon': Icons.add_shopping_cart_rounded,
-      'title': 'Nouvelle Liste de ourse',
-      'color': AppColors.tropicalTeal,
-      'subtitle': 'Créer une liste de course',
-    },
-    {
-      'icon': Icons.attach_money_rounded,
-      'title': 'Portefeuille',
-      'color': Colors.amber.shade700,
-      'subtitle': 'Solde: ',
-    },
-    {
-      'icon': Icons.store_mall_directory_rounded,
-      'title': 'Boutiques',
-      'color': Colors.green.shade700,
-      'subtitle': '8 boutiques proches',
-    },
-    {
-      'icon': Icons.map_rounded,
-      'title': 'Carte',
-      'color': const Color.fromARGB(255, 159, 169, 179),
-      'subtitle': 'Voir la carte',
-    },
-  ];
+  late List<Map<String, dynamic>> _quickActions = [];
+  List<Map<String, dynamic>> _recentCourses = [];
+  List<Map<String, dynamic>> _nearbyShops = [];
+  double _userWalletBalance = 0.0;
 
-  final List<Map<String, dynamic>> _recentLists = [
-    {'name': 'Courses Semaine', 'items': 12, 'date': 'Aujourd\'hui'},
-    {'name': 'Fruits & Légumes', 'items': 8, 'date': 'Hier'},
-    {'name': 'Produits Ménagers', 'items': 5, 'date': '12 déc'},
-  ];
+  void _initializeQuickActions() {
+    _quickActions = [
+      {
+        'icon': Icons.add_shopping_cart_rounded,
+        'title': 'Nouvelle Liste de course',
+        'color': AppColors.tropicalTeal,
+        'subtitle': 'Créer une liste de course',
+      },
+      {
+        'icon': Icons.attach_money_rounded,
+        'title': 'Portefeuille',
+        'color': Colors.amber.shade700,
+        'subtitle': 'Solde: ${_userWalletBalance.toStringAsFixed(0)} FCFA',
+      },
+      {
+        'icon': Icons.store_mall_directory_rounded,
+        'title': 'Boutiques',
+        'color': Colors.green.shade700,
+        'subtitle': '${_nearbyShops.length} boutiques',
+      },
+      {
+        'icon': Icons.map_rounded,
+        'title': 'Carte',
+        'color': const Color.fromARGB(255, 159, 169, 179),
+        'subtitle': 'Voir la carte',
+      },
+    ];
+  }
 
-  final List<Map<String, dynamic>> _nearbyShops = [
-    {'name': 'Supermarché Proxi', 'distance': '0.5 km', 'rating': 4.5},
-    {'name': 'Marché Central', 'distance': '1.2 km', 'rating': 4.2},
-    {'name': 'Boulangerie Delice', 'distance': '0.8 km', 'rating': 4.7},
-  ];
+  Future<void> _loadUserData() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('portefeuille')
+            .doc(userId)
+            .get();
+        if (doc.exists) {
+          setState(() {
+            _userWalletBalance = (doc.data()?['balance'] ?? 0).toDouble();
+            _initializeQuickActions();
+          });
+        }
+      }
+    } catch (e) {
+      print('Erreur chargement solde: $e');
+    }
+  }
+
+  Future<void> _loadRecentCourses() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('courses')
+            .where('userId', isEqualTo: userId)
+            .orderBy('createdAt', descending: true)
+            .limit(3)
+            .get();
+
+        setState(() {
+          _recentCourses = snapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,
+              'name': data['name'] ?? 'Sans titre',
+              'items': (data['items'] as List?)?.length ?? 0,
+              'date': _formatDate(data['createdAt'] as Timestamp?),
+            };
+          }).toList();
+        });
+      }
+    } catch (e) {
+      print('Erreur chargement courses récentes: $e');
+    }
+  }
+
+  Future<void> _loadNearbyShops() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('boutiques')
+          .limit(5)
+          .get();
+
+      setState(() {
+        _nearbyShops = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'name': data['nom'] ?? 'Boutique',
+            'categories': data['categories'] ?? 'Catégorie inconnue',
+            'location': data['location'] ?? 'Localisation inconnue',
+          };
+        }).toList();
+        _initializeQuickActions();
+      });
+    } catch (e) {
+      print('Erreur chargement boutiques: $e');
+    }
+  }
+
+  String _formatDate(Timestamp? timestamp) {
+    if (timestamp == null) return 'Récemment';
+    final date = timestamp.toDate();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final courseDate = DateTime(date.year, date.month, date.day);
+
+    if (courseDate.isAtSameMomentAs(today)) {
+      return 'Aujourd\'hui';
+    } else if (courseDate.isAtSameMomentAs(
+      today.subtract(const Duration(days: 1)),
+    )) {
+      return 'Hier';
+    } else {
+      return '${date.day}/${date.month}';
+    }
+  }
 
   void _navigateWithAnimation(int index) {
     _scaleController.forward().then((_) {
@@ -100,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'ShopEasy',
+          'ShopTrack',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -303,13 +395,13 @@ class _HomeScreenState extends State<HomeScreen>
         );
       case 3:
         return KeyedSubtree(
-          key: const ValueKey('shops'),
-          child: _buildNavigatorPage(ElegantBoutiquePage()),
+          key: const ValueKey('boutiques'),
+          child: _buildBoutiquesNavigator(context),
         );
       case 4:
         return KeyedSubtree(
           key: const ValueKey('map'),
-          child: _buildMapContent(),
+          child: _buildNavigatorPage(const MapScreen()),
         );
       case 5:
         return KeyedSubtree(
@@ -336,12 +428,35 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // Navigator spécial pour les boutiques avec navigation vers détail
+  // Remplacez cette fonction
+  Widget _buildBoutiquesNavigator(BuildContext context) {
+    return Navigator(
+      onGenerateRoute: (settings) {
+        if (settings.name == '/boutiqueDetail') {
+          final args = settings.arguments as Map<String, dynamic>;
+          final boutiqueId = args['boutiqueId'] as String;
+          final boutiqueName = args['boutiqueName'] as String;
+          return MaterialPageRoute(
+            builder: (context) => BoutiqueDetailScreen(
+              boutiqueId: boutiqueId,
+              boutiqueName: boutiqueName,
+            ),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (context) => const ElegantBoutiquePage(),
+        );
+      },
+    );
+  }
+
   Widget _buildHomeContent(UserModel? user) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Bannière de bienvenue MODIFIÉE (couleur différente)
+          // Bannière de bienvenue
           TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 800),
             tween: Tween(begin: 0.0, end: 1.0),
@@ -360,8 +475,8 @@ class _HomeScreenState extends State<HomeScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color.fromARGB(255, 201, 208, 214), // NOUVELLE COULEUR
-                    const Color.fromARGB(255, 82, 85, 88), // NOUVELLE COULEUR
+                    const Color.fromARGB(255, 201, 208, 214),
+                    const Color.fromARGB(255, 82, 85, 88),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -391,81 +506,6 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  MouseRegion(
-                    onEnter: (_) => _scaleController.forward(),
-                    onExit: (_) => _scaleController.reverse(),
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: GestureDetector(
-                        onTap: () => _navigateWithAnimation(2),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                child: Icon(
-                                  Icons.account_balance_wallet_rounded,
-                                  color: AppColors.tropicalTeal,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Solde disponible',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white.withOpacity(0.8),
-                                      ),
-                                    ),
-                                    Text(
-                                      user != null
-                                          ? '${user.soldePortefeuille} FCFA'
-                                          : '0 FCFA',
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.add_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -507,10 +547,14 @@ class _HomeScreenState extends State<HomeScreen>
                           : action['subtitle'],
                       onTap: () {
                         int targetIndex = index;
-                        if (index == 0) targetIndex = 1; // Courses
-                        else if (index == 1) targetIndex = 2; // Portefeuille
-                        else if (index == 2) targetIndex = 3; // Boutiques
-                        else if (index == 3) targetIndex = 4; // Carte
+                        if (index == 0)
+                          targetIndex = 1; // Courses
+                        else if (index == 1)
+                          targetIndex = 2; // Portefeuille
+                        else if (index == 2)
+                          targetIndex = 3; // Boutiques
+                        else if (index == 3)
+                          targetIndex = 4; // Carte
                         _navigateWithAnimation(targetIndex);
                       },
                     );
@@ -567,15 +611,27 @@ class _HomeScreenState extends State<HomeScreen>
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ..._recentLists.asMap().entries.map(
-                      (entry) => _buildAnimatedListCard(entry.key, entry.value),
-                    ),
+                    if (_recentCourses.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Text(
+                            'Aucune course récente',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._recentCourses.asMap().entries.map(
+                        (entry) =>
+                            _buildAnimatedListCard(entry.key, entry.value),
+                      ),
                   ],
                 ),
 
                 const SizedBox(height: 32),
 
-                // Section Boutiques Proches
+                // Section Boutiques Proches (Dynamique)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -620,18 +676,264 @@ class _HomeScreenState extends State<HomeScreen>
                   ],
                 ),
                 const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _nearbyShops
-                        .map((shop) => _buildShopCard(shop))
-                        .toList(),
+                if (_nearbyShops.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'Aucune boutique trouvée',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _nearbyShops
+                          .map((shop) => _buildShopCard(shop))
+                          .toList(),
+                    ),
+                  ),
+
+                const SizedBox(height: 32),
+
+                // Bouton Créer une Boutique
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showCreateShopDialog(context),
+                    icon: const Icon(Icons.store),
+                    label: const Text('Créer une Boutique'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.tropicalTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 40),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateShopDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final locationController = TextEditingController();
+    final categoriesController = TextEditingController();
+    final latitudeController = TextEditingController();
+    final longitudeController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Créer une Boutique'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom de la boutique *',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.store),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: categoriesController,
+                decoration: const InputDecoration(
+                  labelText: 'Catégories (séparées par des virgules)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.category),
+                  hintText: 'Alimentation, Électronique, Vêtements',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: locationController,
+                decoration: const InputDecoration(
+                  labelText: 'Localisation/Adresse',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.location_on),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Coordonnées GPS (optionnel)',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: latitudeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Latitude',
+                        border: OutlineInputBorder(),
+                        hintText: '48.8566',
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: longitudeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Longitude',
+                        border: OutlineInputBorder(),
+                        hintText: '2.3522',
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info, size: 18, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '* Champ obligatoire\nCoordonnées GPS: optionnel, par défaut Paris',
+                        style: TextStyle(fontSize: 12, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Veuillez entrer le nom de la boutique'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                double? latitude;
+                double? longitude;
+
+                if (latitudeController.text.isNotEmpty &&
+                    longitudeController.text.isNotEmpty) {
+                  latitude = double.tryParse(latitudeController.text);
+                  longitude = double.tryParse(longitudeController.text);
+
+                  if (latitude == null ||
+                      longitude == null ||
+                      latitude < -90 ||
+                      latitude > 90 ||
+                      longitude < -180 ||
+                      longitude > 180) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Coordonnées GPS invalides\nLatitude: -90 à 90\nLongitude: -180 à 180',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                }
+
+                final userId = FirebaseAuth.instance.currentUser?.uid;
+                if (userId != null) {
+                  final shopData = {
+                    'nom': nameController.text,
+                    'categories': categoriesController.text.isNotEmpty
+                        ? categoriesController.text
+                        : 'Général',
+                    'location': locationController.text.isNotEmpty
+                        ? locationController.text
+                        : 'Localisation non spécifiée',
+                    'ownerId': userId,
+                    'rating': 5.0,
+                    'reviewCount': 0,
+                    'distance': 0.5,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  };
+
+                  // Ajouter les coordonnées si fournies
+                  if (latitude != null && longitude != null) {
+                    shopData['latitude'] = latitude;
+                    shopData['longitude'] = longitude;
+                  } else {
+                    // Coordonnées par défaut (Paris)
+                    shopData['latitude'] = 48.8566;
+                    shopData['longitude'] = 2.3522;
+                  }
+
+                  await FirebaseFirestore.instance
+                      .collection('boutiques')
+                      .add(shopData);
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Boutique "${nameController.text}" créée avec succès ! 🎉',
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+
+                  _loadNearbyShops();
+                }
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Erreur: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Créer'),
           ),
         ],
       ),
@@ -766,110 +1068,96 @@ class _HomeScreenState extends State<HomeScreen>
       onExit: (_) => _scaleController.reverse(),
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
-          width: 200,
-          margin: const EdgeInsets.only(right: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 10,
-                spreadRadius: 2,
+        child: GestureDetector(
+          // Dans la fonction _buildShopCard
+          onTap: () {
+            // Naviguer vers le détail de la boutique
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => BoutiqueDetailScreen(
+                  boutiqueId: shop['id'],
+                  boutiqueName:
+                      shop['name'], // <-- ASSUREZ-VOUS DE FOURNIR CE PARAMÈTRE
+                ),
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _navigateWithAnimation(3),
+            );
+          },
+          child: Container(
+            width: 200,
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 100,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: AppColors.softIvory,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.storefront_rounded,
-                        size: 40,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 100,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.softIvory,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      size: 40,
+                      color: AppColors.tropicalTeal,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    shop['name'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    shop['categories'].toString(),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
                         color: AppColors.tropicalTeal,
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      shop['name'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: AppColors.tropicalTeal,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          shop['distance'],
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          shop['location'],
                           style: TextStyle(
-                            color: AppColors.textColor.withOpacity(0.7),
+                            fontSize: 12,
+                            color: Colors.grey[600],
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const Spacer(),
-                        Icon(Icons.star_rounded, size: 16, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text(
-                          shop['rating'].toString(),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCoursesContent() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.shopping_cart_rounded,
-            size: 80,
-            color: AppColors.tropicalTeal.withOpacity(0.3),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Mes Courses',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.tropicalTeal,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Gérez vos listes de courses',
-            style: TextStyle(fontSize: 16, color: AppColors.textColor),
-          ),
-        ],
       ),
     );
   }
@@ -951,288 +1239,281 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildShopsContent() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          color: Colors.green.shade700,
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.search, color: Colors.white),
-                onPressed: () {},
+  Widget _buildOrdersContent() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 80,
+              color: Colors.purple.withOpacity(0.3),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Connectez-vous',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.purple,
               ),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Rechercher une boutique...',
-                    hintStyle: const TextStyle(color: Colors.white70),
-                    border: InputBorder.none,
-                    fillColor: Colors.white.withOpacity(0.2),
-                    filled: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 15,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(
-                        Icons.filter_list_rounded,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {},
-                    ),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'pour voir vos commandes',
+              style: TextStyle(fontSize: 16, color: AppColors.textColor),
+            ),
+          ],
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Boutiques disponibles',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Découvrez les boutiques autour de vous',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _nearbyShops.length,
-                    itemBuilder: (context, index) {
-                      final shop = _nearbyShops[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 15),
-                        child: ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.storefront_rounded,
-                              color: Colors.green.shade700,
-                            ),
-                          ),
-                          title: Text(
-                            shop['name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 5),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.location_on_outlined,
-                                    size: 16,
-                                    color: Colors.green.shade700,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(shop['distance']),
-                                  const Spacer(),
-                                  Icon(Icons.star_rounded,
-                                      size: 16, color: Colors.amber),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    shop['rating'].toString(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          trailing: IconButton(
-                            icon: Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              color: Colors.green.shade700,
-                            ),
-                            onPressed: () {},
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mes Commandes',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.purple,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Suivi de vos commandes passées',
+              style: TextStyle(fontSize: 16, color: AppColors.textColor),
+            ),
+            const SizedBox(height: 30),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('orders')
+                  .where('userId', isEqualTo: user.uid)
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 50,
+                        ),
+                        const SizedBox(height: 16),
+                        Text('Erreur: ${snapshot.error}'),
+                      ],
+                    ),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 80,
+                          color: Colors.grey.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Aucune commande',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
                           ),
                         ),
-                      );
-                    },
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Vous n\'avez pas encore passé de commande',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final orders = snapshot.data!.docs;
+
+                return Column(
+                  children: [
+                    for (int i = 0; i < orders.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      _buildOrderCard(orders[i]),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderCard(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final total = (data['total'] ?? 0).toDouble();
+    final status = data['status']?.toString() ?? 'pending';
+    final deliveryType = data['deliveryType']?.toString() ?? 'pickup';
+    final createdAt = data['createdAt'] != null
+        ? (data['createdAt'] as Timestamp).toDate()
+        : DateTime.now();
+    final items = data['items'] as List<dynamic>? ?? [];
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Commande #${doc.id.substring(0, 8)}...',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Date: ${createdAt.day}/${createdAt.month}/${createdAt.year} ${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(status).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    status == 'pending'
+                        ? 'En attente'
+                        : status == 'confirmed'
+                        ? 'Confirmée'
+                        : status == 'shipped'
+                        ? 'Expédiée'
+                        : status == 'delivered'
+                        ? 'Livrée'
+                        : 'En cours',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _getStatusColor(status),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMapContent() {
-    return Column(
-      children: [
-        // Section de recherche (Garde la hauteur fixe)
-        Container(
-          padding: const EdgeInsets.all(24),
-          color: const Color.fromARGB(255, 115, 121, 128),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.search, color: Colors.white),
-                onPressed: () {},
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${items.length} article(s)',
+                  style: const TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.local_shipping_outlined,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  deliveryType == 'pickup'
+                      ? 'Prise sur place'
+                      : 'Livraison à domicile',
+                  style: const TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Rechercher un lieu...',
-                    hintStyle: const TextStyle(color: Colors.white70),
-                    border: InputBorder.none,
-                    fillColor: Colors.white.withOpacity(0.2),
-                    filled: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 15,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: const Icon(
-                        Icons.filter_list_rounded,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {},
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Montant total:',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${total.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple,
                     ),
                   ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Section de contenu principal (CORRECTION APPLIQUÉE ICI)
-        Expanded(
-          // L'Expanded donne tout l'espace vertical restant à son enfant
-          child: SingleChildScrollView(
-            // Le SingleChildScrollView permet le défilement si le contenu déborde
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0), // Ajout d'un padding pour un meilleur look
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(30),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.map_rounded,
-                            size: 80,
-                            color: const Color.fromARGB(255, 154, 166, 179),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Carte Interactive',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Visualisez les boutiques autour de vous',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.textColor.withOpacity(0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: () {},
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(255, 84, 87, 90),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 30,
-                                vertical: 15,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'Activer la localisation',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildOrdersContent() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.list_alt_rounded,
-            size: 80,
-            color: Colors.purple.withOpacity(0.3),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Mes Commandes',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.purple,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Suivez vos commandes en cours',
-            style: TextStyle(fontSize: 16, color: AppColors.textColor),
-          ),
-        ],
-      ),
-    );
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'confirmed':
+        return Colors.blue;
+      case 'shipped':
+        return Colors.purple;
+      case 'delivered':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   Drawer _buildDrawer(BuildContext context, AuthService authService) {
@@ -1241,13 +1522,13 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Drawer(
       backgroundColor: Colors.white,
-      width: 280, // TAILLE FIXÉE POUR LA NAVIGATION VERTICALE
+      width: 280,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           // Header du drawer
           Container(
-            height: 180, // HAUTEUR RÉDUITE
+            height: 180,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -1265,7 +1546,7 @@ class _HomeScreenState extends State<HomeScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
-                    radius: 30, // TAILLE RÉDUITE
+                    radius: 30,
                     backgroundColor: Colors.white,
                     child: Text(
                       isLoggedIn &&
@@ -1351,7 +1632,6 @@ class _HomeScreenState extends State<HomeScreen>
               Navigator.pop(context);
             },
           ),
-          // AJOUTÉ: Item Boutiques
           _drawerItem(
             icon: Icons.store_mall_directory_rounded,
             title: 'Boutiques',
@@ -1462,10 +1742,10 @@ class _HomeScreenState extends State<HomeScreen>
             borderRadius: BorderRadius.circular(10),
           ),
           child: ListTile(
-            dense: true, // RENDU PLUS DENSE
+            dense: true,
             leading: Icon(
               icon,
-              size: 22, // TAILLE RÉDUITE
+              size: 22,
               color:
                   color ??
                   (selected ? AppColors.tropicalTeal : Colors.grey.shade700),
@@ -1474,7 +1754,7 @@ class _HomeScreenState extends State<HomeScreen>
               title,
               style: TextStyle(
                 fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14, // TAILLE DE TEXTE RÉDUITE
+                fontSize: 14,
                 color:
                     color ??
                     (selected ? AppColors.tropicalTeal : Colors.grey.shade800),
@@ -1519,7 +1799,6 @@ class _HomeScreenState extends State<HomeScreen>
           activeIcon: Icon(Icons.account_balance_wallet),
           label: 'Portefeuille',
         ),
-        // AJOUTÉ: Item Boutiques
         BottomNavigationBarItem(
           icon: Icon(Icons.store_mall_directory_rounded),
           activeIcon: Icon(Icons.store_rounded),

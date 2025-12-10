@@ -4,9 +4,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:gestion_courses/screens/login_screen.dart';
 import 'package:gestion_courses/screens/home_screen.dart';
 import 'package:gestion_courses/screens/profile_screen.dart';
-import 'package:gestion_courses/screens/splash_screen.dart'; // NOUVEAU fichier
+import 'package:gestion_courses/screens/splash_screen.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
+import 'package:gestion_courses/constants/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
@@ -18,7 +19,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService(), lazy: false),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
@@ -29,22 +30,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gestion Courses', // GARDE ce nom
-      theme: ThemeData(
-        primaryColor: const Color(0xFF0F9E99),
-        scaffoldBackgroundColor: const Color(0xFFEFE9E0),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F9E99),
-          foregroundColor: Colors.white,
-          elevation: 2,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Colors.white,
-          selectedItemColor: Color(0xFF0F9E99),
-          unselectedItemColor: Colors.grey,
-        ),
-        useMaterial3: true,
-      ),
+      title: 'Gestion Courses',
+      theme: AppTheme.lightTheme,
       home: const AuthWrapper(),
       routes: {'/profile': (context) => const ProfileScreen()},
       debugShowCheckedModeBanner: false,
@@ -60,7 +47,6 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isInitialized = false;
   bool _showSplash = true;
 
   @override

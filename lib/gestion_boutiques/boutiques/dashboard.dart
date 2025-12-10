@@ -266,7 +266,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final totalProducts = snapshot.hasData ? snapshot.data!.docs.length : 0;
 
                 return StreamBuilder<QuerySnapshot>(
-                  stream: _firestore.collection('commandes').snapshots(),
+                  stream: _firestore.collection('orders').snapshots(),
                   builder: (context, orderSnapshot) {
                     final totalOrders = orderSnapshot.hasData ? orderSnapshot.data!.docs.length : 0;
                     double totalRevenue = 0;
@@ -275,7 +275,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     if (orderSnapshot.hasData) {
                       for (var doc in orderSnapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
-                        totalRevenue += (data['montant_total'] ?? 0).toDouble();
+                        totalRevenue += (data['total'] ?? 0).toDouble();
 
                         final status = data['status']?.toString() ?? '';
                         if (status == 'En attente') {
@@ -473,8 +473,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             const SizedBox(height: 15),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore.collection('commandes')
-                  .orderBy('date', descending: true)
+                stream: _firestore.collection('orders')
+                  .orderBy('createdAt', descending: true)
                   .limit(5)
                   .snapshots(),
                 builder: (context, snapshot) {
@@ -513,20 +513,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     itemCount: orders.length,
                     separatorBuilder: (context, index) => const Divider(height: 15),
                     itemBuilder: (context, index) {
-                      final data = orders[index].data() as Map<String, dynamic>;
-                      final orderId = data['id']?.toString() ?? 'N/A';
-                      final amount = (data['montant_total'] ?? 0).toDouble();
-                      final status = data['status']?.toString() ?? 'En attente';
-                      final date = data['date']?.toString() ?? '';
-
+                      final doc = orders[index];
+                      final data = doc.data() as Map<String, dynamic>;
+                      final orderId = doc.id;
+                      final amount = (data['total'] ?? 0).toDouble();
+                      final status = data['status']?.toString() ?? 'pending';
+                      final ts = data['createdAt'] as Timestamp?;
                       String formattedDate = '';
-                      try {
-                        if (date.isNotEmpty) {
-                          final parsedDate = DateTime.parse(date);
-                          formattedDate = DateFormat('dd/MM/yy HH:mm').format(parsedDate);
+                      if (ts != null) {
+                        try {
+                          formattedDate = DateFormat('dd/MM/yy HH:mm').format(ts.toDate());
+                        } catch (e) {
+                          formattedDate = ts.toDate().toString();
                         }
-                      } catch (e) {
-                        formattedDate = date;
                       }
 
                       return Container(
@@ -1242,7 +1241,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildOrdersTable() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _firestore.collection('commandes').snapshots(),
+      stream: _firestore.collection('orders').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
@@ -1282,7 +1281,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         // Charger les noms des clients
         final userIds = orders.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          return data['user_id']?.toString() ?? '';
+          return data['userId']?.toString() ?? '';
         }).where((id) => id.isNotEmpty).toSet().toList();
 
         // Charger les noms en arrière-plan
@@ -1293,7 +1292,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           final data = doc.data() as Map<String, dynamic>;
           final orderId = (data['id'] ?? '').toString().toLowerCase();
           final status = (data['status'] ?? '').toString().toLowerCase();
-          final userId = (data['user_id'] ?? '').toString().toLowerCase();
+          final userId = (data['userId'] ?? '').toString().toLowerCase();
           final clientName = _getClientName(userId).toLowerCase();
           final search = _orderSearchQuery.toLowerCase();
 
@@ -1387,13 +1386,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
               rows: filteredOrders.map((doc) {
                 final data = doc.data() as Map<String, dynamic>;
-                final orderId = data['id']?.toString() ?? 'N/A';
-                final date = data['date']?.toString() ?? 'N/A';
-                final amount = (data['montant_total'] ?? 0).toDouble();
-                final status = data['status']?.toString() ?? 'En attente';
+                final orderId = doc.id;
+                final date = data['createdAt'] != null
+                    ? (data['createdAt'] as Timestamp).toDate().toString()
+                    : 'N/A';
+                final amount = (data['total'] ?? 0).toDouble();
+                final status = data['status']?.toString() ?? 'pending';
                 final deliveryMethod =
-                    data['methodeLivraison']?.toString() ?? 'Standard';
-                final userId = data['user_id']?.toString() ?? 'N/A';
+                    data['deliveryType']?.toString() ?? 'pickup';
+                final userId = data['userId']?.toString() ?? 'N/A';
 
                 // Obtenir le nom du client
                 final clientName = _getClientName(userId);
@@ -1520,7 +1521,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               size: 18,
                               color: Color(0xFF2ECC71),
                             ),
-                            onPressed: () => _viewOrderDetails(data, clientName),
+                            onPressed: () => _viewOrderDetails(doc.id, data, clientName),
                           ),
                         ],
                       ),
@@ -2838,7 +2839,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Date: ${data['date'] ?? 'Non spécifiée'}',
+                              'Date: ${data['createdAt']?.toString() ?? 'Non spécifiée'}',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
@@ -2853,7 +2854,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           const Icon(Icons.money, size: 16, color: Colors.grey),
                           const SizedBox(width: 8),
                           Text(
-                            'Montant: ${(data['montant_total'] ?? 0).toStringAsFixed(0)} FCFA',
+                            'Montant: ${(data['total'] ?? 0).toStringAsFixed(0)} FCFA',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -2873,10 +2874,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ElevatedButton(
                   onPressed: () async {
                     try {
-                      await _firestore.collection('commandes').doc(orderId).update({
+                      await _firestore.collection('orders').doc(orderId).update({
                         'status': currentStatus,
-                        'methodeLivraison': currentDeliveryMethod,
-                        'updated_at': FieldValue.serverTimestamp(),
+                        'deliveryType': currentDeliveryMethod,
+                        'updatedAt': FieldValue.serverTimestamp(),
                       });
 
                       if (mounted) {
@@ -2912,7 +2913,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Future<void> _viewOrderDetails(Map<String, dynamic> data, String clientName) async {
+  Future<void> _viewOrderDetails(String orderId, Map<String, dynamic> data, String clientName) async {
     await showDialog(
       context: context,
       builder: (context) {
@@ -2929,7 +2930,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   _buildDetailCard(
                     Icons.receipt,
                     'Commande',
-                    '#${data['id']?.toString().substring(0, 12)}...',
+                    '#${orderId.length > 12 ? orderId.substring(0, 12) + "..." : orderId}',
                   ),
                   const SizedBox(height: 15),
                   _buildDetailCard(
@@ -2941,20 +2942,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   _buildDetailCard(
                     Icons.calendar_today,
                     'Date',
-                    data['date']?.toString() ?? 'Non spécifiée',
+                    data['createdAt']?.toString() ?? 'Non spécifiée',
                   ),
                   const SizedBox(height: 15),
                   _buildDetailCard(
                     Icons.money,
                     'Montant Total',
-                    '${(data['montant_total'] ?? 0).toStringAsFixed(0)} FCFA',
+                    '${(data['total'] ?? 0).toStringAsFixed(0)} FCFA',
                     isAmount: true,
                   ),
                   const SizedBox(height: 15),
                   _buildDetailCard(
                     Icons.local_shipping,
                     'Méthode de livraison',
-                    data['methodeLivraison']?.toString() ?? 'Standard',
+                    data['deliveryType']?.toString() ?? 'pickup',
                   ),
                   const SizedBox(height: 15),
                   _buildDetailCard(

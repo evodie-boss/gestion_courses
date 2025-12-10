@@ -1,7 +1,6 @@
 // lib/gestion_portefeuille/screens/budget_settings_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ← AJOUTER cet import
 import '../services/portefeuille_service.dart';
 import '../models/portefeuille_model.dart';
 
