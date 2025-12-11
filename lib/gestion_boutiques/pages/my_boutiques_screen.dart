@@ -103,7 +103,33 @@ class MyBoutiquesScreen extends StatelessWidget {
               final boutique = boutiques[index];
               final data = boutique.data() as Map<String, dynamic>;
 
-              return _buildBoutiqueCard(context, boutique.id, data);
+              // Lire le solde en temps réel
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('boutiques')
+                    .doc(boutique.id)
+                    .snapshots(),
+                builder: (context, boutiqueSnapshot) {
+                  if (!boutiqueSnapshot.hasData) {
+                    return _buildBoutiqueCard(
+                      context,
+                      boutique.id,
+                      data,
+                      0.0, // Valeur par défaut
+                    );
+                  }
+
+                  final boutiqueData = boutiqueSnapshot.data!.data() as Map<String, dynamic>?;
+                  final balance = (boutiqueData?['balance'] ?? 0.0).toDouble();
+                  
+                  return _buildBoutiqueCard(
+                    context,
+                    boutique.id,
+                    data,
+                    balance,
+                  );
+                },
+              );
             },
           );
         },
@@ -121,6 +147,7 @@ class MyBoutiquesScreen extends StatelessWidget {
     BuildContext context,
     String boutiqueId,
     Map<String, dynamic> data,
+    double balance,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -128,14 +155,13 @@ class MyBoutiquesScreen extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        // Dans _buildBoutiqueCard, remplacez le onTap
         onTap: () {
           // Aller au tableau de bord ADMIN pour CETTE boutique
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => AdminDashboard(
-                boutiqueId: boutiqueId, // Passer l'ID de la boutique
+                boutiqueId: boutiqueId,
                 boutiqueName: data['nom'] ?? 'Boutique',
               ),
             ),
@@ -193,6 +219,50 @@ class MyBoutiquesScreen extends StatelessWidget {
                 style: TextStyle(color: Colors.grey[600], fontSize: 13),
               ),
               const SizedBox(height: 8),
+              
+              // AFFICHAGE DU SOLDE DE LA BOUTIQUE
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.tropicalTeal.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.tropicalTeal.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet,
+                          color: AppColors.tropicalTeal,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Solde disponible:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${balance.toStringAsFixed(0)} FCFA',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.tropicalTeal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -265,7 +335,6 @@ class MyBoutiquesScreen extends StatelessWidget {
         MaterialPageRoute(
           builder: (context) => CreateBoutiquePage(
             firestore: FirebaseFirestore.instance,
-            // Ajoutez userId si nécessaire pour votre formulaire
           ),
         ),
       );
@@ -277,7 +346,7 @@ class MyBoutiquesScreen extends StatelessWidget {
   }
 }
 
-// Dialog de création de boutique
+// Dialogue de création de boutique
 class CreateBoutiqueDialog extends StatefulWidget {
   const CreateBoutiqueDialog({Key? key}) : super(key: key);
 

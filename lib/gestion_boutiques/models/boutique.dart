@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Boutique {
   String? id;
   String adresse;
+  double balance;  
   String categories;
   DateTime? createdAt;
   DateTime? updatedAt;
@@ -14,6 +15,7 @@ class Boutique {
   Boutique({
     this.id,
     required this.adresse,
+    required this.balance,
     required this.categories,
     this.createdAt,
     this.updatedAt,
@@ -30,6 +32,7 @@ class Boutique {
     return Boutique(
       id: doc.id,
       adresse: data['adresse'] ?? '',
+      balance: (data['balance'] as num?)?.toDouble() ?? 0.0,
       categories: data['categories'] ?? '',
       createdAt: data['created_at'] != null 
           ? (data['created_at'] as Timestamp).toDate() 
@@ -87,6 +90,7 @@ class Boutique {
     return Boutique(
       id: id ?? this.id,
       adresse: adresse ?? this.adresse,
+      balance: balance,
       categories: categories ?? this.categories,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
