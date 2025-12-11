@@ -1,6 +1,9 @@
+// order_screen.dart (Code complet et corrigé)
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+// Importation du modèle de l'utilisateur (Assurez-vous que ce chemin est correct)
 import 'package:gestion_courses/models/course_model.dart';
 
 class OrderScreen extends StatefulWidget {
@@ -37,25 +40,19 @@ class _OrderScreenState extends State<OrderScreen> {
   // Pour chaque boutique, on garde la sélection des produits ET leurs quantités
   Map<String, Map<String, int>> _quantitiesByBoutique = {};
   Map<String, Set<String>> _selectedProductsByBoutique = {};
-  Map<String, String> _productToCourseMap = {}; // Pour mapper produit -> course ID
+  Map<String, String> _productToCourseMap =
+      {}; // Pour mapper produit -> course ID
 
-  // Méthode pour convertir l'enum CoursePriority en String
-  String _priorityToString(CoursePriority priority) {
-    switch (priority) {
+  // Méthode pour obtenir le code court de la priorité d'une course
+  String _getCoursePriorityCode(Course course) {
+    switch (course.priority) {
       case CoursePriority.high:
         return 'H';
       case CoursePriority.medium:
         return 'M';
       case CoursePriority.low:
         return 'B';
-      default:
-        return 'B';
     }
-  }
-
-  // Méthode pour obtenir la priorité d'une course
-  String _getCoursePriority(Course course) {
-    return _priorityToString(course.priority);
   }
 
   @override
@@ -69,10 +66,8 @@ class _OrderScreenState extends State<OrderScreen> {
     try {
       final userId = _auth.currentUser?.uid;
       if (userId != null) {
-        final doc = await _firestore
-            .collection('portefeuille')
-            .doc(userId)
-            .get();
+        final doc =
+            await _firestore.collection('portefeuille').doc(userId).get();
         if (doc.exists) {
           setState(() {
             _userBalance = (doc.data()?['balance'] ?? 0).toDouble();
@@ -89,24 +84,12 @@ class _OrderScreenState extends State<OrderScreen> {
   Future<void> _loadAvailableBoutiques() async {
     try {
       print('=== DÉBUT _loadAvailableBoutiques ===');
-      print('Nombre de courses sélectionnées: ${widget.selectedCourses.length}');
 
-      // 1. Trier les courses par importance (essentielles > haute priorité > moyenne > basse)
-      final sortedCourses = BudgetOptimizer.sortByImportance(widget.selectedCourses);
-      
-      // Afficher l'ordre pour debug
-      print('\n=== COURSES TRIÉES PAR IMPORTANCE ===');
-      for (var course in sortedCourses) {
-        print('${course.title} - Priorité: ${_getCoursePriority(course)} - Essentiel: ${course.isEssential} - Qté: ${course.quantity} - Prix: ${course.amount} FCFA');
-      }
+      final sortedCourses =
+          BudgetOptimizer.sortByImportance(widget.selectedCourses);
 
-      // 2. Vérifier le budget dès le départ
-      final budgetCheck = BudgetOptimizer.checkBudget(sortedCourses, _userBalance);
-      print('\n=== VÉRIFICATION BUDGET ===');
-      print('Budget disponible: $_userBalance FCFA');
-      print('Budget requis: ${budgetCheck.requiredBudget} FCFA');
-      print('Déficit: ${budgetCheck.deficit} FCFA');
-      print('Statut: ${budgetCheck.statusMessage}');
+      final budgetCheck =
+          BudgetOptimizer.checkBudget(sortedCourses, _userBalance);
 
       // 3. Récupérer TOUS les produits
       setState(() {
@@ -114,7 +97,6 @@ class _OrderScreenState extends State<OrderScreen> {
       });
 
       final productsSnapshot = await _firestore.collection('products').get();
-      print('Total produits dans Firestore: ${productsSnapshot.docs.length}');
 
       if (productsSnapshot.docs.isEmpty) {
         setState(() {
@@ -127,21 +109,20 @@ class _OrderScreenState extends State<OrderScreen> {
       // 4. Regrouper les produits correspondants par boutique
       final Map<String, Map<String, dynamic>> boutiquesMap = {};
 
-      // Pour chaque course, chercher les produits correspondants
       for (var course in sortedCourses) {
         final courseName = course.title.trim().toLowerCase();
         if (courseName.isEmpty) continue;
 
         for (var productDoc in productsSnapshot.docs) {
           final productData = productDoc.data();
-          final productName = (productData['nom'] ?? '').toString().toLowerCase();
+          final productName =
+              (productData['nom'] ?? '').toString().toLowerCase();
           final boutiqueId = productData['boutique_id']?.toString();
 
           if (productName.isEmpty || boutiqueId == null || boutiqueId.isEmpty) {
             continue;
           }
 
-          // CORRECTION AMÉLIORÉE : Utiliser une correspondance précise
           if (_isProductMatchImproved(productName, courseName)) {
             if (!boutiquesMap.containsKey(boutiqueId)) {
               boutiquesMap[boutiqueId] = {
@@ -160,83 +141,65 @@ class _OrderScreenState extends State<OrderScreen> {
             }
 
             final productKey = productName.toLowerCase();
-            final matchedNames = boutiquesMap[boutiqueId]!['matchedProductNames'] as Map;
-            
-            // Éviter les doublons de produits
+            final matchedNames =
+                boutiquesMap[boutiqueId]!['matchedProductNames'] as Map;
+
             if (!matchedNames.containsKey(productKey)) {
               final productId = productDoc.id;
-              final coursePriority = _getCoursePriority(course);
+              final coursePriorityCode = _getCoursePriorityCode(course);
               final isEssential = course.isEssential;
-              
-              // Compter par priorité et essentiel
-              if (coursePriority == 'H') {
+
+              if (coursePriorityCode == 'H') {
                 boutiquesMap[boutiqueId]!['highPriorityCount']++;
-              } else if (coursePriority == 'M') {
+              } else if (coursePriorityCode == 'M') {
                 boutiquesMap[boutiqueId]!['mediumPriorityCount']++;
               } else {
                 boutiquesMap[boutiqueId]!['lowPriorityCount']++;
               }
-              
+
               if (isEssential) {
                 boutiquesMap[boutiqueId]!['essentialCount']++;
               }
 
-              // Ajouter le produit
               boutiquesMap[boutiqueId]!['products'].add({
                 'id': productId,
                 'nom': productData['nom'] ?? 'Sans nom',
-                'price': (productData['price'] ?? productData['prix'] ?? course.unitPrice).toDouble(),
-                'coursePriority': coursePriority,
+                'price': (productData['price'] ??
+                        productData['prix'] ??
+                        course.unitPrice)
+                    .toDouble(),
+                'coursePriority': coursePriorityCode,
                 'requiredQuantity': course.quantity,
                 'estimatedPrice': course.amount,
                 'productPriority': productData['priority'] ?? 0,
                 'description': productData['description'] ?? '',
                 'quantity': productData['quantity'] ?? 1,
-                'unite': productData['unite'] ?? productData['unit'] ?? course.unit,
+                'unite':
+                    productData['unite'] ?? productData['unit'] ?? course.unit,
                 'searchTerm': course.title.trim(),
                 'isEssential': isEssential,
                 'courseId': course.id,
-                'originalCourse': course, // Stocker la course originale
+                'originalCourse': course,
               });
 
               boutiquesMap[boutiqueId]!['matchCount']++;
               matchedNames[productKey] = true;
-              
-              // Mapper le produit à la course
+
               _productToCourseMap[productId] = course.id;
 
-              // NOUVELLE LOGIQUE : Sélection intelligente basée sur le budget et les priorités
-              _applySmartSelection(
-                boutiqueId, 
-                productId, 
-                coursePriority, 
-                isEssential, 
-                course.quantity,
-                budgetCheck
-              );
+              // Sélection intelligente
+              _applySmartSelection(boutiqueId, productId, coursePriorityCode,
+                  isEssential, course.quantity, budgetCheck);
             }
           }
         }
       }
-
-      print('\nBoutiques avec produits correspondants: ${boutiquesMap.length}');
 
       if (boutiquesMap.isEmpty) {
         setState(() {
           _searchStatus = 'Aucune boutique ne possède les produits demandés';
           _isLoadingBoutiques = false;
         });
-        
-        // Afficher des suggestions pour debug
-        print('\n=== SUGGESTIONS ===');
-        print('1. Vérifiez que les produits dans Firestore ont des noms similaires aux courses');
-        print('2. Vérifiez que les produits ont un champ "boutique_id" valide');
-        print('3. Exemples de produits disponibles:');
-        final sampleProducts = productsSnapshot.docs.take(3);
-        for (var doc in sampleProducts) {
-          final data = doc.data();
-          print('   - ${data['nom']} (boutique: ${data['boutique_id']})');
-        }
         return;
       }
 
@@ -249,10 +212,8 @@ class _OrderScreenState extends State<OrderScreen> {
 
       for (var boutiqueId in boutiquesMap.keys) {
         try {
-          final boutiqueDoc = await _firestore
-              .collection('boutiques')
-              .doc(boutiqueId)
-              .get();
+          final boutiqueDoc =
+              await _firestore.collection('boutiques').doc(boutiqueId).get();
 
           if (boutiqueDoc.exists) {
             final boutiqueData = boutiqueDoc.data()!;
@@ -261,21 +222,19 @@ class _OrderScreenState extends State<OrderScreen> {
             final products = (boutiquesMap[boutiqueId]!['products'] as List)
                 .cast<Map<String, dynamic>>();
             products.sort((a, b) {
-              // Essentiels d'abord
               final essentialA = a['isEssential'] as bool? ?? false;
               final essentialB = b['isEssential'] as bool? ?? false;
               if (essentialA && !essentialB) return -1;
               if (!essentialA && essentialB) return 1;
-              
-              // Puis par priorité
+
               final priorityOrder = {'H': 3, 'M': 2, 'B': 1};
               final priorityA = priorityOrder[a['coursePriority']] ?? 0;
               final priorityB = priorityOrder[b['coursePriority']] ?? 0;
-              
+
               if (priorityB != priorityA) {
                 return priorityB.compareTo(priorityA);
               }
-              
+
               return 0;
             });
 
@@ -291,15 +250,16 @@ class _OrderScreenState extends State<OrderScreen> {
               'deliveryFee': (boutiqueData['deliveryFee'] ?? 0).toDouble(),
               'products': products,
               'matchCount': boutiquesMap[boutiqueId]!['matchCount'],
-              'highPriorityCount': boutiquesMap[boutiqueId]!['highPriorityCount'],
-              'mediumPriorityCount': boutiquesMap[boutiqueId]!['mediumPriorityCount'],
+              'highPriorityCount':
+                  boutiquesMap[boutiqueId]!['highPriorityCount'],
+              'mediumPriorityCount':
+                  boutiquesMap[boutiqueId]!['mediumPriorityCount'],
               'lowPriorityCount': boutiquesMap[boutiqueId]!['lowPriorityCount'],
               'essentialCount': boutiquesMap[boutiqueId]!['essentialCount'],
-              'matchPercentage':
-                  ((boutiquesMap[boutiqueId]!['matchCount'] /
-                              widget.selectedCourses.length) *
-                          100)
-                      .round(),
+              'matchPercentage': ((boutiquesMap[boutiqueId]!['matchCount'] /
+                          widget.selectedCourses.length) *
+                      100)
+                  .round(),
             });
           }
         } catch (e) {
@@ -307,41 +267,28 @@ class _OrderScreenState extends State<OrderScreen> {
         }
       }
 
-      // 6. Trier les boutiques par pertinence
+      // 6. Trier les boutiques par pertinence (Essentiel > H > M > Match% > Rating)
       boutiquesList.sort((a, b) {
-        // D'abord par nombre de produits essentiels
         if (b['essentialCount'] != a['essentialCount']) {
           return b['essentialCount'].compareTo(a['essentialCount']);
         }
-        // Puis par nombre de produits haute priorité
         if (b['highPriorityCount'] != a['highPriorityCount']) {
           return b['highPriorityCount'].compareTo(a['highPriorityCount']);
         }
-        // Puis par nombre de produits moyenne priorité
         if (b['mediumPriorityCount'] != a['mediumPriorityCount']) {
           return b['mediumPriorityCount'].compareTo(a['mediumPriorityCount']);
         }
-        // Puis par pourcentage de match
         if (b['matchPercentage'] != a['matchPercentage']) {
           return b['matchPercentage'].compareTo(a['matchPercentage']);
         }
-        // Enfin par rating
         if (b['rating'] != a['rating']) {
           return b['rating'].compareTo(a['rating']);
         }
         return 0;
       });
 
-      print('\n=== RÉSULTAT FINAL ===');
-      for (var boutique in boutiquesList) {
-        print('${boutique['nom']} - Match: ${boutique['matchCount']}/${widget.selectedCourses.length}');
-        print('  Priorités: H:${boutique['highPriorityCount']} M:${boutique['mediumPriorityCount']} B:${boutique['lowPriorityCount']}');
-        print('  Essentiels: ${boutique['essentialCount']}');
-      }
-
       // 7. Ajuster les sélections si budget serré
       if (!budgetCheck.hasEnoughForAll) {
-        print('\n=== AJUSTEMENT POUR BUDGET SERRÉ ===');
         for (var boutique in boutiquesList) {
           _adjustForBudgetTight(boutique['id'], boutique, budgetCheck);
         }
@@ -361,82 +308,91 @@ class _OrderScreenState extends State<OrderScreen> {
     }
   }
 
-  // CORRESPONDANCE AMÉLIORÉE
   bool _isProductMatchImproved(String productName, String courseName) {
     if (productName.isEmpty || courseName.isEmpty) return false;
-    
-    // 1. Nettoyer les noms (enlever articles, ponctuation, espaces multiples)
+
     final productClean = _cleanText(productName);
     final courseClean = _cleanText(courseName);
-    
-    // 2. Correspondance exacte après nettoyage
+
     if (productClean == courseClean) {
       return true;
     }
-    
-    // 3. Correspondance partielle (au moins 70% de similarité)
+
     final similarity = _calculateSimilarity(productClean, courseClean);
     if (similarity >= 0.7) {
       return true;
     }
-    
-    // 4. Vérifier si un mot clé significatif est présent
+
     final productWords = productClean.split(RegExp(r'\s+'));
     final courseWords = courseClean.split(RegExp(r'\s+'));
-    
+
     for (var courseWord in courseWords) {
-      if (courseWord.length > 3) { // Mots de plus de 3 lettres seulement
+      if (courseWord.length > 3) {
         for (var productWord in productWords) {
-          if (productWord.contains(courseWord) || courseWord.contains(productWord)) {
+          if (productWord.contains(courseWord) ||
+              courseWord.contains(productWord)) {
             return true;
           }
         }
       }
     }
-    
+
     return false;
   }
 
   String _cleanText(String text) {
-    // Enlever les articles
-    final articles = ['le ', 'la ', 'les ', 'l\'', 'l’', 'un ', 'une ', 'des ', 'du ', 'de la ', 'de l\'', 'au ', 'aux ', 'à la ', 'à l\''];
+    final articles = [
+      'le ',
+      'la ',
+      'les ',
+      'l\'',
+      'l’',
+      'un ',
+      'une ',
+      'des ',
+      'du ',
+      'de la ',
+      'de l\'',
+      'au ',
+      'aux ',
+      'à la ',
+      'à l\''
+    ];
     String cleaned = text.toLowerCase();
-    
+
     for (var article in articles) {
       if (cleaned.startsWith(article)) {
         cleaned = cleaned.substring(article.length);
         break;
       }
     }
-    
-    // Enlever la ponctuation et les espaces multiples
+
     cleaned = cleaned.replaceAll(RegExp(r'[^\w\s]'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
-    
+
     return cleaned.trim();
   }
 
   double _calculateSimilarity(String s1, String s2) {
     if (s1.isEmpty || s2.isEmpty) return 0.0;
-    
+
     final set1 = s1.split('');
     final set2 = s2.split('');
-    
+
     final intersection = set1.where((char) => set2.contains(char)).length;
     final union = set1.length + set2.length - intersection;
-    
+
     return union > 0 ? intersection / union : 0.0;
   }
 
   // SÉLECTION INTELLIGENTE BASÉE SUR LE BUDGET
   void _applySmartSelection(
-    String boutiqueId, 
-    String productId, 
-    String priority, 
-    bool isEssential, 
-    int requiredQuantity,
-    BudgetCheckResult budgetCheck
-  ) {
+      String boutiqueId,
+      String productId,
+      String priorityCode, // 'H', 'M', 'B'
+      bool isEssential,
+      int requiredQuantity,
+      BudgetCheckResult budgetCheck) {
     if (!_selectedProductsByBoutique.containsKey(boutiqueId)) {
       _selectedProductsByBoutique[boutiqueId] = {};
     }
@@ -444,104 +400,614 @@ class _OrderScreenState extends State<OrderScreen> {
       _quantitiesByBoutique[boutiqueId] = {};
     }
 
-    // RÈGLES DE SÉLECTION INTELLIGENTE :
-    
-    // 1. TOUJOURS sélectionner les produits ESSENTIELS (quels que soient la priorité et le budget)
-    if (isEssential) {
+    if (isEssential || budgetCheck.hasEnoughForAll || priorityCode == 'H') {
       _selectedProductsByBoutique[boutiqueId]!.add(productId);
       _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
-      print('  -> Sélectionné (ESSENTIEL): $productId');
       return;
     }
-    
-    // 2. Budget suffisant pour tout : tout sélectionner
-    if (budgetCheck.hasEnoughForAll) {
+
+    if (priorityCode == 'M' && budgetCheck.hasEnoughForEssentials) {
       _selectedProductsByBoutique[boutiqueId]!.add(productId);
       _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
-      print('  -> Sélectionné (BUDGET SUFFISANT): $productId');
       return;
-    }
-    
-    // 3. Budget insuffisant : prioriser par importance
-    if (priority == 'H') {
-      // Haute priorité : sélectionner si budget permet au moins les essentiels + haute priorité
-      _selectedProductsByBoutique[boutiqueId]!.add(productId);
-      _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
-      print('  -> Sélectionné (HAUTE PRIORITÉ): $productId');
-    } else if (priority == 'M' && budgetCheck.hasEnoughForEssentials) {
-      // Moyenne priorité : seulement si budget permet les essentiels
-      _selectedProductsByBoutique[boutiqueId]!.add(productId);
-      _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
-      print('  -> Sélectionné (MOYENNE PRIORITÉ): $productId');
-    } else {
-      // Basse priorité : ne pas sélectionner automatiquement
-      print('  -> Non sélectionné (PRIORITÉ BASSE/INSUFFISANCE BUDGET): $productId');
     }
   }
 
   // AJUSTEMENT POUR BUDGET SERRÉ
-  void _adjustForBudgetTight(String boutiqueId, Map<String, dynamic> boutique, BudgetCheckResult budgetCheck) {
+  void _adjustForBudgetTight(String boutiqueId, Map<String, dynamic> boutique,
+      BudgetCheckResult budgetCheck) {
     final products = boutique['products'] as List;
     final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
     double currentTotal = _calculateSelectedTotal(boutiqueId, boutique);
-    
-    print('\nAjustement boutique ${boutique['nom']}:');
-    print('  Total actuel: $currentTotal FCFA');
-    print('  Budget disponible: $_userBalance FCFA');
-    print('  Déficit: ${budgetCheck.deficit} FCFA');
-    
-    // Si budget suffisant, pas d'ajustement
+
     if (currentTotal <= _userBalance) return;
-    
-    // Trier les produits sélectionnés par importance (moins importants d'abord)
-    final selectedProductsList = products.where((p) => selectedProducts.contains(p['id'])).toList();
+
+    final selectedProductsList =
+        products.where((p) => selectedProducts.contains(p['id'])).toList();
     selectedProductsList.sort((a, b) {
-      // Moins importants d'abord : basse priorité > moyenne > haute > essentiels
       final priorityOrder = {'H': 3, 'M': 2, 'B': 1};
       final priorityA = priorityOrder[a['coursePriority']] ?? 0;
       final priorityB = priorityOrder[b['coursePriority']] ?? 0;
-      
+
       if (priorityA != priorityB) {
-        return priorityA.compareTo(priorityB); // Basse priorité d'abord
+        return priorityA.compareTo(priorityB);
       }
-      
-      // Même priorité, non-essentiels d'abord
+
       final essentialA = a['isEssential'] as bool? ?? false;
       final essentialB = b['isEssential'] as bool? ?? false;
       if (essentialA && !essentialB) return 1;
       if (!essentialA && essentialB) return -1;
-      
+
       return 0;
     });
-    
-    // Désélectionner progressivement les moins importants jusqu'à ce que le budget soit suffisant
+
     double newTotal = currentTotal;
     for (var product in selectedProductsList) {
       if (newTotal <= _userBalance) break;
-      
+
       final productId = product['id'];
       final isEssential = product['isEssential'] as bool? ?? false;
-      
-      // Ne jamais désélectionner les essentiels
+
       if (isEssential) continue;
-      
+
       final productPrice = (product['price'] as num).toDouble();
       final quantity = _quantitiesByBoutique[boutiqueId]?[productId] ?? 1;
       final productTotal = productPrice * quantity;
-      
-      // Désélectionner ce produit
+
       _selectedProductsByBoutique[boutiqueId]!.remove(productId);
       _quantitiesByBoutique[boutiqueId]!.remove(productId);
       newTotal -= productTotal;
-      
-      print('  -> Désélectionné pour budget: ${product['nom']} (${productTotal}FCFA)');
     }
-    
-    print('  Nouveau total après ajustement: $newTotal FCFA');
   }
+
+  // ===============================================
+  // NOUVELLES FONCTIONS GLOBALES (pour le bouton unique)
+  // ===============================================
+
+  double _calculateGlobalTotal() {
+    double globalTotal = 0;
+    for (var boutique in _availableBoutiques) {
+      globalTotal += _calculateSelectedTotal(boutique['id'], boutique);
+    }
+    return globalTotal;
+  }
+
+  int _calculateGlobalSelectedCount() {
+    int globalCount = 0;
+    for (var boutiqueId in _selectedProductsByBoutique.keys) {
+      globalCount += _selectedProductsByBoutique[boutiqueId]?.length ?? 0;
+    }
+    return globalCount;
+  }
+
+  void _placeGlobalOrder() {
+    final globalTotal = _calculateGlobalTotal();
+    final globalCount = _calculateGlobalSelectedCount();
+
+    if (globalCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Veuillez sélectionner au moins un produit dans une boutique.'),
+          backgroundColor: warningColor,
+        ),
+      );
+      return;
+    }
+
+    if (globalTotal > _userBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Action bloquée: Solde insuffisant pour la commande globale.'),
+          backgroundColor: errorColor,
+        ),
+      );
+      return;
+    }
+
+    // 1. Collecter les données de toutes les commandes sélectionnées
+    List<String> globalAlerts = [];
+    Map<String, double> globalTotalsByPriority = {
+      'H': 0.0,
+      'M': 0.0,
+      'B': 0.0,
+      'E': 0.0
+    }; // 'E' pour Essentiel
+    double globalDeliveryFee = 0.0;
+
+    for (var boutique in _availableBoutiques) {
+      final boutiqueId = boutique['id'];
+      final total = _calculateSelectedTotal(boutiqueId, boutique);
+      final selectedCount =
+          _selectedProductsByBoutique[boutiqueId]?.length ?? 0;
+
+      if (selectedCount > 0) {
+        final totalsByPriority =
+            _calculateTotalByPriority(boutiqueId, boutique);
+
+        // Accumuler les totaux globaux
+        globalTotalsByPriority['H'] =
+            globalTotalsByPriority['H']! + totalsByPriority['H']!;
+        globalTotalsByPriority['M'] =
+            globalTotalsByPriority['M']! + totalsByPriority['M']!;
+        globalTotalsByPriority['B'] =
+            globalTotalsByPriority['B']! + totalsByPriority['B']!;
+        globalTotalsByPriority['E'] =
+            globalTotalsByPriority['E']! + totalsByPriority['E']!;
+        globalDeliveryFee += (boutique['deliveryFee'] ?? 0).toDouble();
+
+        // Collecter les alertes locales
+        if (_userBalance - total < 5000 && _userBalance - total >= 0) {
+          globalAlerts.add(
+              'Solde faible après commande à ${boutique['nom']} (moins de 5000 FCFA restants)');
+        }
+
+        if (_isBudgetTight(total)) {
+          int selectedLow = 0;
+          int selectedMedium = 0;
+          final selectedProducts =
+              _selectedProductsByBoutique[boutiqueId] ?? {};
+          for (var product in (boutique['products'] as List)) {
+            if (selectedProducts.contains(product['id'])) {
+              if (product['coursePriority'] == 'B') selectedLow++;
+              if (product['coursePriority'] == 'M') selectedMedium++;
+            }
+          }
+          final recommendations = _getBudgetRecommendations(
+              totalsByPriority, total, selectedLow, selectedMedium);
+          for (var rec in recommendations) {
+            if (!rec.contains('Solde insuffisant')) {
+              globalAlerts.add('(${boutique['nom']}) $rec');
+            }
+          }
+        }
+      }
+    }
+
+    globalAlerts = globalAlerts.toSet().toList(); // Supprimer les doublons
+
+    // 2. Afficher la boîte de dialogue de confirmation globale
+    _showGlobalAlertDialog(context, globalAlerts, globalTotal, globalCount,
+        globalTotalsByPriority, globalDeliveryFee);
+  }
+
+  void _showGlobalAlertDialog(
+    BuildContext context,
+    List<String> alerts,
+    double globalTotal,
+    int globalCount,
+    Map<String, double> totalsByPriority,
+    double globalDeliveryFee,
+  ) {
+    final bool exceedsBalance = globalTotal > _userBalance;
+    final bool isTight = _isBudgetTight(globalTotal);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(isTight ? Icons.warning_amber : Icons.shopping_cart_checkout,
+                color: isTight ? warningColor : primaryColor),
+            const SizedBox(width: 8),
+            const Text('Confirmation de la Commande Globale'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (alerts.isNotEmpty) ...[
+                const Text(
+                  'Alertes et Recommandations:',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold, color: errorColor),
+                ),
+                const SizedBox(height: 8),
+                ...alerts.map(
+                  (alert) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          alert.contains('Solde faible')
+                              ? Icons.warning
+                              : Icons.lightbulb_outline,
+                          size: 14,
+                          color: warningColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            alert,
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+              ],
+
+              // Détails par priorité
+              const Text(
+                'Répartition du coût par priorité:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              if (totalsByPriority['E']! > 0)
+                _buildPriorityDetailRow(
+                    'Essentiels (⭐)', totalsByPriority['E']!, Colors.red),
+              if (totalsByPriority['H']! > 0)
+                _buildPriorityDetailRow('Haute Priorité',
+                    totalsByPriority['H']!, highPriorityColor),
+              if (totalsByPriority['M']! > 0)
+                _buildPriorityDetailRow('Moyenne Priorité',
+                    totalsByPriority['M']!, mediumPriorityColor),
+              if (totalsByPriority['B']! > 0)
+                _buildPriorityDetailRow(
+                    'Basse Priorité', totalsByPriority['B']!, lowPriorityColor),
+
+              const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 8),
+
+              // Totaux
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                      'Frais de livraison (${_availableBoutiques.where((b) => (_selectedProductsByBoutique[b['id']]?.length ?? 0) > 0).length} boutique(s)):',
+                      style: const TextStyle(fontSize: 14)),
+                  Text('${globalDeliveryFee.toStringAsFixed(0)} FCFA',
+                      style: const TextStyle(fontSize: 14)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // ✅ Retirer le mot-clé 'const' du widget Text
+                  Text('TOTAL GLOBAL ( $globalCount produits ):',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize:
+                              16) // 💡 On peut garder 'const' sur le TextStyle, car il ne dépend pas de globalCount
+                      ),
+                  Text('${globalTotal.toStringAsFixed(0)} FCFA',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: exceedsBalance ? errorColor : primaryColor,
+                      )),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Solde restant (estimé):',
+                      style: TextStyle(fontSize: 14)),
+                  Text(
+                    '${(_userBalance - globalTotal).toStringAsFixed(0)} FCFA',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: (_userBalance - globalTotal) < 0
+                          ? errorColor
+                          : Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Ajuster ma sélection'),
+          ),
+          ElevatedButton(
+            onPressed: exceedsBalance
+                ? null // Désactiver si le solde est insuffisant
+                : () {
+                    Navigator.pop(context);
+                    _processConfirmedGlobalOrder(
+                        globalTotal, globalCount, globalDeliveryFee);
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: exceedsBalance ? errorColor : primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              exceedsBalance
+                  ? 'Solde insuffisant - Bloqué'
+                  : 'Confirmer la Commande Globale',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NOUVELLE LOGIQUE: Traiter toutes les commandes sélectionnées
+  Future<void> _processConfirmedGlobalOrder(
+    double globalTotal,
+    int globalCount,
+    double globalDeliveryFee,
+  ) async {
+    // Double vérification
+    if (globalTotal > _userBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Action bloquée: Solde insuffisant.'),
+          backgroundColor: errorColor,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Veuillez vous connecter'),
+                backgroundColor: errorColor),
+          );
+        }
+        return;
+      }
+
+      // 1. Traiter chaque commande de boutique séquentiellement
+      int ordersPlaced = 0;
+      List<String> orderRefs = [];
+      double totalDebited = 0;
+
+      for (var boutique in _availableBoutiques) {
+        final boutiqueId = boutique['id'];
+        final selectedCount =
+            _selectedProductsByBoutique[boutiqueId]?.length ?? 0;
+
+        if (selectedCount > 0) {
+          final orderResult =
+              await _confirmAndPlaceSingleOrder(boutique, totalDebited);
+          if (orderResult != null) {
+            ordersPlaced++;
+            orderRefs.add(orderResult['orderRefId'] as String);
+            totalDebited = orderResult['newBalance'] as double;
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      // 2. Afficher confirmation
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle, color: successColor),
+              const SizedBox(width: 12),
+              Text(
+                  'Commande${ordersPlaced > 1 ? 's' : ''} Confirmée${ordersPlaced > 1 ? 's' : ''} !'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  'Vous avez passé $ordersPlaced commande${ordersPlaced > 1 ? 's' : ''} (Total: ${globalCount} produits)'),
+              Text('Total débité: ${globalTotal.toStringAsFixed(0)} FCFA'),
+              const SizedBox(height: 8),
+              Text(
+                  'Solde restant: ${(_userBalance - globalTotal).toStringAsFixed(0)} FCFA'),
+              const SizedBox(height: 12),
+              const Text(
+                'Vos commandes seront traitées et prêtes dans les meilleurs délais.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context); // Retour à l'écran précédent
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      // Mettre à jour l'état après la commande réussie
+      setState(() {
+        _userBalance = _userBalance - globalTotal;
+        _selectedProductsByBoutique = {};
+        _quantitiesByBoutique = {};
+        // Note: Vous pourriez vouloir recharger les données pour rafraîchir l'écran parent
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la commande globale: $e'),
+          backgroundColor: errorColor,
+        ),
+      );
+    }
+  }
+
+  // Fonction réutilisée pour passer une SEULE commande (maintenant appelée par la fonction globale)
+  Future<Map<String, dynamic>?> _confirmAndPlaceSingleOrder(
+    Map<String, dynamic> boutique,
+    double currentBalance,
+  ) async {
+    final boutiqueId = boutique['id'];
+    final total = _calculateSelectedTotal(boutiqueId, boutique);
+    final selectedCount = _selectedProductsByBoutique[boutiqueId]?.length ?? 0;
+
+    // Si la commande locale est vide ou dépasse le solde, ne rien faire
+    if (selectedCount == 0 || total > currentBalance) {
+      return null;
+    }
+
+    try {
+      final userId = _auth.currentUser?.uid;
+
+      final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
+      final quantities = _quantitiesByBoutique[boutiqueId] ?? {};
+
+      final List<Map<String, dynamic>> orderItems = [];
+      double subtotal = 0;
+
+      for (var product in boutique['products'] as List) {
+        if (selectedProducts.contains(product['id'])) {
+          final itemPrice = (product['price'] as num).toDouble();
+          final quantity = quantities[product['id']] ?? 1;
+
+          double adjustedPrice = itemPrice;
+          int productPriority = product['productPriority'] as int? ?? 0;
+          if (productPriority == 1) {
+            adjustedPrice *= 0.9;
+          } else if (productPriority == 2) {
+            adjustedPrice *= 0.95;
+          }
+
+          final itemTotal = adjustedPrice * quantity;
+          subtotal += itemTotal;
+
+          orderItems.add({
+            'productId': product['id'],
+            'productName': product['nom'],
+            'quantity': quantity,
+            'unitPrice': itemPrice,
+            'finalPrice': adjustedPrice,
+            'total': itemTotal,
+            'courseId': product['courseId'],
+            'coursePriority': product['coursePriority'],
+            'isEssential': product['isEssential'],
+          });
+        }
+      }
+
+      final deliveryFee = (boutique['deliveryFee'] ?? 0).toDouble();
+
+      final orderData = {
+        'userId': userId,
+        'boutiqueId': boutiqueId,
+        'boutiqueName': boutique['nom'],
+        'items': orderItems,
+        'subtotal': subtotal,
+        'deliveryFee': deliveryFee,
+        'total': total,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'selectedCount': selectedCount,
+        'userBalanceBefore': currentBalance,
+        'userBalanceAfter': currentBalance - total,
+      };
+
+      final orderRef = await _firestore.collection('orders').add(orderData);
+      final newBalance = currentBalance - total;
+
+      // Débiter le solde (débit immédiat pour cette sous-commande)
+      await _firestore.collection('portefeuille').doc(userId).update({
+        'balance': FieldValue.increment(-total),
+        'lastUpdated': FieldValue.serverTimestamp(),
+        'lastOrder': orderRef.id,
+        'lastOrderAmount': total,
+      });
+
+      // Ajouter l'historique de transaction
+      await _firestore.collection('transactions').add({
+        'userId': userId,
+        'orderId': orderRef.id,
+        'amount': -total,
+        'type': 'order_payment',
+        'description':
+            'Commande #${orderRef.id.substring(0, 8)} - ${boutique['nom']} ($selectedCount produit(s))',
+        'balanceAfter': newBalance,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      return {'orderRefId': orderRef.id, 'newBalance': newBalance};
+    } catch (e) {
+      print('Erreur lors de la commande unique pour ${boutique['nom']}: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Erreur lors de la commande chez ${boutique['nom']}: $e'),
+            backgroundColor: errorColor,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
+  // ===============================================
+  // MODIFICATIONS DE SÉLECTION (Priorisation Stricte)
+  // ===============================================
 
   // Toggle la sélection d'un produit
   void _toggleProductSelection(String boutiqueId, String productId) {
+    final boutique =
+        _availableBoutiques.firstWhere((b) => b['id'] == boutiqueId);
+    final products =
+        (boutique['products'] as List).cast<Map<String, dynamic>>();
+    final productToToggle = products.firstWhere((p) => p['id'] == productId);
+    final isEssential = productToToggle['isEssential'] as bool? ?? false;
+
+    // Logique de blocage (empêcher la sélection si plus prioritaire est non sélectionné)
+    if (!_selectedProductsByBoutique[boutiqueId]!.contains(productId)) {
+      if (!isEssential) {
+        final currentPriorityCode = productToToggle['coursePriority'] as String;
+        String missingPriority = '';
+
+        // VÉRIFICATION HAUTE PRIORITÉ manquant
+        if (currentPriorityCode == 'B' || currentPriorityCode == 'M') {
+          final hasUnselectedHigh = products.any((p) =>
+              p['coursePriority'] == 'H' &&
+              !(p['isEssential'] as bool? ?? false) &&
+              !_selectedProductsByBoutique[boutiqueId]!.contains(p['id']));
+          if (hasUnselectedHigh) missingPriority = 'Haute';
+        }
+
+        // VÉRIFICATION MOYENNE PRIORITÉ manquant (seulement si la sélection est Basse)
+        if (currentPriorityCode == 'B' && missingPriority.isEmpty) {
+          final hasUnselectedMedium = products.any((p) =>
+              p['coursePriority'] == 'M' &&
+              !(p['isEssential'] as bool? ?? false) &&
+              !_selectedProductsByBoutique[boutiqueId]!.contains(p['id']));
+          if (hasUnselectedMedium) missingPriority = 'Moyenne';
+        }
+
+        if (missingPriority.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Veuillez sélectionner tous les produits de priorité $missingPriority avant de sélectionner celui de priorité ${currentPriorityCode == 'B' ? 'Basse' : 'Moyenne'} (sauf les essentiels).'),
+              backgroundColor: errorColor,
+            ),
+          );
+          return; // BLOCAGE de la sélection
+        }
+      }
+    }
+
+    // Si la logique de blocage passe ou si c'est une désélection, continuer
     setState(() {
       if (!_selectedProductsByBoutique.containsKey(boutiqueId)) {
         _selectedProductsByBoutique[boutiqueId] = {};
@@ -555,18 +1021,14 @@ class _OrderScreenState extends State<OrderScreen> {
         _quantitiesByBoutique[boutiqueId]!.remove(productId);
       } else {
         _selectedProductsByBoutique[boutiqueId]!.add(productId);
-        // Initialiser avec la quantité requise depuis la course
-        final boutique = _availableBoutiques.firstWhere(
-          (b) => b['id'] == boutiqueId,
-          orElse: () => {'products': []},
-        );
-        
+
         final product = (boutique['products'] as List).firstWhere(
           (p) => p['id'] == productId,
           orElse: () => {'requiredQuantity': 1},
         );
-        
-        _quantitiesByBoutique[boutiqueId]![productId] = product['requiredQuantity'] ?? 1;
+
+        _quantitiesByBoutique[boutiqueId]![productId] =
+            product['requiredQuantity'] ?? 1;
       }
     });
   }
@@ -580,15 +1042,63 @@ class _OrderScreenState extends State<OrderScreen> {
       if (newQuantity > 0) {
         _quantitiesByBoutique[boutiqueId]![productId] = newQuantity;
       } else {
-        // Si quantité = 0, désélectionner le produit
         _selectedProductsByBoutique[boutiqueId]!.remove(productId);
         _quantitiesByBoutique[boutiqueId]!.remove(productId);
       }
     });
   }
 
-  // Sélectionner/déselectionner les produits par priorité
-  void _toggleProductsByPriority(String boutiqueId, List<dynamic> products, String priority) {
+  // Sélectionner/déselectionner les produits par priorité (maintenant avec blocage)
+  void _toggleProductsByPriority(
+      String boutiqueId, List<dynamic> products, String priorityCode) {
+    // Logique de blocage pour les sélections de groupe
+    final allSelected = products
+        .where((p) => p['coursePriority'] == priorityCode)
+        .every((p) =>
+            _selectedProductsByBoutique[boutiqueId]?.contains(p['id']) ??
+            false);
+
+    if (!allSelected && priorityCode == 'B') {
+      // VÉRIFICATION STRICTE: Interdire la sélection de Basse Priorité si H ou M non sélectionné
+      final hasUnselectedHighOrMedium = products.any((p) =>
+          (p['coursePriority'] == 'H' || p['coursePriority'] == 'M') &&
+          !(p['isEssential'] as bool? ?? false) &&
+          !(_selectedProductsByBoutique[boutiqueId]?.contains(p['id']) ??
+              false));
+
+      if (hasUnselectedHighOrMedium) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Veuillez sélectionner tous les produits de priorité Haute et Moyenne avant de sélectionner la Basse Priorité (sauf les essentiels).'),
+            backgroundColor: errorColor,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!allSelected && priorityCode == 'M') {
+      // VÉRIFICATION STRICTE: Interdire la sélection de Moyenne Priorité si H non sélectionné
+      final hasUnselectedHigh = products.any((p) =>
+          p['coursePriority'] == 'H' &&
+          !(p['isEssential'] as bool? ?? false) &&
+          !(_selectedProductsByBoutique[boutiqueId]?.contains(p['id']) ??
+              false));
+
+      if (hasUnselectedHigh) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Veuillez sélectionner tous les produits de priorité Haute avant de sélectionner la Moyenne Priorité (sauf les essentiels).'),
+            backgroundColor: errorColor,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Continuer la sélection/désélection normale
     setState(() {
       if (!_selectedProductsByBoutique.containsKey(boutiqueId)) {
         _selectedProductsByBoutique[boutiqueId] = {};
@@ -597,35 +1107,102 @@ class _OrderScreenState extends State<OrderScreen> {
         _quantitiesByBoutique[boutiqueId] = {};
       }
 
-      // Vérifier si tous les produits de cette priorité sont déjà sélectionnés
-      bool allSelected = true;
-      for (var product in products) {
-        if (product['coursePriority'] == priority) {
-          if (!_selectedProductsByBoutique[boutiqueId]!.contains(product['id'])) {
-            allSelected = false;
-            break;
-          }
-        }
-      }
-
       if (allSelected) {
-        // Désélectionner tous les produits de cette priorité (sauf essentiels)
+        // Désélectionner
         for (var product in products) {
-          if (product['coursePriority'] == priority) {
+          if (product['coursePriority'] == priorityCode) {
             final isEssential = product['isEssential'] as bool? ?? false;
-            if (!isEssential) { // Ne pas désélectionner les essentiels
+            if (!isEssential) {
               _selectedProductsByBoutique[boutiqueId]!.remove(product['id']);
               _quantitiesByBoutique[boutiqueId]!.remove(product['id']);
             }
           }
         }
       } else {
-        // Sélectionner tous les produits de cette priorité
+        // Sélectionner
         for (var product in products) {
-          if (product['coursePriority'] == priority) {
+          if (product['coursePriority'] == priorityCode) {
             _selectedProductsByBoutique[boutiqueId]!.add(product['id']);
-            _quantitiesByBoutique[boutiqueId]![product['id']] = product['requiredQuantity'] ?? 1;
+            _quantitiesByBoutique[boutiqueId]![product['id']] =
+                product['requiredQuantity'] ?? 1;
           }
+        }
+      }
+    });
+  }
+
+  // Toggle la sélection de tous les produits d'une catégorie (essential ou priority H, M, B)
+  void _toggleProductsByCategory(
+      String boutiqueId, List<dynamic> products, String category) {
+    setState(() {
+      if (!_selectedProductsByBoutique.containsKey(boutiqueId)) {
+        _selectedProductsByBoutique[boutiqueId] = {};
+      }
+      if (!_quantitiesByBoutique.containsKey(boutiqueId)) {
+        _quantitiesByBoutique[boutiqueId] = {};
+      }
+
+      final categoryProducts = products.where((product) {
+        if (category == 'essential') {
+          return product['isEssential'] as bool? ?? false;
+        } else {
+          return product['coursePriority'] == category;
+        }
+      }).toList();
+
+      bool allSelected = true;
+      for (var product in categoryProducts) {
+        if (!_selectedProductsByBoutique[boutiqueId]!.contains(product['id'])) {
+          allSelected = false;
+          break;
+        }
+      }
+
+      if (allSelected) {
+        // Désélectionner
+        for (var product in categoryProducts) {
+          if (category == 'essential') {
+            _selectedProductsByBoutique[boutiqueId]!.remove(product['id']);
+            _quantitiesByBoutique[boutiqueId]!.remove(product['id']);
+          }
+        }
+      } else {
+        // Sélectionner
+        for (var product in categoryProducts) {
+          // Logique de blocage pour les sélections de groupe (re-check pour les non-essentiels)
+          if (category != 'essential') {
+            final priorityCode = product['coursePriority'] as String;
+            final isEssential = product['isEssential'] as bool? ?? false;
+
+            if (!isEssential) {
+              bool isBlocked = false;
+              if (priorityCode == 'M') {
+                isBlocked = products.any((p) =>
+                    p['coursePriority'] == 'H' &&
+                    !(p['isEssential'] as bool? ?? false) &&
+                    !(_selectedProductsByBoutique[boutiqueId]
+                            ?.contains(p['id']) ??
+                        false));
+              } else if (priorityCode == 'B') {
+                isBlocked = products.any((p) =>
+                    (p['coursePriority'] == 'H' ||
+                        p['coursePriority'] == 'M') &&
+                    !(p['isEssential'] as bool? ?? false) &&
+                    !(_selectedProductsByBoutique[boutiqueId]
+                            ?.contains(p['id']) ??
+                        false));
+              }
+
+              if (isBlocked) {
+                // Ignorer la sélection du produit bloqué dans la boucle de groupe
+                continue;
+              }
+            }
+          }
+
+          _selectedProductsByBoutique[boutiqueId]!.add(product['id']);
+          _quantitiesByBoutique[boutiqueId]![product['id']] =
+              product['requiredQuantity'] ?? 1;
         }
       }
     });
@@ -642,20 +1219,18 @@ class _OrderScreenState extends State<OrderScreen> {
       if (selectedProducts.contains(product['id'])) {
         double price = (product['price'] as num).toDouble();
         int quantity = quantities[product['id']] ?? 1;
-        
-        // Appliquer réduction selon priorité du produit (si applicable)
+
         int productPriority = product['productPriority'] as int? ?? 0;
         if (productPriority == 1) {
           price *= 0.9;
         } else if (productPriority == 2) {
           price *= 0.95;
         }
-        
+
         total += price * quantity;
       }
     }
 
-    // Ajouter les frais de livraison seulement si des produits sont sélectionnés
     if (selectedProducts.isNotEmpty) {
       total += (boutique['deliveryFee'] ?? 0).toDouble();
     }
@@ -663,10 +1238,39 @@ class _OrderScreenState extends State<OrderScreen> {
     return total;
   }
 
-  // Calculer le total par priorité
+  double _calculateCategoryTotal(
+      String boutiqueId, Map<String, dynamic> boutique, String categoryCode) {
+    double total = 0;
+    final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
+    final quantities = _quantitiesByBoutique[boutiqueId] ?? {};
+
+    for (var product in boutique['products'] as List) {
+      if (selectedProducts.contains(product['id'])) {
+        final isCategoryMatch = categoryCode == 'essential'
+            ? (product['isEssential'] as bool? ?? false)
+            : product['coursePriority'] == categoryCode;
+
+        if (isCategoryMatch) {
+          double price = (product['price'] as num).toDouble();
+          int quantity = quantities[product['id']] ?? 1;
+
+          int productPriority = product['productPriority'] as int? ?? 0;
+          if (productPriority == 1) {
+            price *= 0.9;
+          } else if (productPriority == 2) {
+            price *= 0.95;
+          }
+
+          total += price * quantity;
+        }
+      }
+    }
+    return total;
+  }
+
   Map<String, double> _calculateTotalByPriority(
       String boutiqueId, Map<String, dynamic> boutique) {
-    final Map<String, double> totals = {'H': 0.0, 'M': 0.0, 'B': 0.0};
+    final Map<String, double> totals = {'H': 0.0, 'M': 0.0, 'B': 0.0, 'E': 0.0};
     final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
     final quantities = _quantitiesByBoutique[boutiqueId] ?? {};
 
@@ -674,26 +1278,30 @@ class _OrderScreenState extends State<OrderScreen> {
       if (selectedProducts.contains(product['id'])) {
         double price = (product['price'] as num).toDouble();
         int quantity = quantities[product['id']] ?? 1;
-        String priority = product['coursePriority'] as String;
-        
-        // Appliquer réduction selon priorité du produit (si applicable)
+        String priorityCode = product['coursePriority'] as String;
+        bool isEssential = product['isEssential'] as bool? ?? false;
+
         int productPriority = product['productPriority'] as int? ?? 0;
         if (productPriority == 1) {
           price *= 0.9;
         } else if (productPriority == 2) {
           price *= 0.95;
         }
-        
-        totals[priority] = (totals[priority] ?? 0.0) + (price * quantity);
+
+        if (isEssential) {
+          totals['E'] = (totals['E'] ?? 0.0) + (price * quantity);
+        } else {
+          totals[priorityCode] =
+              (totals[priorityCode] ?? 0.0) + (price * quantity);
+        }
       }
     }
 
     return totals;
   }
 
-  // Obtenir la couleur selon la priorité
-  Color _getPriorityColor(String priority) {
-    switch (priority) {
+  Color _getPriorityColor(String priorityCode) {
+    switch (priorityCode) {
       case 'H':
         return highPriorityColor;
       case 'M':
@@ -705,221 +1313,43 @@ class _OrderScreenState extends State<OrderScreen> {
     }
   }
 
-  // Vérifier si le budget est serré
   bool _isBudgetTight(double total) {
+    if (total > _userBalance) return true;
     return _userBalance - total < 5000 || total > _userBalance * 0.8;
   }
 
-  // Obtenir les recommandations pour budget serré
-  List<String> _getBudgetRecommendations(
-      Map<String, double> totalsByPriority, double total, int selectedLow, int selectedMedium) {
+  String _getBudgetTightMessage(
+      int selectedLow, int selectedMedium, double total) {
+    if (total > _userBalance) {
+      return '⚠️ Solde insuffisant ! Réduisez votre sélection ou rechargez votre compte (déficit de ${(total - _userBalance).toStringAsFixed(0)} FCFA).';
+    } else if (selectedLow > 0) {
+      return 'Budget serré. Considérez de réduire/supprimer les $selectedLow produit(s) basse priorité.';
+    } else if (selectedMedium > 0) {
+      return 'Budget serré. Attention aux $selectedMedium produits moyenne priorité.';
+    }
+    return 'Le total de la commande est élevé. Vérifiez vos quantités.';
+  }
+
+  List<String> _getBudgetRecommendations(Map<String, double> totalsByPriority,
+      double total, int selectedLow, int selectedMedium) {
     final recommendations = <String>[];
 
     if (_isBudgetTight(total)) {
       if (selectedLow > 0) {
-        recommendations.add('Considérez réduire/supprimer les $selectedLow produit(s) basse priorité');
+        recommendations.add(
+            'Considérez réduire/supprimer les $selectedLow produit(s) basse priorité');
       }
-      if (selectedMedium > 0 && _userBalance - total < 0) {
-        recommendations.add('Réduisez les quantités des $selectedMedium produit(s) moyenne priorité');
+      if (selectedMedium > 0 && total > _userBalance * 0.9) {
+        recommendations.add(
+            'Réduisez les quantités des $selectedMedium produit(s) moyenne priorité');
       }
       if (total > _userBalance) {
-        recommendations.add('Budget insuffisant! Réduisez votre sélection');
+        recommendations.add(
+            '⚠️ Solde insuffisant! Rechargez votre compte avant de commander.');
       }
     }
 
     return recommendations;
-  }
-
-  // Commander les produits SÉLECTIONNÉS
-  void _placeOrder(Map<String, dynamic> boutique) async {
-    final boutiqueId = boutique['id'];
-    final total = _calculateSelectedTotal(boutiqueId, boutique);
-    final selectedCount = _selectedProductsByBoutique[boutiqueId]?.length ?? 0;
-    final totalsByPriority = _calculateTotalByPriority(boutiqueId, boutique);
-
-    // Vérifier qu'au moins un produit est sélectionné
-    if (selectedCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner au moins un produit'),
-          backgroundColor: warningColor,
-        ),
-      );
-      return;
-    }
-
-    List<String> alerts = [];
-
-    if (total > _userBalance) {
-      alerts.add(
-        'Solde insuffisant ! Vous avez ${_userBalance.toStringAsFixed(0)} FCFA',
-      );
-    }
-
-    if (_userBalance - total < 5000) {
-      alerts.add('Votre solde sera faible après cette commande');
-    }
-
-    // Ajouter les recommandations pour budget serré
-    if (_isBudgetTight(total)) {
-      // Compter les produits par priorité
-      int selectedLow = 0;
-      int selectedMedium = 0;
-      final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
-      for (var product in boutique['products'] as List) {
-        if (selectedProducts.contains(product['id'])) {
-          if (product['coursePriority'] == 'B') selectedLow++;
-          if (product['coursePriority'] == 'M') selectedMedium++;
-        }
-      }
-      
-      final recommendations = _getBudgetRecommendations(totalsByPriority, total, selectedLow, selectedMedium);
-      alerts.addAll(recommendations);
-    }
-
-    if (alerts.isNotEmpty) {
-      _showAlertDialog(context, alerts, boutique, total, selectedCount, totalsByPriority);
-    } else {
-      _confirmAndPlaceOrder(boutique, total, selectedCount);
-    }
-  }
-
-  void _showAlertDialog(
-    BuildContext context,
-    List<String> alerts,
-    Map<String, dynamic> boutique,
-    double total,
-    int selectedCount,
-    Map<String, double> totalsByPriority,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Alertes et Recommandations'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ...alerts.map(
-                (alert) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        alert.contains('Considérez') || alert.contains('Réduisez') 
-                            ? Icons.lightbulb_outline 
-                            : Icons.warning,
-                        size: 16,
-                        color: alert.contains('Considérez') || alert.contains('Réduisez') 
-                            ? infoColor 
-                            : warningColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          alert,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: alert.contains('Considérez') || alert.contains('Réduisez') 
-                                ? infoColor 
-                                : warningColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Détails par priorité
-              const Text(
-                'Détails par priorité:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              
-              if (totalsByPriority['H']! > 0)
-                _buildPriorityDetailRow('Haute Priorité', totalsByPriority['H']!, highPriorityColor),
-              if (totalsByPriority['M']! > 0)
-                _buildPriorityDetailRow('Moyenne Priorité', totalsByPriority['M']!, mediumPriorityColor),
-              if (totalsByPriority['B']! > 0)
-                _buildPriorityDetailRow('Basse Priorité', totalsByPriority['B']!, lowPriorityColor),
-              
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 8),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Solde actuel:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    '${_userBalance.toStringAsFixed(0)} FCFA',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: total > _userBalance ? errorColor : null,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Total commande:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    '${total.toStringAsFixed(0)} FCFA',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Solde après:', style: TextStyle(fontSize: 12)),
-                  Text(
-                    '${(_userBalance - total).toStringAsFixed(0)} FCFA',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _userBalance - total < 0 ? errorColor : 
-                             _userBalance - total < 5000 ? warningColor : successColor,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Produits sélectionnés: $selectedCount',
-                style: const TextStyle(fontSize: 12),
-              ),
-              if (boutique['deliveryFee'] > 0)
-                Text(
-                  'Dont frais de livraison: ${boutique['deliveryFee'].toStringAsFixed(0)} FCFA',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Ajuster'),
-          ),
-          ElevatedButton(
-            onPressed: total <= _userBalance
-                ? () {
-                    Navigator.pop(context);
-                    _confirmAndPlaceOrder(boutique, total, selectedCount);
-                  }
-                : null,
-            style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-            child: const Text('Confirmer quand même'),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildPriorityDetailRow(String label, double amount, Color color) {
@@ -955,170 +1385,9 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  Future<void> _confirmAndPlaceOrder(
-    Map<String, dynamic> boutique,
-    double total,
-    int selectedCount,
-  ) async {
-    try {
-      final userId = _auth.currentUser?.uid;
-      if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez vous connecter'),
-            backgroundColor: errorColor,
-          ),
-        );
-        return;
-      }
-
-      final boutiqueId = boutique['id'];
-      final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
-      final quantities = _quantitiesByBoutique[boutiqueId] ?? {};
-
-      // Préparer les items de la commande (uniquement les sélectionnés)
-      final List<Map<String, dynamic>> orderItems = [];
-      double subtotal = 0;
-
-      for (var product in boutique['products'] as List) {
-        if (selectedProducts.contains(product['id'])) {
-          final itemPrice = (product['price'] as num).toDouble();
-          final quantity = quantities[product['id']] ?? 1;
-          final itemTotal = itemPrice * quantity;
-          subtotal += itemTotal;
-
-          orderItems.add({
-            'productId': product['id'],
-            'name': product['nom'],
-            'price': itemPrice,
-            'quantity': quantity,
-            'total': itemTotal,
-            'unit': product['unite'],
-            'description': product['description'],
-            'coursePriority': product['coursePriority'],
-            'productPriority': product['productPriority'],
-            'originalPrice': product['price'],
-            'requiredQuantity': product['requiredQuantity'],
-            'estimatedPrice': product['estimatedPrice'],
-            'isEssential': product['isEssential'] ?? false,
-            'courseId': product['courseId'],
-          });
-        }
-      }
-
-      // Créer la commande dans Firestore
-      final orderData = {
-        'userId': userId,
-        'boutiqueId': boutique['id'],
-        'boutiqueName': boutique['nom'],
-        'boutiqueAddress': boutique['adresse'],
-        'boutiquePhone': boutique['telephone'],
-        'items': orderItems,
-        'itemsCount': orderItems.length,
-        'totalQuantity': quantities.values.fold(0, (sum, qty) => sum + qty),
-        'selectedCount': selectedCount,
-        'availableCount': (boutique['products'] as List).length,
-        'subtotal': subtotal,
-        'deliveryFee': boutique['deliveryFee'] ?? 0,
-        'total': total,
-        'deliveryType': 'pickup',
-        'status': 'pending',
-        'customerNotes': '',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'estimatedDelivery': DateTime.now()
-            .add(const Duration(hours: 2))
-            .toIso8601String(),
-        'priorities': {
-          'high': _calculateTotalByPriority(boutiqueId, boutique)['H'] ?? 0,
-          'medium': _calculateTotalByPriority(boutiqueId, boutique)['M'] ?? 0,
-          'low': _calculateTotalByPriority(boutiqueId, boutique)['B'] ?? 0,
-        },
-      };
-
-      final orderRef = await _firestore.collection('orders').add(orderData);
-
-      // Débiter le solde
-      await _firestore.collection('portefeuille').doc(userId).update({
-        'balance': FieldValue.increment(-total),
-        'lastUpdated': FieldValue.serverTimestamp(),
-        'lastOrder': orderRef.id,
-        'lastOrderAmount': total,
-      });
-
-      // Ajouter l'historique de transaction
-      await _firestore.collection('transactions').add({
-        'userId': userId,
-        'orderId': orderRef.id,
-        'amount': -total,
-        'type': 'order_payment',
-        'description':
-            'Commande #${orderRef.id.substring(0, 8)} - ${boutique['nom']} ($selectedCount produit(s))',
-        'balanceAfter': _userBalance - total,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (!mounted) return;
-
-      // Mettre à jour le solde local
-      setState(() {
-        _userBalance -= total;
-      });
-
-      // Afficher confirmation
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: successColor),
-              SizedBox(width: 12),
-              Text('Commande confirmée !'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'N°${orderRef.id.substring(0, 8).toUpperCase()}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text('Boutique: ${boutique['nom']}'),
-              Text('Produits commandés: $selectedCount'),
-              Text('Total: ${total.toStringAsFixed(0)} FCFA'),
-              const SizedBox(height: 12),
-              const Text(
-                'Votre commande sera prête dans environ 2 heures.',
-                style: TextStyle(fontStyle: FontStyle.italic),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la commande: $e'),
-          backgroundColor: errorColor,
-        ),
-      );
-    }
-  }
+  // ===============================================
+  // WIDGETS D'AFFICHAGE
+  // ===============================================
 
   Widget _buildMatchIndicator(
     int matchCount,
@@ -1129,91 +1398,68 @@ class _OrderScreenState extends State<OrderScreen> {
     int lowPriorityCount,
     int essentialCount,
   ) {
+    final matchColor = _getMatchColor(percentage);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _getMatchColor(percentage),
-        borderRadius: BorderRadius.circular(12),
+        color: matchColor,
+        borderRadius: BorderRadius.circular(15),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_getMatchIcon(percentage), size: 12, color: Colors.white),
-              const SizedBox(width: 4),
-              Text(
-                '$matchCount/$totalCourses',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Icon(
+            _getMatchIcon(percentage),
+            color: Colors.white,
+            size: 14,
           ),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 4),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (essentialCount > 0)
-                Row(
-                  children: [
-                    Icon(Icons.star, size: 10, color: Colors.yellow),
-                    Text('$essentialCount', style: TextStyle(fontSize: 9, color: Colors.white)),
-                    SizedBox(width: 2),
-                  ],
-                ),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: highPriorityColor,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 2),
               Text(
-                '$highPriorityCount',
+                '$matchCount/$totalCourses (${percentage}%)',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: mediumPriorityColor,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 2),
-              Text(
-                '$mediumPriorityCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: lowPriorityColor,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 2),
-              Text(
-                '$lowPriorityCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                ),
+              Row(
+                children: [
+                  if (essentialCount > 0)
+                    Text(
+                      '⭐$essentialCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                      ),
+                    ),
+                  if (highPriorityCount > 0)
+                    Text(
+                      ' H$highPriorityCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                      ),
+                    ),
+                  if (mediumPriorityCount > 0)
+                    Text(
+                      ' M$mediumPriorityCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                      ),
+                    ),
+                  if (lowPriorityCount > 0)
+                    Text(
+                      ' B$lowPriorityCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -1263,29 +1509,127 @@ class _OrderScreenState extends State<OrderScreen> {
           : _availableBoutiques.isEmpty
               ? _buildEmptyState()
               : _buildMainContent(),
+
+      // NOUVEAU: Bouton de commande global en bas de la page
+      bottomNavigationBar: _isLoadingBoutiques || _availableBoutiques.isEmpty
+          ? null
+          : _buildGlobalOrderButton(),
+    );
+  }
+
+  Widget _buildGlobalOrderButton() {
+    final globalTotal = _calculateGlobalTotal();
+    final globalCount = _calculateGlobalSelectedCount();
+    final exceedsBalance = globalTotal > _userBalance;
+
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 5,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total Global de la Commande:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                '${globalTotal.toStringAsFixed(0)} FCFA',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: exceedsBalance ? errorColor : primaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Solde restant estimé:',
+                  style: TextStyle(fontSize: 12)),
+              Text(
+                '${(_userBalance - globalTotal).toStringAsFixed(0)} FCFA',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: exceedsBalance ? errorColor : Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: globalCount == 0 || exceedsBalance
+                ? null
+                : () => _placeGlobalOrder(),
+            icon: Icon(
+              globalCount == 0
+                  ? Icons.shopping_cart_outlined
+                  : exceedsBalance
+                      ? Icons.block
+                      : Icons.shopping_cart,
+              size: 20,
+            ),
+            label: Text(
+              globalCount == 0
+                  ? 'Sélectionnez des produits'
+                  : exceedsBalance
+                      ? 'Solde insuffisant - Bloqué'
+                      : 'Commander ($globalCount produits)',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: globalCount == 0 || exceedsBalance
+                  ? Colors.grey
+                  : primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildLoadingState() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CircularProgressIndicator(color: primaryColor),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Text(
-            _searchStatus,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: primaryColor),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              _searchStatus,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${widget.selectedCourses.length} produit(s) recherché(s)',
-          style: const TextStyle(fontSize: 14, color: Colors.grey),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            '${widget.selectedCourses.length} produit(s) recherché(s)',
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1306,24 +1650,12 @@ class _OrderScreenState extends State<OrderScreen> {
           ),
           const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
               _searchStatus,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-            ),
-            child: const Text('Retour aux courses'),
           ),
         ],
       ),
@@ -1333,62 +1665,45 @@ class _OrderScreenState extends State<OrderScreen> {
   Widget _buildMainContent() {
     return Column(
       children: [
-        // En-tête avec solde et informations
+        // Solde Utilisateur
         Container(
-          padding: const EdgeInsets.all(16),
-          color: backgroundColor,
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: primaryColor.withOpacity(0.1),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Votre solde',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      Text(
-                        '${_userBalance.toStringAsFixed(0)} FCFA',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        'Produits recherchés',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      Text(
-                        '${widget.selectedCourses.length} produit(s)',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              const Text(
+                'Mon Solde:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: primaryColor,
+                ),
               ),
-              const SizedBox(height: 12),
-              _buildBudgetWarning(),
+              _isLoadingBalance
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryColor,
+                      ),
+                    )
+                  : Text(
+                      '${_userBalance.toStringAsFixed(0)} FCFA',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: _userBalance < 5000 ? errorColor : primaryColor,
+                      ),
+                    ),
             ],
           ),
         ),
 
-        // Bandeau d'information sur les priorités
+        _buildBudgetWarning(),
+
+        // Indicateur de tri
         Container(
           padding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -1446,13 +1761,14 @@ class _OrderScreenState extends State<OrderScreen> {
             },
           ),
         ),
+        // L'espace est maintenant pris par le bottomNavigationBar
+        const SizedBox(height: 10),
       ],
     );
   }
 
   Widget _buildBudgetWarning() {
     if (_userBalance >= 10000) return const SizedBox.shrink();
-    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1473,8 +1789,8 @@ class _OrderScreenState extends State<OrderScreen> {
           Expanded(
             child: Text(
               _userBalance < 5000
-                  ? '⚠️ Solde très faible ! Seuls les produits ESSENTIELS seront sélectionnés automatiquement.'
-                  : 'ℹ️  Solde modéré. Les produits basse priorité ne seront pas sélectionnés automatiquement.',
+                  ? '⚠️ Solde très faible ! Seuls les produits ESSENTIELS sont sélectionnés automatiquement.'
+                  : 'ℹ️ Solde modéré. Les produits basse priorité ne seront pas sélectionnés automatiquement.',
               style: TextStyle(
                 color: warningColor,
                 fontSize: 13,
@@ -1487,74 +1803,87 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Widget _buildBoutiqueCard(Map<String, dynamic> boutique) {
-    final boutiqueId = boutique['id'];
-    final products = boutique['products'] as List;
+    final boutiqueId = boutique['id'] as String;
+    final products =
+        (boutique['products'] as List).cast<Map<String, dynamic>>();
     final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
-    final selectedCount = selectedProducts.length;
     final total = _calculateSelectedTotal(boutiqueId, boutique);
+    final selectedCount = selectedProducts.length;
     final totalsByPriority = _calculateTotalByPriority(boutiqueId, boutique);
     final exceedsBalance = total > _userBalance;
-    final matchPercentage = boutique['matchPercentage'] as int;
     final isBudgetTight = _isBudgetTight(total);
-    
-    // Compter les produits sélectionnés par catégorie
+    final matchPercentage = boutique['matchPercentage'] as int;
+
     int selectedEssential = 0;
     int selectedHigh = 0;
     int selectedMedium = 0;
     int selectedLow = 0;
-    
+
     for (var product in products) {
       if (selectedProducts.contains(product['id'])) {
         if (product['isEssential'] as bool? ?? false) {
           selectedEssential++;
-        } else if (product['coursePriority'] == 'H') {
+        }
+        final priority = product['coursePriority'] as String;
+        if (priority == 'H') {
           selectedHigh++;
-        } else if (product['coursePriority'] == 'M') {
+        } else if (priority == 'M') {
           selectedMedium++;
-        } else if (product['coursePriority'] == 'B') {
+        } else if (priority == 'B') {
           selectedLow++;
         }
       }
     }
 
     return Card(
-      elevation: 3,
+      elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: _getMatchColor(matchPercentage).withOpacity(0.3),
-          width: 1,
+          color: exceedsBalance ? errorColor : primaryColor.withOpacity(0.1),
+          width: exceedsBalance ? 2 : 1,
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête de la boutique
             _buildBoutiqueHeader(boutique, matchPercentage),
             const SizedBox(height: 16),
 
-            // Contrôles de sélection par priorité
-            _buildPriorityControls(boutiqueId, products, selectedEssential, selectedHigh, selectedMedium, selectedLow, boutique),
+            _buildPriorityControls(boutiqueId, products, selectedEssential,
+                selectedHigh, selectedMedium, selectedLow, boutique),
             const SizedBox(height: 12),
 
-            // Liste des produits triés par priorité
-            ...products.map((product) => _buildProductItem(boutiqueId, product, selectedProducts, isBudgetTight)).toList(),
-
+            ...products
+                .map((product) => _buildProductItem(
+                    boutiqueId, product, selectedProducts, isBudgetTight))
+                .toList(),
             const SizedBox(height: 16),
 
-            // Total et bouton commander
-            _buildOrderSummary(boutiqueId, boutique, selectedCount, total, totalsByPriority, 
-                exceedsBalance, matchPercentage, isBudgetTight, selectedEssential, 
-                selectedHigh, selectedMedium, selectedLow),
+            // Résumé local
+            _buildOrderSummary(
+                boutiqueId,
+                boutique,
+                selectedCount,
+                total,
+                totalsByPriority,
+                exceedsBalance,
+                matchPercentage,
+                isBudgetTight,
+                selectedEssential,
+                selectedHigh,
+                selectedMedium,
+                selectedLow),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBoutiqueHeader(Map<String, dynamic> boutique, int matchPercentage) {
+  Widget _buildBoutiqueHeader(
+      Map<String, dynamic> boutique, int matchPercentage) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1623,7 +1952,8 @@ class _OrderScreenState extends State<OrderScreen> {
                     ),
                   ],
                 ),
-              if (boutique['telephone'] != null && boutique['telephone'].isNotEmpty)
+              if (boutique['telephone'] != null &&
+                  boutique['telephone'].isNotEmpty)
                 Row(
                   children: [
                     Icon(
@@ -1641,43 +1971,24 @@ class _OrderScreenState extends State<OrderScreen> {
                     ),
                   ],
                 ),
-              Row(
-                children: [
-                  Icon(
-                    Icons.star,
-                    size: 16,
-                    color: Colors.amber,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${(boutique['rating'] as num).toStringAsFixed(1)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+              if (boutique['rating'] > 0)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.star,
+                      size: 14,
+                      color: Colors.amber,
                     ),
-                  ),
-                  const Spacer(),
-                  if (boutique['deliveryFee'] > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: infoColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Livraison: ${boutique['deliveryFee'].toStringAsFixed(0)} FCFA',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: infoColor,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${boutique['rating'].toStringAsFixed(1)}/5.0',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
                       ),
                     ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -1686,39 +1997,39 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Widget _buildPriorityControls(
-    String boutiqueId, 
-    List<dynamic> products, 
+    String boutiqueId,
+    List<dynamic> products,
     int selectedEssential,
-    int selectedHigh, 
-    int selectedMedium, 
+    int selectedHigh,
+    int selectedMedium,
     int selectedLow,
-    Map<String, dynamic> boutique
+    Map<String, dynamic> boutique,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Sélection par catégorie:',
+          'Sélection rapide:',
           style: TextStyle(
+            fontSize: 12,
             fontWeight: FontWeight.w600,
-            fontSize: 14,
+            color: primaryColor,
           ),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            if (boutique['essentialCount'] > 0)
-              _buildCategoryToggleButton(
-                boutiqueId,
-                products,
-                'essential',
-                'Essentiels',
-                Colors.red,
-                selectedEssential,
-                boutique['essentialCount'],
-                Icons.star,
-              ),
-            if (boutique['essentialCount'] > 0) const SizedBox(width: 8),
+            _buildCategoryToggleButton(
+              boutiqueId,
+              products,
+              'essential',
+              'Essentiels',
+              Colors.red,
+              selectedEssential,
+              boutique['essentialCount'] as int? ?? 0,
+              Icons.star,
+            ),
+            const SizedBox(width: 8),
             _buildPriorityToggleButton(
               boutiqueId,
               products,
@@ -1726,7 +2037,7 @@ class _OrderScreenState extends State<OrderScreen> {
               'Haute',
               highPriorityColor,
               selectedHigh,
-              boutique['highPriorityCount'],
+              boutique['highPriorityCount'] as int? ?? 0,
             ),
             const SizedBox(width: 8),
             _buildPriorityToggleButton(
@@ -1736,7 +2047,7 @@ class _OrderScreenState extends State<OrderScreen> {
               'Moyenne',
               mediumPriorityColor,
               selectedMedium,
-              boutique['mediumPriorityCount'],
+              boutique['mediumPriorityCount'] as int? ?? 0,
             ),
             const SizedBox(width: 8),
             _buildPriorityToggleButton(
@@ -1746,7 +2057,7 @@ class _OrderScreenState extends State<OrderScreen> {
               'Basse',
               lowPriorityColor,
               selectedLow,
-              boutique['lowPriorityCount'],
+              boutique['lowPriorityCount'] as int? ?? 0,
             ),
           ],
         ),
@@ -1772,19 +2083,25 @@ class _OrderScreenState extends State<OrderScreen> {
     int totalCount,
     IconData icon,
   ) {
-    final allSelected = selectedCount == totalCount;
+    final allSelected = selectedCount == totalCount && totalCount > 0;
     final anySelected = selectedCount > 0;
-    
+
     return Expanded(
       child: GestureDetector(
-        onTap: () => _toggleProductsByCategory(boutiqueId, products, category),
+        onTap: totalCount == 0
+            ? null
+            : () => _toggleProductsByCategory(boutiqueId, products, category),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: anySelected ? color.withOpacity(0.1) : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: anySelected ? color : Colors.grey[300]!,
+              color: totalCount == 0
+                  ? Colors.grey[300]!
+                  : anySelected
+                      ? color
+                      : Colors.grey[300]!,
               width: anySelected ? 1.5 : 1,
             ),
           ),
@@ -1802,7 +2119,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   ),
                 ),
                 child: allSelected
-                    ? Icon(
+                    ? const Icon(
                         Icons.check,
                         size: 14,
                         color: Colors.white,
@@ -1815,14 +2132,22 @@ class _OrderScreenState extends State<OrderScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: anySelected ? color : Colors.grey[600],
+                  color: totalCount == 0
+                      ? Colors.grey
+                      : anySelected
+                          ? color
+                          : Colors.grey[600],
                 ),
               ),
               Text(
                 '$selectedCount/$totalCount',
                 style: TextStyle(
                   fontSize: 10,
-                  color: anySelected ? color : Colors.grey[500],
+                  color: totalCount == 0
+                      ? Colors.grey
+                      : anySelected
+                          ? color
+                          : Colors.grey[500],
                 ),
               ),
             ],
@@ -1832,74 +2157,35 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  void _toggleProductsByCategory(String boutiqueId, List<dynamic> products, String category) {
-    setState(() {
-      if (!_selectedProductsByBoutique.containsKey(boutiqueId)) {
-        _selectedProductsByBoutique[boutiqueId] = {};
-      }
-      if (!_quantitiesByBoutique.containsKey(boutiqueId)) {
-        _quantitiesByBoutique[boutiqueId] = {};
-      }
-
-      // Vérifier si tous les produits de cette catégorie sont déjà sélectionnés
-      bool allSelected = true;
-      for (var product in products) {
-        if (category == 'essential' ? (product['isEssential'] as bool? ?? false) : 
-            product['coursePriority'] == category) {
-          if (!_selectedProductsByBoutique[boutiqueId]!.contains(product['id'])) {
-            allSelected = false;
-            break;
-          }
-        }
-      }
-
-      if (allSelected) {
-        // Désélectionner tous les produits de cette catégorie (sauf essentiels si catégorie essentielle)
-        for (var product in products) {
-          if (category == 'essential' ? (product['isEssential'] as bool? ?? false) : 
-              product['coursePriority'] == category) {
-            // Ne pas désélectionner les essentiels si c'est la catégorie essentielle
-            if (category != 'essential' || !(product['isEssential'] as bool? ?? false)) {
-              _selectedProductsByBoutique[boutiqueId]!.remove(product['id']);
-              _quantitiesByBoutique[boutiqueId]!.remove(product['id']);
-            }
-          }
-        }
-      } else {
-        // Sélectionner tous les produits de cette catégorie
-        for (var product in products) {
-          if (category == 'essential' ? (product['isEssential'] as bool? ?? false) : 
-              product['coursePriority'] == category) {
-            _selectedProductsByBoutique[boutiqueId]!.add(product['id']);
-            _quantitiesByBoutique[boutiqueId]![product['id']] = product['requiredQuantity'] ?? 1;
-          }
-        }
-      }
-    });
-  }
-
   Widget _buildPriorityToggleButton(
     String boutiqueId,
     List<dynamic> products,
-    String priority,
+    String priorityCode, // 'H', 'M', 'B'
     String label,
     Color color,
     int selectedCount,
     int totalCount,
   ) {
-    final allSelected = selectedCount == totalCount;
+    final allSelected = selectedCount == totalCount && totalCount > 0;
     final anySelected = selectedCount > 0;
-    
+
     return Expanded(
       child: GestureDetector(
-        onTap: () => _toggleProductsByPriority(boutiqueId, products, priority),
+        onTap: totalCount == 0
+            ? null
+            : () =>
+                _toggleProductsByPriority(boutiqueId, products, priorityCode),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: anySelected ? color.withOpacity(0.1) : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: anySelected ? color : Colors.grey[300]!,
+              color: totalCount == 0
+                  ? Colors.grey[300]!
+                  : anySelected
+                      ? color
+                      : Colors.grey[300]!,
               width: anySelected ? 1.5 : 1,
             ),
           ),
@@ -1917,7 +2203,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   ),
                 ),
                 child: allSelected
-                    ? Icon(
+                    ? const Icon(
                         Icons.check,
                         size: 14,
                         color: Colors.white,
@@ -1930,14 +2216,22 @@ class _OrderScreenState extends State<OrderScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: anySelected ? color : Colors.grey[600],
+                  color: totalCount == 0
+                      ? Colors.grey
+                      : anySelected
+                          ? color
+                          : Colors.grey[600],
                 ),
               ),
               Text(
                 '$selectedCount/$totalCount',
                 style: TextStyle(
                   fontSize: 10,
-                  color: anySelected ? color : Colors.grey[500],
+                  color: totalCount == 0
+                      ? Colors.grey
+                      : anySelected
+                          ? color
+                          : Colors.grey[500],
                 ),
               ),
             ],
@@ -1948,89 +2242,112 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Widget _buildProductItem(
-    String boutiqueId, 
-    Map<String, dynamic> product, 
+    String boutiqueId,
+    Map<String, dynamic> product,
     Set<String> selectedProducts,
-    bool isBudgetTight
+    bool isBudgetTight,
   ) {
-    final productId = product['id'];
+    final productId = product['id'] as String;
     final isSelected = selectedProducts.contains(productId);
     final quantity = _quantitiesByBoutique[boutiqueId]?[productId] ?? 1;
-    double price = (product['price'] as num).toDouble();
-    String priority = product['coursePriority'] as String;
-    int productPriority = product['productPriority'] as int? ?? 0;
-    double adjustedPrice = price;
-    bool isEssential = product['isEssential'] as bool? ?? false;
+    final price = (product['price'] as num).toDouble();
+    final productPriority = product['productPriority'] as int? ?? 0;
+    final priorityCode = product['coursePriority'] as String; // 'H', 'M', 'B'
+    final isEssential = product['isEssential'] as bool? ?? false;
 
+    double adjustedPrice = price;
     if (productPriority == 1) {
       adjustedPrice *= 0.9;
     } else if (productPriority == 2) {
       adjustedPrice *= 0.95;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? _getPriorityColor(priority).withOpacity(0.05)
-            : Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isSelected
-              ? _getPriorityColor(priority).withOpacity(0.3)
-              : Colors.grey[200]!,
-          width: isSelected ? 1.5 : 1,
-        ),
-      ),
+    final isLowPriorityAndTight =
+        isBudgetTight && priorityCode == 'B' && !isEssential;
+    // Vérification de la règle de priorité pour désactiver le tap si non sélectionnable
+    bool isBlockedByPriority = false;
+    if (!isSelected && !isEssential) {
+      final boutique =
+          _availableBoutiques.firstWhere((b) => b['id'] == boutiqueId);
+      final products =
+          (boutique['products'] as List).cast<Map<String, dynamic>>();
+
+      if (priorityCode == 'M') {
+        isBlockedByPriority = products.any((p) =>
+            p['coursePriority'] == 'H' &&
+            !(p['isEssential'] as bool? ?? false) &&
+            !_selectedProductsByBoutique[boutiqueId]!.contains(p['id']));
+      } else if (priorityCode == 'B') {
+        isBlockedByPriority = products.any((p) =>
+            (p['coursePriority'] == 'H' || p['coursePriority'] == 'M') &&
+            !(p['isEssential'] as bool? ?? false) &&
+            !_selectedProductsByBoutique[boutiqueId]!.contains(p['id']));
+      }
+    }
+
+    final isDisabled = isLowPriorityAndTight || isBlockedByPriority;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Checkbox(
-                value: isSelected,
-                onChanged: (_) => _toggleProductSelection(boutiqueId, productId),
-                activeColor: _getPriorityColor(priority),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? _getPriorityColor(priority).withOpacity(0.1)
-                      : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  _getPriorityIcon(priority, isEssential),
-                  color: isSelected
-                      ? _getPriorityColor(priority)
-                      : Colors.grey[600],
-                  size: 20,
+              // Checkbox de sélection
+              GestureDetector(
+                onTap: isDisabled && !isSelected
+                    ? null
+                    : () => _toggleProductSelection(boutiqueId, productId),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected
+                        ? _getPriorityColor(priorityCode)
+                        : isDisabled
+                            ? Colors.grey[200]
+                            : Colors.white,
+                    border: Border.all(
+                      color: isSelected
+                          ? _getPriorityColor(priorityCode)
+                          : isDisabled
+                              ? Colors.grey[400]!
+                              : Colors.grey[400]!,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, size: 16, color: Colors.white)
+                      : null,
                 ),
               ),
               const SizedBox(width: 12),
+
+              // Détails du produit
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Pastille de priorité
                         Container(
+                          margin: const EdgeInsets.only(right: 4),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: isEssential ? Colors.red : _getPriorityColor(priority),
+                            color: isEssential
+                                ? Colors.red
+                                : _getPriorityColor(priorityCode),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            isEssential ? '⭐' : priority,
+                            isEssential ? '⭐' : priorityCode,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -2067,8 +2384,11 @@ class _OrderScreenState extends State<OrderScreen> {
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               color: isSelected
-                                  ? _getPriorityColor(priority)
+                                  ? _getPriorityColor(priorityCode)
                                   : Colors.black,
+                              decoration: isDisabled && !isSelected
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -2083,7 +2403,7 @@ class _OrderScreenState extends State<OrderScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           color: isSelected
-                              ? _getPriorityColor(priority).withOpacity(0.7)
+                              ? _getPriorityColor(priorityCode).withOpacity(0.7)
                               : Colors.grey[600],
                         ),
                         maxLines: 1,
@@ -2091,7 +2411,7 @@ class _OrderScreenState extends State<OrderScreen> {
                       ),
                     if (product['requiredQuantity'] != null)
                       Text(
-                        'Quantité requise: ${product['requiredQuantity']}',
+                        'Quantité requise: ${product['requiredQuantity']} ${product['unite']}',
                         style: const TextStyle(
                           fontSize: 11,
                           color: Colors.blue,
@@ -2101,6 +2421,8 @@ class _OrderScreenState extends State<OrderScreen> {
                 ),
               ),
               const SizedBox(width: 12),
+
+              // Quantité et prix
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -2110,7 +2432,7 @@ class _OrderScreenState extends State<OrderScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isSelected
-                          ? _getPriorityColor(priority)
+                          ? _getPriorityColor(priorityCode)
                           : Colors.grey[800],
                     ),
                   ),
@@ -2118,117 +2440,113 @@ class _OrderScreenState extends State<OrderScreen> {
                     Row(
                       children: [
                         Text(
-                          '${(price * quantity).toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
+                          '${(price * quantity).toStringAsFixed(0)} FCFA',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[500],
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: productPriority == 1
-                                ? successColor.withOpacity(0.1)
-                                : infoColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            productPriority == 1 ? '-10%' : '-5%',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: productPriority == 1
-                                  ? successColor
-                                  : infoColor,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        Text(
+                          '-${(100 - (adjustedPrice / price * 100)).toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: successColor,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
+                    ),
+                  const SizedBox(height: 4),
+
+                  // Contrôle de quantité
+                  if (isSelected)
+                    Container(
+                      height: 30,
+                      decoration: BoxDecoration(
+                        border:
+                            Border.all(color: _getPriorityColor(priorityCode)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.remove,
+                                size: 16,
+                                color: _getPriorityColor(priorityCode)),
+                            onPressed: () => _updateQuantity(
+                                boutiqueId, productId, quantity - 1),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          Text(
+                            quantity.toString(),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: _getPriorityColor(priorityCode),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.add,
+                                size: 16,
+                                color: _getPriorityColor(priorityCode)),
+                            onPressed: () => _updateQuantity(
+                                boutiqueId, productId, quantity + 1),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Message si produit non sélectionnable
+                  if (isDisabled && !isSelected)
+                    Text(
+                      isBlockedByPriority
+                          ? 'Priorité non respectée'
+                          : 'Budget serré',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: errorColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                 ],
               ),
             ],
           ),
-          
-          // Contrôle de quantité
-          if (isSelected)
+
+          // Ligne d'action pour basse priorité si budget serré
+          if (isBudgetTight &&
+              priorityCode == 'B' &&
+              !isEssential &&
+              isSelected)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Text(
-                    'Quantité:',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove, size: 16),
-                          onPressed: () {
-                            if (quantity > 1) {
-                              _updateQuantity(boutiqueId, productId, quantity - 1);
-                            } else {
-                              _toggleProductSelection(boutiqueId, productId);
-                            }
-                          },
-                          padding: const EdgeInsets.all(4),
-                        ),
-                        Container(
-                          width: 30,
-                          alignment: Alignment.center,
-                          child: Text(
-                            quantity.toString(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add, size: 16),
-                          onPressed: () {
-                            _updateQuantity(boutiqueId, productId, quantity + 1);
-                          },
-                          padding: const EdgeInsets.all(4),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isBudgetTight && priority == 'B' && !isEssential)
-                    const SizedBox(width: 8),
-                  if (isBudgetTight && priority == 'B' && !isEssential)
-                    GestureDetector(
-                      onTap: () => _toggleProductSelection(boutiqueId, productId),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.red[200]!),
-                        ),
-                        child: const Text(
-                          'Supprimer',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.red,
-                          ),
+                  GestureDetector(
+                    onTap: () => _toggleProductSelection(boutiqueId, productId),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
+                      child: const Text(
+                        'Supprimer (Basse Priorité)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.red,
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -2251,6 +2569,9 @@ class _OrderScreenState extends State<OrderScreen> {
     int selectedMedium,
     int selectedLow,
   ) {
+    // Si aucun produit sélectionné, on n'affiche que le total de la boutique (0)
+    if (selectedCount == 0 && total == 0) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -2263,29 +2584,32 @@ class _OrderScreenState extends State<OrderScreen> {
         border: Border.all(
           color: selectedCount == 0
               ? Colors.grey[200]!
-              : isBudgetTight
-                  ? Colors.orange[200]!
-                  : primaryColor.withOpacity(0.2),
+              : exceedsBalance
+                  ? errorColor
+                  : isBudgetTight
+                      ? Colors.orange[200]!
+                      : primaryColor.withOpacity(0.2),
+          width: exceedsBalance ? 2 : 1,
         ),
       ),
       child: Column(
         children: [
-          // Détails par priorité
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Détails par catégorie:',
+                'Résumé de la sélection dans cette boutique:',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
+                  color: primaryColor,
                 ),
               ),
               const SizedBox(height: 4),
               if (selectedEssential > 0)
                 _buildPriorityTotalRow(
                   '⭐ Essentiels',
-                  _calculateCategoryTotal(boutiqueId, boutique, 'essential'),
+                  totalsByPriority['E']!,
                   selectedEssential,
                   Colors.red,
                 ),
@@ -2312,74 +2636,32 @@ class _OrderScreenState extends State<OrderScreen> {
                 ),
             ],
           ),
-          
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           const Divider(),
           const SizedBox(height: 8),
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Produits sélectionnés',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  Text(
-                    '$selectedCount produit(s)',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              Text(
+                'Sous-total ($selectedCount produits) + Frais de livraison',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'Total estimé',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  Text(
-                    '${total.toStringAsFixed(0)} FCFA',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: selectedCount == 0
-                          ? Colors.grey
-                          : exceedsBalance
-                              ? errorColor
-                              : isBudgetTight
-                                  ? warningColor
-                                  : primaryColor,
-                    ),
-                  ),
-                  if (boutique['deliveryFee'] > 0 && selectedCount > 0)
-                    Text(
-                      'dont ${boutique['deliveryFee'].toStringAsFixed(0)} FCFA de livraison',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
-                    ),
-                ],
+              Text(
+                '${total.toStringAsFixed(0)} FCFA',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: exceedsBalance ? errorColor : primaryColor,
+                ),
               ),
             ],
           ),
-          
-          // Message de recommandation pour budget serré
-          if (isBudgetTight && (selectedLow > 0 || selectedMedium > 0))
+          if (isBudgetTight && selectedCount > 0)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: 12),
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -2389,17 +2671,18 @@ class _OrderScreenState extends State<OrderScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.lightbulb_outline,
-                      color: warningColor,
+                      exceedsBalance ? Icons.error : Icons.lightbulb_outline,
+                      color: exceedsBalance ? errorColor : warningColor,
                       size: 16,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _getBudgetTightMessage(selectedLow, selectedMedium, total),
+                        _getBudgetTightMessage(
+                            selectedLow, selectedMedium, total),
                         style: TextStyle(
                           fontSize: 12,
-                          color: warningColor,
+                          color: exceedsBalance ? errorColor : warningColor,
                         ),
                       ),
                     ),
@@ -2407,99 +2690,9 @@ class _OrderScreenState extends State<OrderScreen> {
                 ),
               ),
             ),
-          
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: selectedCount == 0
-                ? null
-                : () => _placeOrder(boutique),
-            icon: Icon(
-              selectedCount == 0
-                  ? Icons.shopping_cart_outlined
-                  : isBudgetTight
-                      ? Icons.warning
-                      : Icons.shopping_cart,
-              size: 20,
-            ),
-            label: Text(
-              selectedCount == 0
-                  ? 'Sélectionnez des produits'
-                  : isBudgetTight
-                      ? 'Vérifier le budget ($selectedCount)'
-                      : 'Commander ($selectedCount)',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: selectedCount == 0
-                  ? Colors.grey
-                  : isBudgetTight
-                      ? warningColor
-                      : matchPercentage >= 50
-                          ? successColor
-                          : primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 12,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  12,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
-  }
-
-  double _calculateCategoryTotal(String boutiqueId, Map<String, dynamic> boutique, String category) {
-    double total = 0;
-    final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
-    final quantities = _quantitiesByBoutique[boutiqueId] ?? {};
-
-    for (var product in boutique['products'] as List) {
-      if (selectedProducts.contains(product['id'])) {
-        bool isInCategory = false;
-        if (category == 'essential') {
-          isInCategory = product['isEssential'] as bool? ?? false;
-        } else {
-          isInCategory = product['coursePriority'] == category;
-        }
-        
-        if (isInCategory) {
-          double price = (product['price'] as num).toDouble();
-          int quantity = quantities[product['id']] ?? 1;
-          
-          // Appliquer réduction selon priorité du produit
-          int productPriority = product['productPriority'] as int? ?? 0;
-          if (productPriority == 1) {
-            price *= 0.9;
-          } else if (productPriority == 2) {
-            price *= 0.95;
-          }
-          
-          total += price * quantity;
-        }
-      }
-    }
-
-    return total;
-  }
-
-  String _getBudgetTightMessage(int selectedLow, int selectedMedium, double total) {
-    if (total > _userBalance) {
-      return 'Budget insuffisant! Réduisez votre sélection de ${(total - _userBalance).toStringAsFixed(0)} FCFA';
-    } else if (selectedLow > 0) {
-      return 'Budget serré: réduisez les $selectedLow produit(s) basse priorité';
-    } else if (selectedMedium > 0) {
-      return 'Budget serré: réduisez les quantités des $selectedMedium produit(s) moyenne priorité';
-    } else {
-      return 'Budget serré: limitez-vous aux articles essentiels et haute priorité';
-    }
   }
 
   Widget _buildPriorityTotalRow(
@@ -2546,9 +2739,9 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  IconData _getPriorityIcon(String priority, bool isEssential) {
+  IconData _getPriorityIcon(String priorityCode, bool isEssential) {
     if (isEssential) return Icons.star;
-    switch (priority) {
+    switch (priorityCode) {
       case 'H':
         return Icons.priority_high;
       case 'M':
@@ -2556,7 +2749,7 @@ class _OrderScreenState extends State<OrderScreen> {
       case 'B':
         return Icons.circle_outlined;
       default:
-        return Icons.shopping_basket;
+        return Icons.circle_outlined;
     }
   }
 }
