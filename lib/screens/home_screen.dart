@@ -1386,9 +1386,6 @@ class _HomeScreenState extends State<HomeScreen>
         : DateTime.now();
     final items = data['items'] as List<dynamic>? ?? [];
 
-    final String name =
-        items.isNotEmpty ? items[0]['name'] as String : 'Article Inconnu';
-
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1406,7 +1403,7 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Commande #${name}',
+                        'Commande #${doc.id.substring(0, 8)}...',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
