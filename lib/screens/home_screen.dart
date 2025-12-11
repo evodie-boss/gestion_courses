@@ -349,8 +349,28 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(context); // Fermer la boîte de dialogue
+                
+                // Afficher un indicateur de chargement
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+                
                 await authService.logout();
+                
+                if (!context.mounted) return;
+                Navigator.pop(context); // Fermer l'indicateur de chargement
+                
+                // Rediriger vers l'écran de connexion
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false, // Supprimer toutes les routes précédentes
+                );
               },
               child: const Text(
                 'Déconnexion',
@@ -1371,7 +1391,7 @@ class _HomeScreenState extends State<HomeScreen>
               ...orders.map((doc) => _buildOrderCard(doc)).toList(),
             ],
           ),
-        );
+    );
       },
     );
   }
