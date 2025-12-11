@@ -18,6 +18,7 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   String _selectedCurrency = 'XOF';
   bool _isLoading = false;
+  double _realWalletBalance = 0.0; // NOUVEAU : Pour stocker le solde réel
 
   final List<Map<String, dynamic>> _quickAmounts = [
     {'amount': 1000, 'label': '1.000 FCFA'},
@@ -32,6 +33,23 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
   void initState() {
     super.initState();
     _descriptionController.text = 'Rechargement portefeuille';
+    _loadRealWalletBalance();
+  }
+
+  Future<void> _loadRealWalletBalance() async {
+    final authService = context.read<AuthService>();
+    final user = authService.currentUser;
+    
+    if (user != null) {
+      try {
+        final balance = await authService.getRealWalletBalance(user.id);
+        setState(() {
+          _realWalletBalance = balance;
+        });
+      } catch (e) {
+        print('Erreur chargement solde: $e');
+      }
+    }
   }
 
   @override
@@ -78,17 +96,23 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
           // Ajouter la transaction
           await walletService.addTransaction(transaction);
 
+          // IMPORTANT : Rafraîchir le solde dans AuthService
+          await authService.refreshWalletBalance();
+
+          // Mettre à jour le solde local
+          await _loadRealWalletBalance();
+
           // Afficher un message de succès
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Portefeuille rechargé de ${amount.toStringAsFixed(2)} $_selectedCurrency'),
+              content: Text('Portefeuille rechargé de ${amount.toStringAsFixed(0)} $_selectedCurrency'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
             ),
           );
 
-          // Retourner à l'écran précédent
-          Navigator.pop(context);
+          // Retourner à l'écran précédent AVEC succès
+          Navigator.pop(context, true);
         }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -127,7 +151,7 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Informations actuelles
+            // Informations actuelles - CORRIGÉ : Utiliser _realWalletBalance
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -162,7 +186,7 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
                           ),
                         ),
                         Text(
-                          '${user?.soldePortefeuille ?? 0} FCFA',
+                          '${_realWalletBalance.toStringAsFixed(0)} FCFA', // CORRIGÉ
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,

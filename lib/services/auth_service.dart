@@ -8,6 +8,9 @@ class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   UserModel? _currentUser;
+  
+  // NOUVEAU : Cache pour éviter trop de requêtes
+  double? _cachedWalletBalance;
 
   AuthService() {
     _auth.authStateChanges().listen((User? user) async {
@@ -19,6 +22,8 @@ class AuthService extends ChangeNotifier {
               .get();
           if (userDoc.exists) {
             _currentUser = _userFromDocument(userDoc);
+            // NOUVEAU : Charger le solde réel
+            await _loadRealWalletBalance(user.uid);
           } else {
             _currentUser = _createUserModel(user);
             await _saveUserToFirestore(_currentUser!);
@@ -29,17 +34,95 @@ class AuthService extends ChangeNotifier {
         }
       } else {
         _currentUser = null;
+        _cachedWalletBalance = null;
       }
       notifyListeners();
     });
   }
 
-  // MÉTHODE MANQUANTE : Ajoutez cette méthode
+  // NOUVELLE MÉTHODE : Charger le solde réel depuis portefeuille
+  Future<void> _loadRealWalletBalance(String userId) async {
+    try {
+      final walletDoc = await _firestore
+          .collection('portefeuille')
+          .doc(userId)
+          .get();
+      
+      if (walletDoc.exists) {
+        _cachedWalletBalance = (walletDoc.data()?['balance'] ?? 0.0).toDouble();
+        print('💰 Solde réel chargé: $_cachedWalletBalance FCFA');
+      } else {
+        // Créer un portefeuille par défaut
+        final defaultPortefeuille = {
+          'userId': userId,
+          'balance': 0.0,
+          'monthlyBudget': 0.0,
+          'currency': 'XOF',
+          'exchangeRate': 655.96,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        };
+        await _firestore.collection('portefeuille').doc(userId).set(defaultPortefeuille);
+        _cachedWalletBalance = 0.0;
+        print('💰 Portefeuille créé par défaut');
+      }
+    } catch (e) {
+      print('❌ Erreur chargement solde: $e');
+      _cachedWalletBalance = 0.0;
+    }
+  }
+
+  // NOUVELLE MÉTHODE : Récupérer le solde réel
+  Future<double> getRealWalletBalance(String userId) async {
+    // Retourner le cache si disponible
+    if (_cachedWalletBalance != null && userId == _currentUser?.id) {
+      return _cachedWalletBalance!;
+    }
+    
+    try {
+      final walletDoc = await _firestore
+          .collection('portefeuille')
+          .doc(userId)
+          .get();
+      
+      if (walletDoc.exists) {
+        final balance = (walletDoc.data()?['balance'] ?? 0.0).toDouble();
+        // Mettre en cache
+        if (userId == _currentUser?.id) {
+          _cachedWalletBalance = balance;
+        }
+        return balance;
+      }
+      return 0.0;
+    } catch (e) {
+      print('❌ Erreur getRealWalletBalance: $e');
+      return 0.0;
+    }
+  }
+
+  // NOUVELLE MÉTHODE : Rafraîchir le solde
+  Future<void> refreshWalletBalance() async {
+    if (_currentUser != null) {
+      await _loadRealWalletBalance(_currentUser!.id);
+      notifyListeners();
+    }
+  }
+
+  // Getter pour le solde avec mise à jour automatique
+  Future<double> get walletBalance async {
+    if (_currentUser == null) return 0.0;
+    return await getRealWalletBalance(_currentUser!.id);
+  }
+
+  // MÉTHODE EXISTANTE AMÉLIORÉE
   Future<UserModel?> getUserData(String userId) async {
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (userDoc.exists) {
-        return _userFromDocument(userDoc);
+        final user = _userFromDocument(userDoc);
+        // Charger le solde réel
+        final balance = await getRealWalletBalance(userId);
+        // Retourner un user avec le solde mis à jour
+        return user.copyWith(soldePortefeuille: balance);
       }
       return null;
     } catch (e) {
@@ -82,7 +165,7 @@ class AuthService extends ChangeNotifier {
       prenom: data['prenom'] ?? '',
       email: data['email'] ?? '',
       numeroPhone: data['numeroPhone'] ?? '',
-      soldePortefeuille: (data['soldePortefeuille'] ?? 0.0).toDouble(),
+      soldePortefeuille: _cachedWalletBalance ?? (data['soldePortefeuille'] ?? 0.0).toDouble(), // CORRIGÉ
       createdAt: data['createdAt'] ?? '',
     );
   }
@@ -126,15 +209,28 @@ class AuthService extends ChangeNotifier {
       // 4. Sauvegarde Firestore - APPEL DE LA MÉTHODE PRIVÉE
       await _saveUserToFirestore(userModel);
 
-      // 5. Vérification
+      // 5. Créer le portefeuille
+      final defaultPortefeuille = {
+        'userId': user.uid,
+        'balance': 0.0,
+        'monthlyBudget': 0.0,
+        'currency': 'XOF',
+        'exchangeRate': 655.96,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      };
+      await _firestore.collection('portefeuille').doc(user.uid).set(defaultPortefeuille);
+      print('💰 Portefeuille créé');
+
+      // 6. Vérification
       final doc = await _firestore.collection('users').doc(user.uid).get();
       print('📄 Document vérifié: ${doc.exists}');
       if (doc.exists) {
         print('📊 Données: ${doc.data()}');
       }
 
-      // 6. Mise à jour état
+      // 7. Mise à jour état
       _currentUser = userModel;
+      _cachedWalletBalance = 0.0;
       notifyListeners();
 
       print('🎉 Inscription réussie!');
@@ -161,6 +257,8 @@ class AuthService extends ChangeNotifier {
 
       if (userDoc.exists) {
         _currentUser = _userFromDocument(userDoc);
+        // Charger le solde réel
+        await _loadRealWalletBalance(result.user!.uid);
       } else {
         // Créer l'utilisateur dans Firestore s'il n'existe pas
         _currentUser = _createUserModel(result.user!);
@@ -201,6 +299,7 @@ class AuthService extends ChangeNotifier {
     try {
       await _auth.signOut();
       _currentUser = null;
+      _cachedWalletBalance = null;
       notifyListeners();
     } catch (e) {
       print('Erreur de déconnexion: $e');

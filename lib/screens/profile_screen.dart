@@ -1,4 +1,4 @@
-// lib/screens/profile_screen.dart
+// lib/screens/profile_screen.dart - CORRIGÉ
 import 'package:flutter/material.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -8,8 +8,41 @@ import 'package:gestion_courses/models/user_model.dart';
 import 'package:gestion_courses/gestion_portefeuille/screens/recharge_wallet_screen.dart';
 import 'package:gestion_courses/gestion_portefeuille/screens/transaction_history_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  double _realWalletBalance = 0.0;
+  bool _isLoadingBalance = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealWalletBalance();
+  }
+
+  Future<void> _loadRealWalletBalance() async {
+    final authService = context.read<AuthService>();
+    final user = authService.currentUser;
+    
+    if (user != null) {
+      setState(() => _isLoadingBalance = true);
+      try {
+        final balance = await authService.getRealWalletBalance(user.id);
+        setState(() {
+          _realWalletBalance = balance;
+          _isLoadingBalance = false;
+        });
+      } catch (e) {
+        print('Erreur chargement solde: $e');
+        setState(() => _isLoadingBalance = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +136,10 @@ class ProfileScreen extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, color: Colors.white),
             onPressed: () => _editProfile(context),
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            onPressed: _loadRealWalletBalance,
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -115,7 +152,7 @@ class ProfileScreen extends StatelessWidget {
             _buildPersonalInfoSection(context, user),
 
             // Section Solde du portefeuille
-            _buildWalletSection(context, user),
+            _buildWalletSection(context),
 
             const SizedBox(height: 40),
           ],
@@ -297,7 +334,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletSection(BuildContext context, UserModel user) {
+  Widget _buildWalletSection(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
@@ -347,11 +384,20 @@ class ProfileScreen extends StatelessWidget {
                     color: AppColors.tropicalTeal,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    size: 30,
-                    color: Colors.white,
-                  ),
+                  child: _isLoadingBalance
+                      ? const SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 30,
+                          color: Colors.white,
+                        ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -365,14 +411,22 @@ class ProfileScreen extends StatelessWidget {
                           color: AppColors.textColor,
                         ),
                       ),
-                      Text(
-                        '${user.soldePortefeuille} FCFA',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.tropicalTeal,
-                        ),
-                      ),
+                      _isLoadingBalance
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: SizedBox(
+                                height: 24,
+                                child: LinearProgressIndicator(),
+                              ),
+                            )
+                          : Text(
+                              '${_realWalletBalance.toStringAsFixed(0)} FCFA', // CORRIGÉ : Utiliser _realWalletBalance
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.tropicalTeal,
+                              ),
+                            ),
                     ],
                   ),
                 ),
@@ -408,7 +462,6 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildInfoItem({
     required BuildContext context,
@@ -565,15 +618,16 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // CORRIGEZ CES 3 MÉTHODES :
-
   void _rechargeWallet(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const RechargeWalletScreen(),
       ),
-    );
+    ).then((_) {
+      // Rafraîchir le solde après recharge
+      _loadRealWalletBalance();
+    });
   }
 
   void _viewTransactionHistory(BuildContext context) {
@@ -589,5 +643,4 @@ class ProfileScreen extends StatelessWidget {
       );
     }
   }
-
- }
+}

@@ -1,3 +1,6 @@
+// lib/gestion_portefeuille/screens/wallet_screen.dart
+// CORRIGÉ : Supprime le FAB qui ouvre AddTransactionScreen
+
 import 'package:flutter/material.dart';
 import '../services/wallet_service.dart';
 import '../services/portefeuille_service.dart';
@@ -5,7 +8,7 @@ import '../models/transaction_model.dart' as my_models;
 import '../models/portefeuille_model.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/budget_progress.dart';
-import 'add_transaction_screen.dart';
+import 'recharge_wallet_screen.dart'; // IMPORT CORRIGÉ
 import 'transaction_history_screen.dart';
 import 'statistics_screen.dart';
 import 'budget_settings_screen.dart';
@@ -144,7 +147,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
                     const SizedBox(height: 30),
 
-                    // Actions rapides
+                    // Actions rapides - CORRIGÉ : Ajout de "Recharger"
                     _buildQuickActions(),
 
                     const SizedBox(height: 30),
@@ -158,27 +161,28 @@ class _WalletScreenState extends State<WalletScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddTransactionScreen(userId: widget.userId),
-            ),
-          ).then((value) {
-            if (value == true) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Transaction ajoutée avec succès!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          });
-        },
-        backgroundColor: const Color(0xFF0F9E99),
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
-      ),
+      // SUPPRIMÉ : FloatingActionButton qui ouvrait AddTransactionScreen
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (context) => AddTransactionScreen(userId: widget.userId),
+      //       ),
+      //     ).then((value) {
+      //       if (value == true) {
+      //         ScaffoldMessenger.of(context).showSnackBar(
+      //           const SnackBar(
+      //             content: Text('Transaction ajoutée avec succès!'),
+      //             backgroundColor: Colors.green,
+      //           ),
+      //         );
+      //       }
+      //     });
+      //   },
+      //   backgroundColor: const Color(0xFF0F9E99),
+      //   child: const Icon(Icons.add, color: Colors.white, size: 30),
+      // ),
     );
   }
 
@@ -236,6 +240,30 @@ class _WalletScreenState extends State<WalletScreen> {
           children: [
             Expanded(
               child: _buildActionButton(
+                icon: Icons.add_circle_outline,
+                label: 'Recharger', // NOUVEAU BOUTON
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RechargeWalletScreen(), // CORRIGÉ
+                    ),
+                  ).then((value) {
+                    if (value == true) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Rechargement effectué avec succès!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildActionButton(
                 icon: Icons.history,
                 label: 'Historique',
                 onPressed: () {
@@ -259,11 +287,15 @@ class _WalletScreenState extends State<WalletScreen> {
                 },
               ),
             ),
-            const SizedBox(width: 10),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
             Expanded(
               child: _buildActionButton(
                 icon: Icons.settings,
-                label: 'Paramètres',
+                label: 'Paramètres Budget',
                 onPressed: () {
                   _showSettings();
                 },
@@ -324,14 +356,21 @@ class _WalletScreenState extends State<WalletScreen> {
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
+            child: Center(
               child: Column(
                 children: [
                   Icon(Icons.receipt, size: 50, color: Colors.grey),
                   SizedBox(height: 10),
                   Text(
-                    'Commencez par ajouter une transaction',
+                    'Vos dépenses apparaîtront ici après vos commandes',
                     style: TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Rechargez votre solde pour passer des commandes',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -424,7 +463,9 @@ class _WalletScreenState extends State<WalletScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          transaction.typeDisplay,
+                          transaction.type == 'depense' 
+                            ? 'Dépense (commande)'  // MODIFIÉ : Ajout de "commande"
+                            : 'Rechargement de solde',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
