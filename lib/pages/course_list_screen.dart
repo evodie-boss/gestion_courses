@@ -85,7 +85,14 @@ class _CourseListScreenState extends State<CourseListScreen> {
   }
 
   // Sélectionner/déselectionner une course
-  void _toggleCourseSelection(String courseId) {
+  void _toggleCourseSelection(String courseId, Course course) {
+    // Vérifier si la course est marquée comme faite
+    if (course.status == CourseStatus.done) {
+      _showErrorSnackbar(
+          context, 'Impossible de sélectionner une course déjà faite');
+      return;
+    }
+
     setState(() {
       if (_selectedCourseIds.contains(courseId)) {
         _selectedCourseIds.remove(courseId);
@@ -100,7 +107,10 @@ class _CourseListScreenState extends State<CourseListScreen> {
     setState(() {
       _selectedCourseIds.clear();
       for (var course in courses) {
-        _selectedCourseIds.add(course.id);
+        // Ne sélectionner que les courses qui ne sont pas faites
+        if (course.status != CourseStatus.done) {
+          _selectedCourseIds.add(course.id);
+        }
       }
     });
   }
@@ -244,7 +254,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
   // Obtenir les cours sélectionnées
   List<Course> _getSelectedCourses(List<Course> allCourses) {
     return allCourses
-        .where((course) => _selectedCourseIds.contains(course.id))
+        .where((course) =>
+            _selectedCourseIds.contains(course.id) &&
+            course.status != CourseStatus.done) // Exclure les courses faites
         .toList();
   }
 
@@ -393,7 +405,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
               child: Row(
                 children: [
                   Icon(Icons.flag,
-                      color: _sortBy == 'priority' ? primaryColor : Colors.grey),
+                      color:
+                          _sortBy == 'priority' ? primaryColor : Colors.grey),
                   const SizedBox(width: 12),
                   Text(
                     'Trier par priorité',
@@ -425,7 +438,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
               child: Row(
                 children: [
                   Icon(Icons.access_time,
-                      color: _sortBy == 'createdAt' ? primaryColor : Colors.grey),
+                      color:
+                          _sortBy == 'createdAt' ? primaryColor : Colors.grey),
                   const SizedBox(width: 12),
                   Text(
                     'Trier par date de création',
@@ -581,66 +595,93 @@ class _CourseListScreenState extends State<CourseListScreen> {
   Widget _buildSelectionActions(List<Course> courses) {
     final selectedTotal = _calculateSelectedTotal(courses);
     final selectedCount = _selectedCourseIds.length;
+    final doneCoursesCount =
+        courses.where((c) => c.status == CourseStatus.done).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: primaryColor.withOpacity(0.1),
-      child: Row(
+      child: Column(
         children: [
-          Checkbox(
-            value: selectedCount == courses.length,
-            onChanged: (value) {
-              if (value == true) {
-                _selectAllCourses(courses);
-              } else {
-                _deselectAllCourses();
-              }
-            },
-            activeColor: primaryColor,
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$selectedCount sur ${courses.length} sélectionné(s)',
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+          Row(
+            children: [
+              Checkbox(
+                value: selectedCount ==
+                    courses.where((c) => c.status != CourseStatus.done).length,
+                onChanged: (value) {
+                  if (value == true) {
+                    _selectAllCourses(courses);
+                  } else {
+                    _deselectAllCourses();
+                  }
+                },
+                activeColor: primaryColor,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$selectedCount sur ${courses.length - doneCoursesCount} sélectionnable(s)',
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (selectedCount > 0)
+                      Text(
+                        '$selectedCount sur ${courses.length - doneCoursesCount} sélectionnable(s)',
+                        style: TextStyle(
+                          color: textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                  ],
                 ),
-                if (selectedCount > 0)
-                  Text(
-                    'Total: ${selectedTotal.toStringAsFixed(2)} FCFA',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+              ),
+              IconButton(
+                icon: Icon(Icons.shopping_cart, color: infoColor),
+                onPressed: selectedCount == 0
+                    ? null
+                    : () {
+                        final selectedCourses = _getSelectedCourses(courses);
+                        _navigateToOrderScreen(context, selectedCourses);
+                      },
+                tooltip: 'Commander les courses sélectionnées',
+              ),
+              IconButton(
+                icon: Icon(Icons.auto_graph, color: warningColor),
+                onPressed: selectedCount == 0
+                    ? null
+                    : () {
+                        _showOptimizationDialog(context, courses);
+                      },
+                tooltip: 'Optimiser le budget',
+              ),
+            ],
+          ),
+          // Message informatif
+          if (doneCoursesCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.info, size: 14, color: infoColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$doneCoursesCount course(s) marquée(s) comme faite(s) ne peuvent pas être sélectionnées',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: textSecondary,
+                      ),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.shopping_cart, color: infoColor),
-            onPressed: selectedCount == 0
-                ? null
-                : () {
-                    final selectedCourses = _getSelectedCourses(courses);
-                    _navigateToOrderScreen(context, selectedCourses);
-                  },
-            tooltip: 'Commander les courses sélectionnées',
-          ),
-          IconButton(
-            icon: Icon(Icons.auto_graph, color: warningColor),
-            onPressed: selectedCount == 0
-                ? null
-                : () {
-                    _showOptimizationDialog(context, courses);
-                  },
-            tooltip: 'Optimiser le budget',
-          ),
         ],
       ),
     );
@@ -650,7 +691,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
   void _showOptimizationDialog(BuildContext context, List<Course> allCourses) {
     final selectedCourses = _getSelectedCourses(allCourses);
     final total = _calculateSelectedTotal(allCourses);
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -698,6 +739,13 @@ class _CourseListScreenState extends State<CourseListScreen> {
 
     return GestureDetector(
       onLongPress: () {
+        // Ne pas activer le mode sélection sur les courses faites
+        if (isDone) {
+          _showErrorSnackbar(context,
+              'Cette course est déjà faite et ne peut pas être commandée');
+          return;
+        }
+
         if (!_selectionMode) {
           setState(() {
             _selectionMode = true;
@@ -717,23 +765,37 @@ class _CourseListScreenState extends State<CourseListScreen> {
           ],
         ),
         child: Card(
-          color: isSelected ? primaryColor.withOpacity(0.1) : cardColor,
+          color: isSelected
+              ? primaryColor.withOpacity(0.1)
+              : isDone
+                  ? Colors.grey[100]
+                  : cardColor, // Griser les courses faites
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: isSelected
                   ? primaryColor
-                  : course.isEssential
-                      ? essentialColor.withOpacity(0.3)
-                      : Colors.grey[200]!,
+                  : isDone
+                      ? Colors
+                          .grey[300]! // Bordure grise pour les courses faites
+                      : course.isEssential
+                          ? essentialColor.withOpacity(0.3)
+                          : Colors.grey[200]!,
               width: isSelected ? 2 : 1,
             ),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: _selectionMode
-                ? () => _toggleCourseSelection(course.id)
+                ? () {
+                    if (isDone) {
+                      _showErrorSnackbar(context,
+                          'Cette course est déjà faite et ne peut pas être commandée');
+                      return;
+                    }
+                    _toggleCourseSelection(course.id, course);
+                  }
                 : () => _showCourseActions(context, course),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -746,7 +808,10 @@ class _CourseListScreenState extends State<CourseListScreen> {
                       padding: const EdgeInsets.only(top: 4),
                       child: Checkbox(
                         value: isSelected,
-                        onChanged: (value) => _toggleCourseSelection(course.id),
+                        onChanged: isDone
+                            ? null // Désactiver pour les courses faites
+                            : (value) =>
+                                _toggleCourseSelection(course.id, course),
                         activeColor: primaryColor,
                       ),
                     )
@@ -761,13 +826,18 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               margin: const EdgeInsets.only(bottom: 4),
                               child: Icon(
                                 Icons.star,
-                                color: essentialColor,
+                                color: isDone
+                                    ? Colors.grey
+                                    : essentialColor, // Griser si fait
                                 size: 16,
                               ),
                             ),
                           Icon(
                             _getPriorityIcon(course.priority),
-                            color: _getPriorityColor(course.priority),
+                            color: isDone
+                                ? Colors.grey
+                                : _getPriorityColor(
+                                    course.priority), // Griser si fait
                             size: 24,
                           ),
                           const SizedBox(height: 4),
@@ -776,7 +846,10 @@ class _CourseListScreenState extends State<CourseListScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: _getPriorityColor(course.priority),
+                              color: isDone
+                                  ? Colors.grey
+                                  : _getPriorityColor(
+                                      course.priority), // Griser si fait
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -799,7 +872,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                       padding: const EdgeInsets.only(right: 4),
                                       child: Icon(
                                         Icons.star,
-                                        color: essentialColor,
+                                        color: isDone
+                                            ? Colors.grey
+                                            : essentialColor, // Griser si fait
                                         size: 16,
                                       ),
                                     ),
@@ -845,7 +920,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
                             course.description,
                             style: TextStyle(
                               fontSize: 14,
-                              color: isDone ? textSecondary : textPrimary,
+                              color: isDone
+                                  ? Colors.grey[500]
+                                  : textPrimary, // Griser si fait
                               fontStyle: FontStyle.normal,
                             ),
                             maxLines: 2,
@@ -862,14 +939,18 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                   Icon(
                                     Icons.format_list_numbered,
                                     size: 14,
-                                    color: primaryColor,
+                                    color: isDone
+                                        ? Colors.grey
+                                        : primaryColor, // Griser si fait
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${course.quantity} ${course.unit}',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: textSecondary,
+                                      color: isDone
+                                          ? Colors.grey
+                                          : textSecondary, // Griser si fait
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -882,14 +963,18 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                   Icon(
                                     Icons.attach_money,
                                     size: 14,
-                                    color: primaryColor,
+                                    color: isDone
+                                        ? Colors.grey
+                                        : primaryColor, // Griser si fait
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${course.unitPrice.toStringAsFixed(2)} FCFA/${course.unit}',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: textSecondary,
+                                      color: isDone
+                                          ? Colors.grey
+                                          : textSecondary, // Griser si fait
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -899,7 +984,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
                             Icon(
                               Icons.calculate,
                               size: 14,
-                              color: primaryColor,
+                              color: isDone
+                                  ? Colors.grey
+                                  : primaryColor, // Griser si fait
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -907,7 +994,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: primaryColor,
+                                color: isDone
+                                    ? Colors.grey
+                                    : primaryColor, // Griser si fait
                               ),
                             ),
                           ],
@@ -920,14 +1009,18 @@ class _CourseListScreenState extends State<CourseListScreen> {
                               Icon(
                                 Icons.calendar_today,
                                 size: 14,
-                                color: textSecondary,
+                                color: isDone
+                                    ? Colors.grey
+                                    : textSecondary, // Griser si fait
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Échéance: ${_formatDate(course.dueDate!)}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: textSecondary,
+                                  color: isDone
+                                      ? Colors.grey
+                                      : textSecondary, // Griser si fait
                                 ),
                               ),
                               // Indicateur de retard
@@ -986,7 +1079,9 @@ class _CourseListScreenState extends State<CourseListScreen> {
                           IconButton(
                             icon: Icon(
                               Icons.more_vert,
-                              color: textSecondary,
+                              color: isDone
+                                  ? Colors.grey
+                                  : textSecondary, // Griser si fait
                               size: 20,
                             ),
                             onPressed: () =>
