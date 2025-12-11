@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart - CORRIGÉ AVEC STREAM POUR LE SOLDE
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -39,8 +40,6 @@ class _HomeScreenState extends State<HomeScreen>
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
     );
-    _initializeQuickActions();
-    _loadUserData();
     _loadRecentCourses();
     _loadNearbyShops();
   }
@@ -54,9 +53,12 @@ class _HomeScreenState extends State<HomeScreen>
   late List<Map<String, dynamic>> _quickActions = [];
   List<Map<String, dynamic>> _recentCourses = [];
   List<Map<String, dynamic>> _nearbyShops = [];
-  double _userWalletBalance = 0.0;
 
-  void _initializeQuickActions() {
+  // SUPPRIMÉ : _userWalletBalance - On utilise directement le Stream
+  // double _userWalletBalance = 0.0;
+
+  // MÉTHODE NOUVELLE : Initialiser les actions rapides avec un solde
+  void _initializeQuickActions(double walletBalance) {
     _quickActions = [
       {
         'icon': Icons.add_shopping_cart_rounded,
@@ -68,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen>
         'icon': Icons.attach_money_rounded,
         'title': 'Portefeuille',
         'color': Colors.amber.shade700,
-        'subtitle': 'Solde: ${_userWalletBalance.toStringAsFixed(0)} FCFA',
+        'subtitle': 'Solde: ${walletBalance.toStringAsFixed(0)} FCFA',
       },
       {
         'icon': Icons.store_mall_directory_rounded,
@@ -85,24 +87,22 @@ class _HomeScreenState extends State<HomeScreen>
     ];
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId != null) {
-        final doc = await FirebaseFirestore.instance
-            .collection('portefeuille')
-            .doc(userId)
-            .get();
-        if (doc.exists) {
-          setState(() {
-            _userWalletBalance = (doc.data()?['balance'] ?? 0).toDouble();
-            _initializeQuickActions();
-          });
-        }
-      }
-    } catch (e) {
-      print('Erreur chargement solde: $e');
+  // MÉTHODE NOUVELLE : Charger le solde en temps réel avec Stream
+  Stream<double> _getWalletBalanceStream(String? userId) {
+    if (userId == null) {
+      return Stream.value(0.0);
     }
+    
+    return FirebaseFirestore.instance
+        .collection('portefeuille')
+        .doc(userId)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.exists) {
+        return (snapshot.data()?['balance'] ?? 0.0).toDouble();
+      }
+      return 0.0;
+    });
   }
 
   Future<void> _loadRecentCourses() async {
@@ -115,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen>
             .where('userId', isEqualTo: userId)
             .get();
 
-// Trier localement par createdAt (desc) puis prendre les 3 premiers
+        // Trier localement par createdAt (desc) puis prendre les 3 premiers
         final docs = snapshot.docs.toList();
         docs.sort((a, b) {
           final aCreated = a.data()['createdAt'];
@@ -142,8 +142,8 @@ class _HomeScreenState extends State<HomeScreen>
             final data = doc.data();
             return {
               'id': doc.id,
-              'name': data['name'] ?? 'Sans titre',
-              'items': (data['items'] as List?)?.length ?? 0,
+              'name': data['title'] ?? 'Sans titre',
+              'items': 1,
               'date': _formatDate(data['createdAt'] as Timestamp?),
             };
           }).toList();
@@ -171,7 +171,6 @@ class _HomeScreenState extends State<HomeScreen>
             'location': data['location'] ?? 'Localisation inconnue',
           };
         }).toList();
-        _initializeQuickActions();
       });
     } catch (e) {
       print('Erreur chargement boutiques: $e');
@@ -210,6 +209,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Récupérer AuthService et l'utilisateur
     final authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
+    final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
       appBar: AppBar(
@@ -328,8 +328,8 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ],
       ),
-      drawer: _buildDrawer(context, authService),
-      body: _buildBody(context, user),
+      drawer: _buildDrawer(context, authService, userId),
+      body: _buildBody(context, user, userId),
       bottomNavigationBar: _buildBottomNavigationBar(),
       backgroundColor: AppColors.softIvory,
     );
@@ -349,8 +349,28 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(context); // Fermer la boîte de dialogue
+                
+                // Afficher un indicateur de chargement
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+                
                 await authService.logout();
+                
+                if (!context.mounted) return;
+                Navigator.pop(context); // Fermer l'indicateur de chargement
+                
+                // Rediriger vers l'écran de connexion
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false, // Supprimer toutes les routes précédentes
+                );
               },
               child: const Text(
                 'Déconnexion',
@@ -377,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildBody(BuildContext context, UserModel? user) {
+  Widget _buildBody(BuildContext context, UserModel? user, String? userId) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 500),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -392,16 +412,16 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         );
       },
-      child: _getCurrentPage(context, user),
+      child: _getCurrentPage(context, user, userId),
     );
   }
 
-  Widget _getCurrentPage(BuildContext context, UserModel? user) {
+  Widget _getCurrentPage(BuildContext context, UserModel? user, String? userId) {
     switch (_currentIndex) {
       case 0:
         return KeyedSubtree(
           key: const ValueKey('home'),
-          child: _buildHomeContent(user),
+          child: _buildHomeContent(user, userId),
         );
       case 1:
         return KeyedSubtree(
@@ -433,12 +453,12 @@ class _HomeScreenState extends State<HomeScreen>
       default:
         return KeyedSubtree(
           key: const ValueKey('home'),
-          child: _buildHomeContent(user),
+          child: _buildHomeContent(user, userId),
         );
     }
   }
 
-  Widget _buildHomeContent(UserModel? user) {
+  Widget _buildHomeContent(UserModel? user, String? userId) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,46 +523,59 @@ class _HomeScreenState extends State<HomeScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Section Actions Rapides
-                const Text(
-                  'Actions Rapides',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.tropicalTeal,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 0.8,
-                  ),
-                  itemCount: _quickActions.length,
-                  itemBuilder: (context, index) {
-                    final action = _quickActions[index];
-                    return _buildAnimatedActionCard(
-                      icon: action['icon'],
-                      title: action['title'],
-                      color: action['color'],
-                      subtitle: index == 1 && user != null
-                          ? 'Solde: ${user.soldePortefeuille} FCFA'
-                          : action['subtitle'],
-                      onTap: () {
-                        int targetIndex = index;
-                        if (index == 0)
-                          targetIndex = 1; // Courses
-                        else if (index == 1)
-                          targetIndex = 2; // Portefeuille
-                        else if (index == 2)
-                          targetIndex = 3; // Boutiques
-                        else if (index == 3) targetIndex = 4; // Carte
-                        _navigateWithAnimation(targetIndex);
-                      },
+                // Section Actions Rapides - AVEC STREAMBUILDER
+                StreamBuilder<double>(
+                  stream: _getWalletBalanceStream(userId),
+                  builder: (context, snapshot) {
+                    final walletBalance = snapshot.data ?? 0.0;
+                    
+                    // Initialiser les actions avec le solde actuel
+                    _initializeQuickActions(walletBalance);
+                    
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Actions Rapides',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.tropicalTeal,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 0.8,
+                          ),
+                          itemCount: _quickActions.length,
+                          itemBuilder: (context, index) {
+                            final action = _quickActions[index];
+                            return _buildAnimatedActionCard(
+                              icon: action['icon'],
+                              title: action['title'],
+                              color: action['color'],
+                              subtitle: action['subtitle'],
+                              onTap: () {
+                                int targetIndex = index;
+                                if (index == 0)
+                                  targetIndex = 1; // Courses
+                                else if (index == 1)
+                                  targetIndex = 2; // Portefeuille
+                                else if (index == 2)
+                                  targetIndex = 3; // Boutiques
+                                else if (index == 3) targetIndex = 4; // Carte
+                                _navigateWithAnimation(targetIndex);
+                              },
+                            );
+                          },
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -1371,7 +1404,7 @@ class _HomeScreenState extends State<HomeScreen>
               ...orders.map((doc) => _buildOrderCard(doc)).toList(),
             ],
           ),
-        );
+    );
       },
     );
   }
@@ -1542,7 +1575,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Drawer _buildDrawer(BuildContext context, AuthService authService) {
+  Drawer _buildDrawer(BuildContext context, AuthService authService, String? userId) {
     final user = authService.currentUser;
     final isLoggedIn = user != null;
 
@@ -1552,82 +1585,89 @@ class _HomeScreenState extends State<HomeScreen>
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Header du drawer
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.tropicalTeal,
-                  AppColors.tropicalTeal.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Text(
-                      isLoggedIn &&
-                              user.prenom.isNotEmpty &&
-                              user.nom.isNotEmpty
-                          ? '${user.prenom[0]}${user.nom[0]}'.toUpperCase()
-                          : 'U',
-                      style: const TextStyle(
-                        color: AppColors.tropicalTeal,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+          // Header du drawer - AVEC STREAMBUILDER POUR LE SOLDE
+          StreamBuilder<double>(
+            stream: _getWalletBalanceStream(userId),
+            builder: (context, snapshot) {
+              final walletBalance = snapshot.data ?? 0.0;
+              
+              return Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.tropicalTeal,
+                      AppColors.tropicalTeal.withOpacity(0.8),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    isLoggedIn ? '${user.prenom} ${user.nom}' : 'Invité',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isLoggedIn ? user.email : 'Non connecté',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (isLoggedIn) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          isLoggedIn &&
+                                  user.prenom.isNotEmpty &&
+                                  user.nom.isNotEmpty
+                              ? '${user.prenom[0]}${user.nom[0]}'.toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            color: AppColors.tropicalTeal,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Text(
-                        'Solde: ${user.soldePortefeuille} FCFA',
+                      const SizedBox(height: 12),
+                      Text(
+                        isLoggedIn ? '${user.prenom} ${user.nom}' : 'Invité',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isLoggedIn ? user.email : 'Non connecté',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
                           fontSize: 12,
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                      if (isLoggedIn) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Text(
+                            'Solde: ${walletBalance.toStringAsFixed(0)} FCFA', // CORRIGÉ : Utiliser walletBalance
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
 
           // Items de navigation principaux (toujours visibles)

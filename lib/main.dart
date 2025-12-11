@@ -52,7 +52,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    // Affiche le splash pendant au moins 2 secondes
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
@@ -69,20 +68,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return StreamBuilder<UserModel?>(
       stream: authService.user,
       builder: (context, snapshot) {
-        // Si on doit encore montrer le splash OU si Firebase charge
+        // Splash ou chargement Firebase
         if (_showSplash ||
             snapshot.connectionState == ConnectionState.waiting) {
           return const SplashScreenV2();
         }
 
-        if (authService.currentUser != null) {
+        // 🔥 Si l’utilisateur est connecté
+        if (snapshot.hasData) {
           return const HomeScreen();
-        } else {
-          return const LoginScreen();
         }
+
+        // 🔥 Si l’utilisateur est déconnecté
+        return const LoginScreen();
       },
     );
   }
 }
+
 // SUPPRIME cette ancienne classe SplashScreen qui était ici
 // Elle est maintenant dans screens/splash_screen.dart

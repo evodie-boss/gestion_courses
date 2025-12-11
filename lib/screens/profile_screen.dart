@@ -1,15 +1,27 @@
-// lib/screens/profile_screen.dart
+// lib/screens/profile_screen.dart - CORRIGÉ AVEC STREAM POUR LE SOLDE EN TEMPS RÉEL
 import 'package:flutter/material.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
-// AJOUTEZ CES IMPORTS
+// AJOUTEZ CET IMPORT POUR LE STREAM DU PORTEFEUILLE
+import 'package:gestion_courses/gestion_portefeuille/services/portefeuille_service.dart';
 import 'package:gestion_courses/gestion_portefeuille/screens/recharge_wallet_screen.dart';
 import 'package:gestion_courses/gestion_portefeuille/screens/transaction_history_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  // SUPPRIMEZ ces variables car on utilise maintenant un Stream
+  // double _realWalletBalance = 0.0;
+  // bool _isLoadingBalance = false;
+  
+  final PortefeuilleService _portefeuilleService = PortefeuilleService();
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +97,7 @@ class ProfileScreen extends StatelessWidget {
       );
     }
 
-    // Si l'utilisateur est connecté, afficher son profil
+    // Si l'utilisateur est connecté, afficher son profil AVEC STREAM DU SOLDE
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -103,6 +115,13 @@ class ProfileScreen extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, color: Colors.white),
             onPressed: () => _editProfile(context),
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            onPressed: () {
+              // Rafraîchir les données via le Provider
+              setState(() {});
+            },
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -114,8 +133,8 @@ class ProfileScreen extends StatelessWidget {
             // Section Informations personnelles
             _buildPersonalInfoSection(context, user),
 
-            // Section Solde du portefeuille
-            _buildWalletSection(context, user),
+            // Section Solde du portefeuille - AVEC STREAMBUILDER
+            _buildWalletSection(context, user.id),
 
             const SizedBox(height: 40),
           ],
@@ -297,118 +316,160 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletSection(BuildContext context, UserModel user) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Portefeuille',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.tropicalTeal,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Solde actuel
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.tropicalTeal.withOpacity(0.1),
-                  Colors.amber.withOpacity(0.05),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.tropicalTeal,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    size: 30,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Solde disponible',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textColor,
-                        ),
-                      ),
-                      Text(
-                        '${user.soldePortefeuille} FCFA',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.tropicalTeal,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Actions portefeuille
-          Row(
-            children: [
-              Expanded(
-                child: _buildWalletAction(
-                  icon: Icons.add_rounded,
-                  label: 'Recharger',
-                  color: AppColors.tropicalTeal,
-                  onTap: () => _rechargeWallet(context),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildWalletAction(
-                  icon: Icons.history_rounded,
-                  label: 'Historique',
-                  color: Colors.blue.shade700,
-                  onTap: () => _viewTransactionHistory(context),
-                ),
+  Widget _buildWalletSection(BuildContext context, String userId) {
+    return StreamBuilder(
+      stream: _portefeuilleService.getPortefeuilleStream(userId),
+      builder: (context, snapshot) {
+        bool isLoading = snapshot.connectionState == ConnectionState.waiting;
+        bool hasError = snapshot.hasError;
+        
+        double walletBalance = 0.0;
+        String currency = 'FCFA';
+        
+        if (snapshot.hasData && !hasError) {
+          final portefeuille = snapshot.data!;
+          walletBalance = portefeuille.balance;
+          currency = portefeuille.currencySymbol;
+        }
+        
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 20,
+                spreadRadius: 2,
               ),
             ],
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Portefeuille',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.tropicalTeal,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Solde actuel - AVEC STREAM EN TEMPS RÉEL
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.tropicalTeal.withOpacity(0.1),
+                      Colors.amber.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.tropicalTeal,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              size: 30,
+                              color: Colors.white,
+                            ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Solde disponible',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textColor,
+                            ),
+                          ),
+                          isLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                  child: SizedBox(
+                                    height: 24,
+                                    child: LinearProgressIndicator(),
+                                  ),
+                                )
+                              : hasError
+                                  ? const Text(
+                                      'Erreur de chargement',
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                      ),
+                                    )
+                                  : Text(
+                                      '${walletBalance.toStringAsFixed(0)} $currency',
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.tropicalTeal,
+                                      ),
+                                    ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Actions portefeuille
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildWalletAction(
+                      icon: Icons.add_rounded,
+                      label: 'Recharger',
+                      color: AppColors.tropicalTeal,
+                      onTap: () => _rechargeWallet(context),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildWalletAction(
+                      icon: Icons.history_rounded,
+                      label: 'Historique',
+                      color: Colors.blue.shade700,
+                      onTap: () => _viewTransactionHistory(context, userId),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
-
 
   Widget _buildInfoItem({
     required BuildContext context,
@@ -565,29 +626,32 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // CORRIGEZ CES 3 MÉTHODES :
-
   void _rechargeWallet(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const RechargeWalletScreen(),
       ),
+    ).then((rechargeSuccess) {
+      if (rechargeSuccess == true) {
+        // Le StreamBuilder se mettra automatiquement à jour grâce au Stream
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Portefeuille rechargé avec succès!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  void _viewTransactionHistory(BuildContext context, String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TransactionHistoryScreen(userId: userId),
+      ),
     );
   }
-
-  void _viewTransactionHistory(BuildContext context) {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-    
-    if (user != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TransactionHistoryScreen(userId: user.id),
-        ),
-      );
-    }
-  }
-
- }
+}
