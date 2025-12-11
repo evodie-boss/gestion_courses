@@ -75,7 +75,7 @@ class _WalletScreenState extends State<WalletScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final monthlyExpenses = stats['monthlyExpenses'] as double? ?? 0.0;
+          final monthlyExpenses = portefeuille.monthlyExpenses; 
           final remainingBudget = stats['remainingBudget'] as double? ?? 0.0;
           final monthlyBudget = stats['monthlyBudget'] as double? ?? 0.0;
           final budgetPercentage = stats['budgetPercentage'] as double? ?? 0.0;

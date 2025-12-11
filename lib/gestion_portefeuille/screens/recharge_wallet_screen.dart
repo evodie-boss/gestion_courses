@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:gestion_courses/services/auth_service.dart';
 import '../services/wallet_service.dart';
 import '../models/transaction_model.dart' as my_models;
+// AJOUTEZ CET IMPORT POUR LE STREAM DU PORTEFEUILLE
+import '../services/portefeuille_service.dart';
 
 class RechargeWalletScreen extends StatefulWidget {
   const RechargeWalletScreen({super.key});
@@ -18,7 +20,9 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   String _selectedCurrency = 'XOF';
   bool _isLoading = false;
-  double _realWalletBalance = 0.0; // NOUVEAU : Pour stocker le solde réel
+  
+  // AJOUTEZ LE SERVICE PORTEFEUILLE
+  final PortefeuilleService _portefeuilleService = PortefeuilleService();
 
   final List<Map<String, dynamic>> _quickAmounts = [
     {'amount': 1000, 'label': '1.000 FCFA'},
@@ -33,23 +37,6 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
   void initState() {
     super.initState();
     _descriptionController.text = 'Rechargement portefeuille';
-    _loadRealWalletBalance();
-  }
-
-  Future<void> _loadRealWalletBalance() async {
-    final authService = context.read<AuthService>();
-    final user = authService.currentUser;
-    
-    if (user != null) {
-      try {
-        final balance = await authService.getRealWalletBalance(user.id);
-        setState(() {
-          _realWalletBalance = balance;
-        });
-      } catch (e) {
-        print('Erreur chargement solde: $e');
-      }
-    }
   }
 
   @override
@@ -96,11 +83,8 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
           // Ajouter la transaction
           await walletService.addTransaction(transaction);
 
-          // IMPORTANT : Rafraîchir le solde dans AuthService
-          await authService.refreshWalletBalance();
-
-          // Mettre à jour le solde local
-          await _loadRealWalletBalance();
+          // IMPORTANT : Mettre à jour les statistiques mensuelles
+          await walletService.updateMonthlyStatistics(user.id);
 
           // Afficher un message de succès
           ScaffoldMessenger.of(context).showSnackBar(
@@ -133,6 +117,50 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
     final authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
 
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Recharger le portefeuille',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: AppColors.tropicalTeal,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.account_balance_wallet_rounded,
+                size: 80,
+                color: AppColors.tropicalTeal.withOpacity(0.3),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Non connecté',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.tropicalTeal,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Veuillez vous connecter pour recharger votre portefeuille',
+                style: TextStyle(fontSize: 16, color: AppColors.textColor),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -151,53 +179,97 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Informations actuelles - CORRIGÉ : Utiliser _realWalletBalance
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.tropicalTeal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: AppColors.tropicalTeal.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.tropicalTeal,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      size: 30,
-                      color: Colors.white,
-                    ),
+            // Informations actuelles - AVEC STREAMBUILDER POUR LE SOLDE
+            StreamBuilder(
+              stream: _portefeuilleService.getPortefeuilleStream(user.id),
+              builder: (context, snapshot) {
+                bool isLoading = snapshot.connectionState == ConnectionState.waiting;
+                bool hasError = snapshot.hasError;
+                
+                double walletBalance = 0.0;
+                String currencySymbol = 'FCFA';
+                
+                if (snapshot.hasData && !hasError) {
+                  final portefeuille = snapshot.data!;
+                  walletBalance = portefeuille.balance;
+                  currencySymbol = portefeuille.currencySymbol;
+                }
+                
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.tropicalTeal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: AppColors.tropicalTeal.withOpacity(0.2)),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Solde actuel',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textColor,
-                          ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.tropicalTeal,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        Text(
-                          '${_realWalletBalance.toStringAsFixed(0)} FCFA', // CORRIGÉ
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.tropicalTeal,
-                          ),
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 30,
+                                height: 30,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.account_balance_wallet_rounded,
+                                size: 30,
+                                color: Colors.white,
+                              ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Solde actuel',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textColor,
+                              ),
+                            ),
+                            if (isLoading)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: SizedBox(
+                                  height: 24,
+                                  child: LinearProgressIndicator(),
+                                ),
+                              )
+                            else if (hasError)
+                              const Text(
+                                'Erreur de chargement',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red,
+                                ),
+                              )
+                            else
+                              Text(
+                                '${walletBalance.toStringAsFixed(0)} $currencySymbol',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.tropicalTeal,
+                                ),
+                              ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
 
             const SizedBox(height: 30),
@@ -434,6 +506,15 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tous vos écrans se mettront à jour automatiquement.',
+                          style: TextStyle(
+                            color: Colors.green.shade700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],

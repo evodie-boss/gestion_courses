@@ -24,6 +24,7 @@ class PortefeuilleService {
   }
 
   // 1. Récupérer ou créer le portefeuille d'un utilisateur
+  // Dans la méthode getOrCreatePortefeuille, ajouter monthlyExpenses:
   Future<Portefeuille> getOrCreatePortefeuille(String userId) async {
     try {
       final doc =
@@ -32,7 +33,7 @@ class PortefeuilleService {
       if (doc.exists) {
         return Portefeuille.fromMap(doc.data()!, doc.id);
       } else {
-        // Créer un nouveau portefeuille
+        // Créer un nouveau portefeuille AVEC monthlyExpenses
         final newPortefeuille = Portefeuille.newPortefeuille(userId: userId);
         await _firestore
             .collection(_collectionName)
@@ -283,49 +284,16 @@ class PortefeuilleService {
     }
   }
 
-  // 11. NOUVEAU: Calculer les dépenses mensuelles
+  // 11. NOUVEAU: Calculer les dépenses mensuelles - VERSION CORRIGÉE
   Future<double> calculateMonthlyExpenses(String userId) async {
     try {
-      final now = DateTime.now();
-      final firstDayOfMonth = DateTime(now.year, now.month, 1);
-      final lastDayOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-      // Récupérer par plage de dates uniquement, puis filtrer côté client
-      final snapshot = await _firestore
-          .collection('transactions')
-          .where('date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(firstDayOfMonth))
-          .where('date',
-              isLessThanOrEqualTo: Timestamp.fromDate(lastDayOfMonth))
-          .get();
-
-      double total = 0.0;
+      // Récupérer le portefeuille AVEC monthlyExpenses stocké
       final portefeuille = await getOrCreatePortefeuille(userId);
 
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        // Filtrer côté client pour éviter l'utilisation d'un index composite
-        final docUserId = data['userId']?.toString();
-        final type = data['type']?.toString() ?? '';
-        if (docUserId != userId || type != 'depense') continue;
-
-        double amount = (data['amount'] ?? 0.0).toDouble();
-        String currency = data['currency']?.toString() ?? 'XOF';
-
-        // Convertir si devise différente
-        if (currency != portefeuille.currency) {
-          if (currency == 'EUR' && portefeuille.currency == 'XOF') {
-            amount = portefeuille.convertToFCFA(amount);
-          } else if (currency == 'XOF' && portefeuille.currency == 'EUR') {
-            amount = portefeuille.convertToEUR(amount);
-          }
-        }
-        total += amount;
-      }
-
+      // Retourner DIRECTEMENT les monthlyExpenses du portefeuille
       print(
-          '📊 Dépenses mensuelles calculées: ${portefeuille.formatAmount(total)}');
-      return total;
+          '📊 Dépenses mensuelles depuis Firestore: ${portefeuille.formatAmount(portefeuille.monthlyExpenses)}');
+      return portefeuille.monthlyExpenses;
     } catch (e) {
       print('❌ Erreur calculateMonthlyExpenses: $e');
       return 0.0;

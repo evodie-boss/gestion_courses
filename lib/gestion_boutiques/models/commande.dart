@@ -1,5 +1,8 @@
+// lib/gestion_boutiques/models/commande.dart
+
 class Commande {
   final String id;
+  final String userId;        // <-- AJOUTER CE CHAMP
   final String boutiqueId;
   final List<Map<String, dynamic>> courses;
   final double total;
@@ -8,6 +11,7 @@ class Commande {
 
   Commande({
     required this.id,
+    required this.userId,     // <-- AJOUTER
     required this.boutiqueId,
     required this.courses,
     required this.total,
@@ -18,6 +22,7 @@ class Commande {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'userId': userId,       // <-- AJOUTER
       'boutiqueId': boutiqueId,
       'courses': courses,
       'total': total,
@@ -29,6 +34,7 @@ class Commande {
   static Commande fromMap(Map<String, dynamic> map) {
     return Commande(
       id: map['id'],
+      userId: map['userId'],  // <-- AJOUTER
       boutiqueId: map['boutiqueId'],
       courses: List<Map<String, dynamic>>.from(map['courses']),
       total: map['total'].toDouble(),

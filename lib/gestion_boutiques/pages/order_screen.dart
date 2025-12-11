@@ -1,4 +1,4 @@
-// order_screen.dart (Code complet corrigé)
+// order_screen.dart (Code complet corrigé - version avec mise à jour des dépenses mensuelles)
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -56,7 +56,7 @@ class _OrderScreenState extends State<OrderScreen> {
     super.initState();
     _loadUserBalance();
     _loadAvailableBoutiques();
-    _initializeBoutiqueBalances(); // <-- Ajoutez cette ligne
+    _initializeBoutiqueBalances();
   }
 
   Future<void> _initializeBoutiqueBalances() async {
@@ -66,7 +66,6 @@ class _OrderScreenState extends State<OrderScreen> {
       for (var doc in boutiquesSnapshot.docs) {
         final data = doc.data();
 
-        // Si le champ balance n'existe pas, l'initialiser à 0
         if (!data.containsKey('balance')) {
           await doc.reference.set({
             'balance': 0.0,
@@ -91,9 +90,9 @@ class _OrderScreenState extends State<OrderScreen> {
             _userBalance = (doc.data()?['balance'] ?? 0).toDouble();
           });
         } else {
-          // Si le portefeuille n'existe pas, le créer
           await _firestore.collection('portefeuille').doc(userId).set({
             'balance': 0.0,
+            'monthlyExpenses': 0.0, // Ajouter le champ monthlyExpenses
             'lastUpdated': FieldValue.serverTimestamp(),
           });
           setState(() {
@@ -209,7 +208,6 @@ class _OrderScreenState extends State<OrderScreen> {
               matchedNames[productKey] = true;
               _productToCourseMap[productId] = course.id;
 
-              // Sélection automatique basée sur le solde
               _applySmartSelection(boutiqueId, productId, coursePriorityCode,
                   isEssential, course.quantity);
             }
@@ -330,12 +328,10 @@ class _OrderScreenState extends State<OrderScreen> {
     final product = productName.trim().toLowerCase();
     final course = courseName.trim().toLowerCase();
 
-    // 1. Comparaison exacte
     if (product == course) {
       return true;
     }
 
-    // 2. Nettoyer les chaînes
     String cleanText(String text) {
       final articles = [
         'le',
@@ -363,12 +359,10 @@ class _OrderScreenState extends State<OrderScreen> {
     final cleanProduct = cleanText(product);
     final cleanCourse = cleanText(course);
 
-    // 3. Comparaison après nettoyage
     if (cleanProduct == cleanCourse) {
       return true;
     }
 
-    // 4. Vérifier si tous les mots du cours sont dans le produit
     final productWords = cleanProduct.split(RegExp(r'[\s\-_]+'));
     final courseWords = cleanCourse.split(RegExp(r'[\s\-_]+'));
 
@@ -377,7 +371,6 @@ class _OrderScreenState extends State<OrderScreen> {
       if (courseWord.isEmpty) continue;
 
       if (courseWord.length <= 3) {
-        // Pour les mots courts, vérifier comme mot complet
         final wordRegex = RegExp(r'\b' + RegExp.escape(courseWord) + r'\b',
             caseSensitive: false);
         if (!wordRegex.hasMatch(cleanProduct)) {
@@ -385,7 +378,6 @@ class _OrderScreenState extends State<OrderScreen> {
           break;
         }
       } else {
-        // Pour les mots longs, vérifier s'ils sont contenus
         if (!cleanProduct.contains(courseWord)) {
           allCourseWordsInProduct = false;
           break;
@@ -405,23 +397,18 @@ class _OrderScreenState extends State<OrderScreen> {
       _quantitiesByBoutique[boutiqueId] = {};
     }
 
-    // Règles de sélection automatique
     final globalTotal = _calculateGlobalTotal();
 
     if (isEssential) {
-      // Toujours sélectionner les essentiels
       _selectedProductsByBoutique[boutiqueId]!.add(productId);
       _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
     } else if (priorityCode == 'H' && _userBalance - globalTotal >= 2000) {
-      // Sélectionner haute priorité si budget suffisant
       _selectedProductsByBoutique[boutiqueId]!.add(productId);
       _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
     } else if (priorityCode == 'M' && _userBalance - globalTotal >= 5000) {
-      // Sélectionner moyenne priorité si bon budget
       _selectedProductsByBoutique[boutiqueId]!.add(productId);
       _quantitiesByBoutique[boutiqueId]![productId] = requiredQuantity;
     }
-    // Basse priorité: ne pas sélectionner automatiquement
   }
 
   double _calculateGlobalTotal() {
@@ -661,6 +648,7 @@ class _OrderScreenState extends State<OrderScreen> {
         print('⚠️ Création du portefeuille...');
         await walletRef.set({
           'balance': _userBalance,
+          'monthlyExpenses': 0.0, // Ajout du champ monthlyExpenses
           'lastUpdated': FieldValue.serverTimestamp(),
           'userId': userId,
         });
@@ -687,7 +675,6 @@ class _OrderScreenState extends State<OrderScreen> {
             double price = (product['price'] as num).toDouble();
             int quantity = quantities[product['id']] ?? 1;
 
-            // Appliquer réduction si applicable
             int productPriority = product['productPriority'] as int? ?? 0;
             if (productPriority == 1)
               price *= 0.9;
@@ -735,20 +722,12 @@ class _OrderScreenState extends State<OrderScreen> {
         batch.set(orderRef, orderData);
         print('✅ Commande créée pour ${boutique['nom']}: $total FCFA');
 
-        // ⭐⭐⭐ AJOUT IMPORTANT : CRÉDITER LA BOUTIQUE ⭐⭐⭐
+        // CRÉDITER LA BOUTIQUE
         final boutiqueRef = _firestore.collection('boutiques').doc(boutiqueId);
-
-        // Option 1: Si le champ balance existe déjà
         batch.update(boutiqueRef, {
           'balance': FieldValue.increment(total),
           'lastBalanceUpdate': FieldValue.serverTimestamp(),
         });
-
-        // Option 2: Si vous n'êtes pas sûr que le champ existe
-        // batch.set(boutiqueRef, {
-        //   'balance': FieldValue.increment(total),
-        //   'lastBalanceUpdate': FieldValue.serverTimestamp(),
-        // }, SetOptions(merge: true));
 
         print(
             '💰 Boutique ${boutique['nom']} créditée de ${total.toStringAsFixed(0)} FCFA');
@@ -774,9 +753,11 @@ class _OrderScreenState extends State<OrderScreen> {
         });
       }
 
-      // 4. METTRE À JOUR LE SOLDE UTILISATEUR
+      // 4. METTRE À JOUR LE SOLDE UTILISATEUR ET LES DÉPENSES MENSUELLES
+      // CORRECTION IMPORTANTE : AJOUTER monthlyExpenses
       batch.update(walletRef, {
         'balance': FieldValue.increment(-globalTotal),
+        'monthlyExpenses': FieldValue.increment(globalTotal), // CORRECTION ICI
         'lastUpdated': FieldValue.serverTimestamp(),
         'lastOrderAmount': globalTotal,
         'lastOrderCount': orderIds.length,
@@ -830,7 +811,7 @@ class _OrderScreenState extends State<OrderScreen> {
               Text('Solde restant: ${(_userBalance).toStringAsFixed(0)} FCFA'),
               const SizedBox(height: 12),
               const Text(
-                'Les boutiques ont été créditées automatiquement.',
+                'Les dépenses mensuelles ont été mises à jour.',
                 style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
               ),
             ],
@@ -935,13 +916,11 @@ class _OrderScreenState extends State<OrderScreen> {
       }
 
       if (allSelected) {
-        // Désélectionner
         for (var product in categoryProducts) {
           _selectedProductsByBoutique[boutiqueId]!.remove(product['id']);
           _quantitiesByBoutique[boutiqueId]!.remove(product['id']);
         }
       } else {
-        // Sélectionner
         for (var product in categoryProducts) {
           _selectedProductsByBoutique[boutiqueId]!.add(product['id']);
           _quantitiesByBoutique[boutiqueId]![product['id']] =
