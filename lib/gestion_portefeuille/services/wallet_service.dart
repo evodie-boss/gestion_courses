@@ -60,12 +60,12 @@ class WalletService {
     }
   }
 
-  // 2. Récupérer toutes les transactions d'un utilisateur
+  // 2. Récupérer toutes les transactions d'un utilisateur (CORRIGÉ)
   Stream<List<my_models.Transaction>> getTransactionsStream(String userId) {
     return _firestore
         .collection(_collectionName)
         .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
+        // L'orderBy('date', descending: true) a été retiré pour éviter l'erreur d'index
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
@@ -74,7 +74,7 @@ class WalletService {
     });
   }
 
-  // 3. Récupérer les transactions du mois en cours
+  // 3. Récupérer les transactions du mois en cours (CORRIGÉ)
   Stream<List<my_models.Transaction>> getCurrentMonthTransactions(String userId) {
     final now = DateTime.now();
     final firstDayOfMonth = DateTime(now.year, now.month, 1);
@@ -85,7 +85,7 @@ class WalletService {
         .where('userId', isEqualTo: userId)
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(firstDayOfMonth))
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(lastDayOfMonth))
-        .orderBy('date', descending: true)
+        // L'orderBy('date', descending: true) a été retiré pour éviter l'erreur d'index
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
@@ -193,7 +193,7 @@ class WalletService {
       final portefeuille = await _portefeuilleService.getOrCreatePortefeuille(userId);
       
       for (var doc in snapshot.docs) {
-        final transaction = my_models.Transaction.fromMap(doc.data(), doc.id);
+        final transaction = my_models.Transaction.fromMap(doc.data()!, doc.id);
         double amount = transaction.amount;
         
         // Convertir si devise différente
@@ -215,17 +215,15 @@ class WalletService {
     }
   }
 
-  // 9. NOUVEAU: Récupérer l'historique des statistiques
+  // 9. NOUVEAU: Récupérer l'historique des statistiques (CORRIGÉ - Tri local)
   Stream<List<Map<String, dynamic>>> getStatsHistoryStream(String userId) {
     return _firestore
         .collection('monthly_stats')
         .where('userId', isEqualTo: userId)
-        .orderBy('year', descending: true)
-        .orderBy('month', descending: true)
-        .limit(12) // 12 derniers mois
+        // Les orderBy et limit ont été retirés pour éviter l'erreur d'index
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final statsList = snapshot.docs.map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -240,6 +238,17 @@ class WalletService {
               : DateTime.now(),
         };
       }).toList();
+      
+      // Tri local par année et mois (pour compenser le retrait de l'orderBy dans Firestore)
+      statsList.sort((a, b) {
+        if (a['year'] != b['year']) {
+          return b['year'].compareTo(a['year']); // Tri descendant par année
+        }
+        return b['month'].compareTo(a['month']); // Tri descendant par mois
+      });
+
+      // Limitation locale aux 12 derniers mois
+      return statsList.take(12).toList();
     });
   }
 

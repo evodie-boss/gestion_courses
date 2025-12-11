@@ -67,7 +67,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
           final stats = statsSnapshot.data ?? {};
           final portefeuille = stats['portefeuille'] as Portefeuille?;
-          
+
           if (portefeuille == null) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -85,7 +85,8 @@ class _WalletScreenState extends State<WalletScreen> {
             builder: (context, transactionsSnapshot) {
               if (transactionsSnapshot.hasError) {
                 return Center(
-                  child: Text('Erreur transactions: ${transactionsSnapshot.error}'),
+                  child: Text(
+                      'Erreur transactions: ${transactionsSnapshot.error}'),
                 );
               }
 
@@ -103,7 +104,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       remainingBudget: remainingBudget,
                       isLoading: false,
                       currencySymbol: portefeuille.currencySymbol,
-                      monthlyBudget: monthlyBudget, // NOUVEAU
+                      monthlyBudget: monthlyBudget,
                     ),
                     const SizedBox(height: 20),
 
@@ -112,9 +113,9 @@ class _WalletScreenState extends State<WalletScreen> {
                       monthlyBudget: monthlyBudget,
                       currentExpenses: monthlyExpenses,
                       currencySymbol: portefeuille.currencySymbol,
-                      budgetPercentage: budgetPercentage, // NOUVEAU
-                      isBudgetWarning: isBudgetWarning,   // NOUVEAU
-                      isBudgetExceeded: isBudgetExceeded, // NOUVEAU
+                      budgetPercentage: budgetPercentage,
+                      isBudgetWarning: isBudgetWarning,
+                      isBudgetExceeded: isBudgetExceeded,
                     ),
                     const SizedBox(height: 20),
 
@@ -181,7 +182,8 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildAlertCard(String title, String message, Color color, IconData icon) {
+  Widget _buildAlertCard(
+      String title, String message, Color color, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -303,9 +305,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _buildRecentTransactions(
-    List<my_models.Transaction> transactions, 
-    Portefeuille portefeuille
-  ) {
+      List<my_models.Transaction> transactions, Portefeuille portefeuille) {
     if (transactions.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,7 +341,12 @@ class _WalletScreenState extends State<WalletScreen> {
       );
     }
 
-    final recentTransactions = transactions.take(3).toList();
+    // Créer une copie de la liste pour ne pas modifier l'original
+    final sortedTransactions = List<my_models.Transaction>.from(transactions)
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    // Prendre les 3 premières transactions
+    final recentTransactions = sortedTransactions.take(3).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
