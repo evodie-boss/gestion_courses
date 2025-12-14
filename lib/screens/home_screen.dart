@@ -92,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (userId == null) {
       return Stream.value(0.0);
     }
-    
+
     return FirebaseFirestore.instance
         .collection('portefeuille')
         .doc(userId)
@@ -350,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen>
             TextButton(
               onPressed: () async {
                 Navigator.pop(context); // Fermer la boîte de dialogue
-                
+
                 // Afficher un indicateur de chargement
                 showDialog(
                   context: context,
@@ -359,12 +359,12 @@ class _HomeScreenState extends State<HomeScreen>
                     child: CircularProgressIndicator(),
                   ),
                 );
-                
+
                 await authService.logout();
-                
+
                 if (!context.mounted) return;
                 Navigator.pop(context); // Fermer l'indicateur de chargement
-                
+
                 // Rediriger vers l'écran de connexion
                 Navigator.pushAndRemoveUntil(
                   context,
@@ -416,7 +416,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _getCurrentPage(BuildContext context, UserModel? user, String? userId) {
+  Widget _getCurrentPage(
+      BuildContext context, UserModel? user, String? userId) {
     switch (_currentIndex) {
       case 0:
         return KeyedSubtree(
@@ -464,6 +465,7 @@ class _HomeScreenState extends State<HomeScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Bannière de bienvenue
+          // Bannière de bienvenue - NOUVEAU CODE (avec tropical teal)
           TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 800),
             tween: Tween(begin: 0.0, end: 1.0),
@@ -482,8 +484,10 @@ class _HomeScreenState extends State<HomeScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color.fromARGB(255, 201, 208, 214),
-                    const Color.fromARGB(255, 82, 85, 88),
+                    AppColors.tropicalTeal.withOpacity(0.9),
+                    AppColors.tropicalTeal,
+                    const Color.fromARGB(255, 0, 110,
+                        110), // Version plus foncée pour le dégradé
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -528,10 +532,10 @@ class _HomeScreenState extends State<HomeScreen>
                   stream: _getWalletBalanceStream(userId),
                   builder: (context, snapshot) {
                     final walletBalance = snapshot.data ?? 0.0;
-                    
+
                     // Initialiser les actions avec le solde actuel
                     _initializeQuickActions(walletBalance);
-                    
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -547,7 +551,8 @@ class _HomeScreenState extends State<HomeScreen>
                         GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
@@ -1404,7 +1409,7 @@ class _HomeScreenState extends State<HomeScreen>
               ...orders.map((doc) => _buildOrderCard(doc)).toList(),
             ],
           ),
-    );
+        );
       },
     );
   }
@@ -1575,7 +1580,8 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Drawer _buildDrawer(BuildContext context, AuthService authService, String? userId) {
+  Drawer _buildDrawer(
+      BuildContext context, AuthService authService, String? userId) {
     final user = authService.currentUser;
     final isLoggedIn = user != null;
 
@@ -1590,7 +1596,7 @@ class _HomeScreenState extends State<HomeScreen>
             stream: _getWalletBalanceStream(userId),
             builder: (context, snapshot) {
               final walletBalance = snapshot.data ?? 0.0;
-              
+
               return Container(
                 height: 200,
                 decoration: BoxDecoration(
