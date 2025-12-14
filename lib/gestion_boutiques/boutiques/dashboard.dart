@@ -5,12 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'dart:typed_data';
 import 'package:gestion_courses/firebase_options.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker/image_picker.dart';
+import 'package:image_picker/image_picker.dart'; // Utilisez ce package UNIQUEMENT
 import 'dart:convert';
 import 'package:intl/intl.dart';
-
-// Import conditionnel pour web
-import 'package:image_picker_web/image_picker_web.dart';
 
 // Couleurs du design
 const Color softIvory = Color(0xFFEFE9E0);
@@ -182,14 +179,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  // Dans la méthode build de _AdminDashboardState, remplacez ce code :
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
-          // Barre de navigation supérieure (code inchangé)
+          // Barre de navigation supérieure
           Container(
             height: 70,
             decoration: BoxDecoration(
@@ -253,7 +248,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ],
                     ),
                   ),
-                  // Espace pour d'éventuelles actions supplémentaires
                 ],
               ),
             ),
@@ -387,12 +381,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const VerticalDivider(width: 1, color: softIvory),
 
-                // Contenu principal - CORRECTION ICI
+                // Contenu principal
                 Expanded(
                   child: Container(
                     color: softIvory,
                     padding: const EdgeInsets.all(25),
-                    child: _buildSelectedTab(), // Appel correct de la méthode
+                    child: _buildSelectedTab(),
                   ),
                 ),
               ],
@@ -402,6 +396,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
+
   Widget _buildNavItem(
     int index,
     IconData icon,
@@ -446,7 +441,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
     );
   }
-  // Ajoutez cette méthode juste après _buildNavItem()
+
   Widget _buildSelectedTab() {
     switch (_selectedIndex) {
       case 0:
@@ -834,30 +829,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             ),
                           ),
                           title: Text(
-  // NOUVEAU CODE POUR AFFICHER LE NOM DU PRODUIT
-  () {
-    try {
-      if (data['items'] != null && (data['items'] as List).isNotEmpty) {
-        final firstItem = (data['items'] as List)[0] as Map<String, dynamic>;
-        final productName = firstItem['name']?.toString() ?? 'Produit';
-        // Tronquer si trop long
-        if (productName.length > 20) {
-          return '${productName.substring(0, 20)}...';
-        }
-        return productName;
-      }
-    } catch (e) {
-      print('Erreur nom produit: $e');
-    }
-    return 'Commande';
-  }(),  // ← Notez les parenthèses () pour exécuter la fonction
-  style: TextStyle(
-    fontWeight: FontWeight.w600,
-    fontSize: 14,
-    color: darkText,
-  ),
-),
-
+                            _getProductNameFromOrder(data),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: darkText,
+                            ),
+                          ),
                           subtitle: Text(
                             formattedDate,
                             style: TextStyle(fontSize: 12, color: mediumText),
@@ -1229,7 +1207,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
         // Table des produits - EXPANDABLE
         Expanded(
-          // ← CHANGEMENT ICI : Ajout de Expanded
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1837,68 +1814,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final clientName = _getClientName(userId);
 
                 // Formater la date
-String formattedDate = 'Date inconnue';
+                String formattedDate = 'Date inconnue';
 
-try {
-  final dynamic dateData = data['createdAt'];
-  
-  if (dateData != null) {
-    if (dateData is Timestamp) {
-      // Cas 1: C'est un Timestamp Firebase normal
-      formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(dateData.toDate());
-    } 
-    else if (dateData is String && dateData.contains('Timestamp')) {
-      // Cas 2: C'est une string "Timestamp(seconds=..., nanoseconds=...)"
-      final secondsMatch = RegExp(r'seconds=(\d+)').firstMatch(dateData);
-      if (secondsMatch != null) {
-        final seconds = int.parse(secondsMatch.group(1)!);
-        final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(date);
-      } else {
-        formattedDate = 'Format timestamp invalide';
-      }
-    }
-    else if (dateData is String) {
-      // Cas 3: C'est déjà une string de date
-      try {
-        final parsedDate = DateTime.parse(dateData);
-        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(parsedDate);
-      } catch (e) {
-        formattedDate = dateData; // Afficher tel quel
-      }
-    }
-    else {
-      // Cas 4: Autre format, on affiche la représentation string
-      formattedDate = dateData.toString();
-    }
-  }
-} catch (e) {
-  formattedDate = 'Erreur date';
-  print('Erreur conversion date: $e');
-}
+                try {
+                  final dynamic dateData = data['createdAt'];
 
-
-// AJOUTER dans la classe :
-String _getProductNameFromOrder(Map<String, dynamic> orderData) {
-  try {
-    if (orderData['items'] != null && 
-        (orderData['items'] as List).isNotEmpty) {
-      final firstItem = (orderData['items'] as List)[0];
-      final productName = firstItem['name']?.toString() ?? 'Produit';
-      
-      // Tronquer si trop long
-      if (productName.length > 15) {
-        return '${productName.substring(0, 15)}...';
-      }
-      return productName;
-    }
-  } catch (e) {
-    print('Erreur nom produit: $e');
-  }
-  return 'Commande';
-}
-
-
+                  if (dateData != null) {
+                    if (dateData is Timestamp) {
+                      // Cas 1: C'est un Timestamp Firebase normal
+                      formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss')
+                          .format(dateData.toDate());
+                    } else if (dateData is String &&
+                        dateData.contains('Timestamp')) {
+                      // Cas 2: C'est une string "Timestamp(seconds=..., nanoseconds=...)"
+                      final secondsMatch =
+                          RegExp(r'seconds=(\d+)').firstMatch(dateData);
+                      if (secondsMatch != null) {
+                        final seconds = int.parse(secondsMatch.group(1)!);
+                        final date =
+                            DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+                        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss')
+                            .format(date);
+                      } else {
+                        formattedDate = 'Format timestamp invalide';
+                      }
+                    } else if (dateData is String) {
+                      // Cas 3: C'est déjà une string de date
+                      try {
+                        final parsedDate = DateTime.parse(dateData);
+                        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss')
+                            .format(parsedDate);
+                      } catch (e) {
+                        formattedDate = dateData; // Afficher tel quel
+                      }
+                    } else {
+                      // Cas 4: Autre format, on affiche la représentation string
+                      formattedDate = dateData.toString();
+                    }
+                  }
+                } catch (e) {
+                  formattedDate = 'Erreur date';
+                  print('Erreur conversion date: $e');
+                }
 
                 return DataRow(
                   cells: [
@@ -1908,7 +1865,7 @@ String _getProductNameFromOrder(Map<String, dynamic> orderData) {
                         child: Tooltip(
                           message: _getProductNameFromOrder(data),
                           child: Text(
-                             _getProductNameFromOrder(data),
+                            _getProductNameFromOrder(data),
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 13,
@@ -1953,9 +1910,9 @@ String _getProductNameFromOrder(Map<String, dynamic> orderData) {
                           ),
                         ),
                         child: Text(
-                          data['status'] ?? 'En attente',  // ← DIRECT data['status']
+                          data['status'] ?? 'En attente',
                           style: TextStyle(
-                            color: _getStatusColor(data['status']),  // ← data['status']
+                            color: _getStatusColor(data['status']),
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1977,43 +1934,49 @@ String _getProductNameFromOrder(Map<String, dynamic> orderData) {
                         ),
                       ),
                     ),
-                   // REMPLACER toute la DataCell "Actions" (~lignes 1050-1080) par :
-
-// REMPLACER la DataCell "Actions" par :
-DataCell(
-  Row(
-    children: [
-      // Bouton Voir détails
-      Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF3498DB).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: IconButton(
-          icon: const Icon(Icons.visibility_rounded, size: 18, color: Color(0xFF3498DB)),
-          onPressed: () => _viewOrderDetails(doc.id, data, clientName),
-        ),
-      ),
-      const SizedBox(width: 8),
-      // Menu pour changer le statut
-      Container(
-        decoration: BoxDecoration(
-          color: tropicalTeal.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: PopupMenuButton<String>(
-  onSelected: (value) => _updateOrderStatus(orderId, value),
-  itemBuilder: (context) => [
-    const PopupMenuItem(value: 'En préparation', child: Text('En préparation')),
-    const PopupMenuItem(value: 'Prêt', child: Text('Prêt')),
-    const PopupMenuItem(value: 'Livrée', child: Text('Livrée')),
-    const PopupMenuItem(value: 'Annulée', child: Text('Annulée')),
-  ],
-),
-      ),
-    ],
-  ),
-),
+                    DataCell(
+                      Row(
+                        children: [
+                          // Bouton Voir détails
+                          Container(
+                            decoration: BoxDecoration(
+                              color:
+                                  const Color(0xFF3498DB).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.visibility_rounded,
+                                  size: 18, color: Color(0xFF3498DB)),
+                              onPressed: () => _viewOrderDetails(
+                                  doc.id, data, clientName),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Menu pour changer le statut
+                          Container(
+                            decoration: BoxDecoration(
+                              color: tropicalTeal.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: PopupMenuButton<String>(
+                              onSelected: (value) =>
+                                  _updateOrderStatus(orderId, value),
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                    value: 'En préparation',
+                                    child: Text('En préparation')),
+                                const PopupMenuItem(
+                                    value: 'Prêt', child: Text('Prêt')),
+                                const PopupMenuItem(
+                                    value: 'Livrée', child: Text('Livrée')),
+                                const PopupMenuItem(
+                                    value: 'Annulée', child: Text('Annulée')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 );
               }).toList(),
@@ -2301,36 +2264,34 @@ DataCell(
   // ============================================
   // MÉTHODES D'AIDE
   // ============================================
- Color _getStatusColor(String status) {
-  if (status == null) return const Color(0xFF7F8C8D);
-  
-  if (status.contains('attente') || status == 'En attente') {
-    return const Color(0xFFF39C12);
-  } else if (status.contains('préparation') || status == 'En préparation') {
-    return const Color(0xFF9B59B6);
-  } else if (status.contains('Prêt') || status == 'Prêt') {
-    return const Color(0xFF2ECC71);
-  } else if (status.contains('Livrée') || status == 'Livrée') {
-    return const Color(0xFF27AE60);
-  } else if (status.contains('Annulée') || status == 'Annulée') {
-    return const Color(0xFFE74C3C);
+  Color _getStatusColor(String status) {
+    if (status == null) return const Color(0xFF7F8C8D);
+
+    if (status.contains('attente') || status == 'En attente') {
+      return const Color(0xFFF39C12);
+    } else if (status.contains('préparation') || status == 'En préparation') {
+      return const Color(0xFF9B59B6);
+    } else if (status.contains('Prêt') || status == 'Prêt') {
+      return const Color(0xFF2ECC71);
+    } else if (status.contains('Livrée') || status == 'Livrée') {
+      return const Color(0xFF27AE60);
+    } else if (status.contains('Annulée') || status == 'Annulée') {
+      return const Color(0xFFE74C3C);
+    }
+    return const Color(0xFF7F8C8D);
   }
-  return const Color(0xFF7F8C8D);
-}
 
+  IconData _getOrderStatusIcon(String status) {
+    if (status == null || status.isEmpty) return Icons.receipt;
 
- IconData _getOrderStatusIcon(String status) {
-  if (status == null || status.isEmpty) return Icons.receipt;
-  
-  if (status.contains('En attente')) return Icons.pending;
-  if (status.contains('En préparation')) return Icons.local_shipping;
-  if (status.contains('Prêt')) return Icons.check_circle_outline;
-  if (status.contains('Livrée')) return Icons.home;
-  if (status.contains('Annulée')) return Icons.cancel;
-  
-  return Icons.receipt;
-}
+    if (status.contains('En attente')) return Icons.pending;
+    if (status.contains('En préparation')) return Icons.local_shipping;
+    if (status.contains('Prêt')) return Icons.check_circle_outline;
+    if (status.contains('Livrée')) return Icons.home;
+    if (status.contains('Annulée')) return Icons.cancel;
 
+    return Icons.receipt;
+  }
 
   Color _getCategoryColor(String? category) {
     final cat = (category ?? '').toLowerCase();
@@ -2358,14 +2319,11 @@ DataCell(
   }
 
   // ============================================
-  // GESTION DES IMAGES
+  // GESTION DES IMAGES - VERSION CORRIGÉE
   // ============================================
   Future<void> _pickImage() async {
-    if (kIsWeb) {
-      await _pickImageWeb();
-    } else {
-      await _pickImageMobile();
-    }
+    // Utilisez uniquement image_picker qui fonctionne sur toutes les plateformes
+    await _pickImageMobile();
   }
 
   Future<void> _pickImageMobile() async {
@@ -2386,81 +2344,19 @@ DataCell(
   }
 
   Future<void> _takePhoto() async {
-    if (kIsWeb) {
-      await _pickImageWeb();
-    } else {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 800,
-        maxHeight: 600,
-        imageQuality: 85,
-      );
+    // Utilisez uniquement image_picker qui fonctionne aussi sur web
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 800,
+      maxHeight: 600,
+      imageQuality: 85,
+    );
 
-      if (image != null) {
-        final bytes = await image.readAsBytes();
-        setState(() {
-          _selectedImageBytes = bytes;
-        });
-      }
-    }
-  }
-
-  Future<void> _pickImageWeb() async {
-    if (kIsWeb) {
-      try {
-        final pickedFile = await ImagePickerWeb.getImageAsBytes();
-
-        if (pickedFile != null) {
-          setState(() {
-            _selectedImageBytes = pickedFile;
-          });
-        }
-      } catch (e) {
-        print('Erreur lors de la sélection d\'image web: $e');
-      }
-    }
-  }
-
-  Future<String?> _uploadImageToFirestore() async {
-    if (_selectedImageBytes == null) return null;
-
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0.0;
-    });
-
-    try {
-      final base64Image = base64Encode(_selectedImageBytes!);
-
-      // Vérifier la taille
-      if (base64Image.length > 900000) {
-        throw Exception('Image trop grande (max 900KB en base64)');
-      }
-
-      setState(() => _uploadProgress = 0.3);
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      final docRef = await _firestore.collection('product_images').add({
-        'image_base64': base64Image,
-        'created_at': FieldValue.serverTimestamp(),
-        'size_bytes': _selectedImageBytes!.length,
-        'type': 'image/jpeg',
-        'boutique_id': widget.boutiqueId,
-      });
-
-      setState(() => _uploadProgress = 1.0);
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      final imageId = docRef.id;
-      return 'firestore:$imageId';
-    } catch (e) {
-      print('❌ Erreur Firestore: $e');
-      return null;
-    } finally {
+    if (image != null) {
+      final bytes = await image.readAsBytes();
       setState(() {
-        _isUploading = false;
-        _uploadProgress = 0.0;
+        _selectedImageBytes = bytes;
       });
     }
   }
@@ -2700,9 +2596,7 @@ DataCell(
                                     Icons.photo_library,
                                     size: 16,
                                   ),
-                                  label: Text(
-                                    kIsWeb ? 'Choisir fichier' : 'Galerie',
-                                  ),
+                                  label: const Text('Sélectionner'),
                                 ),
                                 const SizedBox(width: 10),
                                 if (!kIsWeb)
@@ -3101,8 +2995,7 @@ DataCell(
                                   ),
                                   icon:
                                       const Icon(Icons.photo_library, size: 16),
-                                  label: Text(
-                                      kIsWeb ? 'Changer image' : 'Galerie'),
+                                  label: const Text('Changer image'),
                                 ),
                                 const SizedBox(width: 10),
                                 if (!kIsWeb)
@@ -3419,512 +3312,275 @@ DataCell(
   // ============================================
   // GESTION DES COMMANDES
   // ============================================
-  Future<void> _editOrderStatus(
+  Future<void> _viewOrderDetails(
       String orderId, Map<String, dynamic> data, String clientName) async {
-    String currentStatus = data['status']?.toString() ?? 'En attente';
-    String currentDeliveryMethod =
-        data['methodeLivraison']?.toString() ?? 'Standard';
+    // Formater la date
+    String formattedDate = 'Non spécifiée';
+    try {
+      final dynamic dateData = data['createdAt'];
+      if (dateData != null) {
+        if (dateData is Timestamp) {
+          formattedDate =
+              DateFormat('dd/MM/yyyy HH:mm:ss').format(dateData.toDate());
+        } else if (dateData is String && dateData.contains('Timestamp')) {
+          final secondsMatch = RegExp(r'seconds=(\d+)').firstMatch(dateData);
+          if (secondsMatch != null) {
+            final seconds = int.parse(secondsMatch.group(1)!);
+            final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+            formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(date);
+          }
+        }
+      }
+    } catch (e) {
+      formattedDate = data['createdAt']?.toString() ?? 'Date invalide';
+    }
+
+    // Traduire deliveryType
+    String deliveryMethod = 'Retrait en boutique';
+    if (data['deliveryType'] == 'delivery') {
+      deliveryMethod = 'Livraison à domicile';
+    }
 
     await showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Modifier la commande'),
-              content: Container(
-                width: MediaQuery.of(context).size.width * 0.8,
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.receipt,
-                              size: 20, color: Color(0xFF6D5DFC)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Commande #${data['id']?.toString().substring(0, 8)}...',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+        return AlertDialog(
+          title: const Text('Détails de la commande'),
+          content: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Informations client
+                  _buildDetailCard(
+                    Icons.person,
+                    'Client',
+                    clientName,
+                  ),
+                  const SizedBox(height: 15),
+
+                  _buildDetailCard(
+                    Icons.receipt,
+                    'Commande',
+                    _getProductNameFromOrder(data),
+                  ),
+                  const SizedBox(height: 15),
+
+                  _buildDetailCard(
+                    Icons.calendar_today,
+                    'Date',
+                    formattedDate,
+                  ),
+                  const SizedBox(height: 15),
+
+                  _buildDetailCard(
+                    Icons.money,
+                    'Montant Total',
+                    '${(data['total'] ?? 0).toStringAsFixed(0)} FCFA',
+                    isAmount: true,
+                  ),
+                  const SizedBox(height: 15),
+
+                  _buildDetailCard(
+                    Icons.local_shipping,
+                    'Méthode de livraison',
+                    deliveryMethod,
+                  ),
+                  const SizedBox(height: 15),
+
+                  _buildDetailCard(
+                    Icons.info,
+                    'Statut',
+                    data['status']?.toString() ?? 'En attente',
+                    status: data['status']?.toString(),
+                  ),
+
+                  // Liste des produits commandés
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Produits commandés:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Color(0xFF2C3E50),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  if (data['items'] != null && (data['items'] as List).isNotEmpty)
+                    ...(data['items'] as List).map<Widget>((item) {
+                      final itemMap = item as Map<String, dynamic>;
+
+                      final quantity = itemMap['quantity'] ?? 1;
+                      final productName = itemMap['name']?.toString() ?? 'Produit';
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: const Color(0xFFEFE9E0), width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F9E99).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.shopping_bag,
+                                color: Color(0xFF0F9E99),
+                                size: 20,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Client: $clientName',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      const Text('Statut de la commande:',
-                          style: TextStyle(fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 5),
-                      DropdownButtonFormField<String>(
-                        value: currentStatus,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: _orderStatuses.map<DropdownMenuItem<String>>(
-                          (status) {
-                            return DropdownMenuItem<String>(
-                              value: status,
-                              child: Text(status),
-                            );
-                          },
-                        ).toList(),
-                        onChanged: (String? value) {
-                          if (value != null) {
-                            setState(() {
-                              currentStatus = value;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      const Text('Méthode de livraison:',
-                          style: TextStyle(fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 5),
-                      DropdownButtonFormField<String>(
-                        value: currentDeliveryMethod,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: _deliveryMethods.map<DropdownMenuItem<String>>(
-                          (method) {
-                            return DropdownMenuItem<String>(
-                              value: method,
-                              child: Text(method),
-                            );
-                          },
-                        ).toList(),
-                        onChanged: (String? value) {
-                          if (value != null) {
-                            setState(() {
-                              currentDeliveryMethod = value;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      const Divider(),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today,
-                              size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Date: ${data['createdAt']?.toString() ?? 'Non spécifiée'}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    productName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: Color(0xFF2C3E50),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Quantité: $quantity',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF5D6D7E),
+                                    ),
+                                  ),
+                                  // Description
+                                  if (itemMap['description'] != null &&
+                                      itemMap['description'].toString().isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        itemMap['description'].toString(),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF95A5A6),
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      );
+                    }).toList()
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.money, size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Montant: ${(data['total'] ?? 0).toStringAsFixed(0)} FCFA',
+                      child: const Center(
+                        child: Text(
+                          'Aucun produit dans cette commande',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+
+                  // Notes du client
+                  const SizedBox(height: 20),
+                  if (data['customerNotes'] != null &&
+                      data['customerNotes'].toString().isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Note du client:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF2C3E50),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFE9E0),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            data['customerNotes'].toString(),
                             style: const TextStyle(
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF5D6D7E),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      await _firestore
-                          .collection('orders')
-                          .doc(orderId)
-                          .update({
-                        'status': currentStatus,
-                        'deliveryType': currentDeliveryMethod,
-                        'updatedAt': FieldValue.serverTimestamp(),
-                      });
-
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Commande mise à jour avec succès !'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        Navigator.of(context).pop();
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Erreur: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6D5DFC),
-                  ),
-                  child: const Text('Enregistrer'),
-                ),
-              ],
-            );
-          },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer'),
+            ),
+          ],
         );
       },
     );
   }
 
-Future<void> _viewOrderDetails(
-    String orderId, Map<String, dynamic> data, String clientName) async {
-    
-  // Formater la date
-  String formattedDate = 'Non spécifiée';
-  try {
-    final dynamic dateData = data['createdAt'];
-    if (dateData != null) {
-      if (dateData is Timestamp) {
-        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(dateData.toDate());
-      } 
-      else if (dateData is String && dateData.contains('Timestamp')) {
-        final secondsMatch = RegExp(r'seconds=(\d+)').firstMatch(dateData);
-        if (secondsMatch != null) {
-          final seconds = int.parse(secondsMatch.group(1)!);
-          final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-          formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(date);
-        }
+  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      // Stocker DIRECTEMENT en français
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Statut mis à jour: $newStatus'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      print('✅ Stocké en français: "$newStatus"');
+    } catch (e) {
+      print('❌ Erreur: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
-  } catch (e) {
-    formattedDate = data['createdAt']?.toString() ?? 'Date invalide';
   }
-  
-  // Traduire deliveryType
-  String deliveryMethod = 'Retrait en boutique';
-  if (data['deliveryType'] == 'delivery') {
-    deliveryMethod = 'Livraison à domicile';
-  }
-  
-  // Trouver le nom du premier produit pour l'affichage
-  String firstProductName = 'Commande';
-  if (data['items'] != null && (data['items'] as List).isNotEmpty) {
-    final firstItem = (data['items'] as List)[0] as Map<String, dynamic>;
-    firstProductName = firstItem['name']?.toString() ?? 'Produit';
-    // Si le nom est trop long, on le tronque
-    if (firstProductName.length > 20) {
-      firstProductName = firstProductName.substring(0, 20) + '...';
-    }
-  }
-  
-  await showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Détails de la commande'),
-        content: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Informations client
-                _buildDetailCard(
-                  Icons.person,
-                  'Client',
-                  clientName,
-                ),
-                const SizedBox(height: 15),
-                
-                // MODIFICATION ICI : Afficher le nom du produit au lieu de l'ID
-                _buildDetailCard(
-                  Icons.receipt,
-                  'Commande',
-                  firstProductName, // ← NOM DU PRODUIT au lieu de l'ID
-                ),
-                const SizedBox(height: 15),
-                
-                _buildDetailCard(
-                  Icons.calendar_today,
-                  'Date',
-                  formattedDate,
-                ),
-                const SizedBox(height: 15),
-                
-                _buildDetailCard(
-                  Icons.money,
-                  'Montant Total',
-                  '${(data['total'] ?? 0).toStringAsFixed(0)} FCFA',
-                  isAmount: true,
-                ),
-                const SizedBox(height: 15),
-                
-                _buildDetailCard(
-                  Icons.local_shipping,
-                  'Méthode de livraison',
-                  deliveryMethod,
-                ),
-                const SizedBox(height: 15),
-                
-                _buildDetailCard(
-                  Icons.info,
-                  'Statut',
-                  data['status']?.toString() ?? 'En attente',
-                  status: data['status']?.toString(),
-                ),
-                
-                // Liste des produits commandés
-                const SizedBox(height: 20),
-                const Text(  // ← CORRECTION ICI : Pas de ;
-                  'Produits commandés:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF2C3E50),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                
-                if (data['items'] != null && (data['items'] as List).isNotEmpty)
-                  ...(data['items'] as List).map<Widget>((item) {
-                    final itemMap = item as Map<String, dynamic>;
-                    
-                    final quantity = itemMap['quantity'] ?? 1;
-                    final productName = itemMap['name']?.toString() ?? 'Produit';
-                    
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFEFE9E0), width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F9E99).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Icons.shopping_bag,
-                              color: Color(0xFF0F9E99),
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  productName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: Color(0xFF2C3E50),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                // MODIFICATION ICI : Afficher seulement la quantité
-                                Text(
-                                  'Quantité: $quantity',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF5D6D7E),
-                                  ),
-                                ),
-                                // Description
-                                if (itemMap['description'] != null && 
-                                    itemMap['description'].toString().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      itemMap['description'].toString(),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF95A5A6),
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList()
-                else
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Aucun produit dans cette commande',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                
-                // Notes du client
-                const SizedBox(height: 20),
-                if (data['customerNotes'] != null && 
-                    data['customerNotes'].toString().isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Note du client:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Color(0xFF2C3E50),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFE9E0),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          data['customerNotes'].toString(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF5D6D7E),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-// Dans initState() ou une méthode séparée :
-Future<void> _migrateOldStatuses() async {
-  try {
-    final orders = await _firestore
-        .collection('orders')
-        .where('boutiqueId', isEqualTo: widget.boutiqueId)
-        .get();
-
-    for (var doc in orders.docs) {
-      final data = doc.data();
-      final currentStatus = data['status']?.toString() ?? '';
-      
-      // Convertir anciens statuts anglais vers français
-      if (currentStatus == 'pending') {
-        await doc.reference.update({'status': 'En attente'});
-      } else if (currentStatus == 'preparing') {
-        await doc.reference.update({'status': 'En préparation'});
-      } else if (currentStatus == 'delivered') {
-        await doc.reference.update({'status': 'Livrée'});
-      } else if (currentStatus == 'cancelled') {
-        await doc.reference.update({'status': 'Annulée'});
-      }
-    }
-    
-    print('✅ Migration des statuts terminée');
-  } catch (e) {
-    print('❌ Erreur migration: $e');
-  }
-}
-
-// Appelez-la une fois :
-// _migrateOldStatuses();
-
-
-Future<void> _updateOrderStatus(String orderId, String newStatus) async {
-  try {
-    // Stocker DIRECTEMENT en français
-    await _firestore.collection('orders').doc(orderId).update({
-      'status': newStatus,  // ← FRANÇAIS DIRECT : "En préparation", "Prêt", etc.
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Statut mis à jour: $newStatus'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
-    
-    print('✅ Stocké en français: "$newStatus"');
-  } catch (e) {
-    print('❌ Erreur: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-}
 
   Widget _buildDetailCard(IconData icon, String label, String value,
       {bool isAmount = false, String? status}) {
-     Color valueColor = const Color(0xFF2C3E50);
+    Color valueColor = const Color(0xFF2C3E50);
 
     if (isAmount) {
       valueColor = const Color(0xFF2C3E50);
@@ -4148,6 +3804,70 @@ Future<void> _updateOrderStatus(String orderId, String newStatus) async {
         }
       }
     }
+  }
+
+  // ============================================
+  // MÉTHODES UTILITAIRES MANQUANTES
+  // ============================================
+  Future<String?> _uploadImageToFirestore() async {
+    if (_selectedImageBytes == null) return null;
+
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0.0;
+    });
+
+    try {
+      final base64Image = base64Encode(_selectedImageBytes!);
+
+      // Vérifier la taille
+      if (base64Image.length > 900000) {
+        throw Exception('Image trop grande (max 900KB en base64)');
+      }
+
+      setState(() => _uploadProgress = 0.3);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      final docRef = await _firestore.collection('product_images').add({
+        'image_base64': base64Image,
+        'created_at': FieldValue.serverTimestamp(),
+        'size_bytes': _selectedImageBytes!.length,
+        'type': 'image/jpeg',
+        'boutique_id': widget.boutiqueId,
+      });
+
+      setState(() => _uploadProgress = 1.0);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      final imageId = docRef.id;
+      return 'firestore:$imageId';
+    } catch (e) {
+      print('❌ Erreur Firestore: $e');
+      return null;
+    } finally {
+      setState(() {
+        _isUploading = false;
+        _uploadProgress = 0.0;
+      });
+    }
+  }
+
+  String _getProductNameFromOrder(Map<String, dynamic> orderData) {
+    try {
+      if (orderData['items'] != null && (orderData['items'] as List).isNotEmpty) {
+        final firstItem = (orderData['items'] as List)[0];
+        final productName = firstItem['name']?.toString() ?? 'Produit';
+        
+        // Tronquer si trop long
+        if (productName.length > 20) {
+          return '${productName.substring(0, 20)}...';
+        }
+        return productName;
+      }
+    } catch (e) {
+      print('Erreur nom produit: $e');
+    }
+    return 'Commande';
   }
 
   @override
