@@ -71,7 +71,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         
         // Retour à l'écran précédent
         if (mounted) {
-          Navigator.pop(context, true);
+          Navigator.pop(context, true); // Permet de retourner à la page précédente
         }
         
       } catch (e) {
@@ -369,7 +369,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
               // Bouton d'annulation
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
                 child: const Text(
                   'Annuler',
                   style: TextStyle(color: Colors.grey),

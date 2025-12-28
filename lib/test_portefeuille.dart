@@ -49,7 +49,7 @@ class HomeTestScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Scaffold( //Créé une iterface avec une barre d'application et un corps d'application
       appBar: AppBar(
         title: const Text('Test du Module Portefeuille'),
       ),

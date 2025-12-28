@@ -425,7 +425,7 @@ class _CreateBoutiqueDialogState extends State<CreateBoutiqueDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
           child: const Text('Annuler'),
         ),
         ElevatedButton(

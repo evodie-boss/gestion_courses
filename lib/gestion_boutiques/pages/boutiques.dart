@@ -14,7 +14,7 @@ class ElegantBoutiquePage extends StatelessWidget {
         content: const Text('Cette fonctionnalité sera bientôt disponible ici !'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
             child: const Text('OK'),
           ),
         ],

@@ -592,12 +592,12 @@ class _OrderScreenState extends State<OrderScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
             child: const Text('Annuler'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context); // Permet de retourner à la page précédente
               _processConfirmedGlobalOrder(globalTotal, globalCount);
             },
             style: ElevatedButton.styleFrom(

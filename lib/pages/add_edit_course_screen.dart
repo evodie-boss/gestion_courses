@@ -104,7 +104,7 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
         ),
       ),
       body: SingleChildScrollView(

@@ -316,7 +316,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       const Divider(color: softIvory, height: 1),
                       Expanded(
-                        child: ListView(
+                        child: ListView( //Permet de défiler le contenu verticalement
                           padding: const EdgeInsets.all(10),
                           children: [
                             _buildNavItem(
@@ -461,7 +461,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // TABLEAU DE BORD
   // ============================================
   Widget _buildDashboardTab() {
-    return SingleChildScrollView(
+    return SingleChildScrollView( //Permet de défiler le contenu verticalement
       child: Padding(
         padding: const EdgeInsets.only(bottom: 20),
         child: Column(

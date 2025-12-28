@@ -14,7 +14,7 @@ Future<void> main() async {
   runApp(const ElegantBoutiqueApp());
 }
 
-class ElegantBoutiqueApp extends StatelessWidget {
+class ElegantBoutiqueApp extends StatelessWidget {  //extends – pour l’héritage de classe (ex. class Enfant extends Parent).
   const ElegantBoutiqueApp({super.key});
 
   @override
@@ -44,7 +44,7 @@ class ElegantBoutiqueApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15), //Padding – ajoute un espace (marge intérieure) autour de son enfant.
           ),
         ),
       ),

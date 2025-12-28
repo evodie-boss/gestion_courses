@@ -171,7 +171,7 @@ class _RechargeWalletScreenState extends State<RechargeWalletScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
         ),
       ),
       body: SingleChildScrollView(

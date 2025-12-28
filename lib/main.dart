@@ -50,7 +50,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _showSplash = true;
 
   @override
-  void initState() {
+  void initState() { //appelée automatiquement au démarrage d'un StatefulWidget
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {

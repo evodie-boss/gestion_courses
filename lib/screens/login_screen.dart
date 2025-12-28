@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Image.asset(
+                        child: Image.asset( //Afficher une image locale
                           'assets/images/logo_courses.jpg', // TON LOGO
                           width: 80,
                           height: 80,
