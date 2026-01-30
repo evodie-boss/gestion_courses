@@ -3,21 +3,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Boutique {
   String? id;
   String adresse;
+  double balance;  
   String categories;
   DateTime? createdAt;
   DateTime? updatedAt;
   double latitude;
   double longitude;
+  double distanceKm = 0.0;
   String nom;
 
   Boutique({
     this.id,
     required this.adresse,
+    required this.balance,
     required this.categories,
     this.createdAt,
     this.updatedAt,
     required this.latitude,
     required this.longitude,
+    this.distanceKm = 0.0, // <==== AJOUTEZ CETTE INITIALISATION
     required this.nom,
   });
 
@@ -28,6 +32,7 @@ class Boutique {
     return Boutique(
       id: doc.id,
       adresse: data['adresse'] ?? '',
+      balance: (data['balance'] as num?)?.toDouble() ?? 0.0,
       categories: data['categories'] ?? '',
       createdAt: data['created_at'] != null 
           ? (data['created_at'] as Timestamp).toDate() 
@@ -85,6 +90,7 @@ class Boutique {
     return Boutique(
       id: id ?? this.id,
       adresse: adresse ?? this.adresse,
+      balance: balance,
       categories: categories ?? this.categories,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

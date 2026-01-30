@@ -2,42 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:gestion_courses/firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:gestion_courses/gestion_boutiques/pages/my_boutiques_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
-  runApp(MaterialApp(
-    title: 'Création de Boutique',
-    theme: ThemeData(
-      fontFamily: 'Poppins',
-      primaryColor: const Color(0xFF0F9E99), // Tropical Teal
-      scaffoldBackgroundColor: const Color(0xFFEFE9E0), // Soft Ivory
-      colorScheme: ColorScheme.fromSwatch(
-        primarySwatch: MaterialColor(0xFF0F9E99, {
-          50: Color(0xFFE0F2F1),
-          100: Color(0xFFB2DFDB),
-          200: Color(0xFF80CBC4),
-          300: Color(0xFF4DB6AC),
-          400: Color(0xFF26A69A),
-          500: Color(0xFF0F9E99),
-          600: Color(0xFF00897B),
-          700: Color(0xFF00796B),
-          800: Color(0xFF00695C),
-          900: Color(0xFF004D40),
-        }),
-      ).copyWith(
-        secondary: Color(0xFFEFE9E0), // Soft Ivory
+
+  runApp(
+    MaterialApp(
+      title: 'Création de Boutique',
+      theme: ThemeData(
+        fontFamily: 'Poppins',
+        primaryColor: const Color(0xFF0F9E99), // Tropical Teal
+        scaffoldBackgroundColor: const Color(0xFFEFE9E0), // Soft Ivory
+        colorScheme:
+            ColorScheme.fromSwatch(
+              primarySwatch: MaterialColor(0xFF0F9E99, {
+                50: Color(0xFFE0F2F1),
+                100: Color(0xFFB2DFDB),
+                200: Color(0xFF80CBC4),
+                300: Color(0xFF4DB6AC),
+                400: Color(0xFF26A69A),
+                500: Color(0xFF0F9E99),
+                600: Color(0xFF00897B),
+                700: Color(0xFF00796B),
+                800: Color(0xFF00695C),
+                900: Color(0xFF004D40),
+              }),
+            ).copyWith(
+              secondary: Color(0xFFEFE9E0), // Soft Ivory
+            ),
       ),
+      home: CreateBoutiquePage(firestore: FirebaseFirestore.instance),
+      debugShowCheckedModeBanner: false,
     ),
-    home: CreateBoutiquePage(firestore: FirebaseFirestore.instance),
-    debugShowCheckedModeBanner: false,
-  ));
+  );
 }
 
 class CreateBoutiquePage extends StatefulWidget {
   final FirebaseFirestore firestore;
-  
+
   const CreateBoutiquePage({super.key, required this.firestore});
 
   @override
@@ -50,24 +55,27 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
   final TextEditingController _adresseController = TextEditingController();
   final TextEditingController _latitudeController = TextEditingController();
   final TextEditingController _longitudeController = TextEditingController();
-  
+
   String? _selectedCategory;
-  
+
   final List<Map<String, dynamic>> _boutiqueCategories = [
-    {'value': 'supermarche', 'label': 'Supermarché', 'icon': Icons.shopping_cart},
+    {
+      'value': 'supermarche',
+      'label': 'Supermarché',
+      'icon': Icons.shopping_cart,
+    },
     {'value': 'marche', 'label': 'Marché', 'icon': Icons.storefront},
     {'value': 'boutique', 'label': 'Boutique', 'icon': Icons.store},
-    {'value': 'restaurant', 'label': 'Restaurant', 'icon': Icons.restaurant},
-    {'value': 'pharmacie', 'label': 'Pharmacie', 'icon': Icons.local_pharmacy},
-    {'value': 'boulangerie', 'label': 'Boulangerie', 'icon': Icons.bakery_dining},
-    {'value': 'epicerie', 'label': 'Épicerie', 'icon': Icons.local_grocery_store},
+    {
+      'value': 'boulangerie',
+      'label': 'Boulangerie',
+      'icon': Icons.bakery_dining,
+    },
     {'value': 'boucherie', 'label': 'Boucherie', 'icon': Icons.set_meal},
-    {'value': 'primeur', 'label': 'Primeur', 'icon': Icons.grass},
-    {'value': 'autre', 'label': 'Autre', 'icon': Icons.more_horiz},
   ];
-  
+
   bool _isSubmitting = false;
-  
+
   @override
   void dispose() {
     _nomController.dispose();
@@ -76,12 +84,12 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
     _longitudeController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _createBoutique() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -91,14 +99,30 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
       );
       return;
     }
-    
+
     setState(() {
       _isSubmitting = true;
     });
-    
+
     try {
+      // Obtenir l'ID de l'utilisateur connecté
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vous devez être connecté pour créer une boutique'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isSubmitting = false;
+        });
+        return;
+      }
+
       final docRef = widget.firestore.collection('boutiques').doc();
-      
+
       await widget.firestore.collection('boutiques').add({
         'id': docRef.id,
         'nom': _nomController.text.trim(),
@@ -108,8 +132,13 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
         'longitude': double.parse(_longitudeController.text.trim()),
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
+        // AJOUTEZ CES CHAMPS CRITIQUES :
+        'createdBy': userId, // Pour filtrer dans Mes Boutiques
+        'isActive': true, // Pour le statut
+        'phone': '', // Champ optionnel
+        'email': '', // Champ optionnel
       });
-      
+
       // Réinitialiser le formulaire
       _formKey.currentState!.reset();
       _nomController.clear();
@@ -119,7 +148,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
       setState(() {
         _selectedCategory = null;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Boutique créée avec succès !'),
@@ -127,25 +156,19 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
           duration: Duration(seconds: 2),
         ),
       );
-      
+
       // Attendre 2 secondes pour que l'utilisateur voie le message
       await Future.delayed(const Duration(seconds: 2));
-      
-      // Rediriger vers le dashboard
+
+      // Rediriger vers le dashboard DE CONFIRMATION
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => DashboardPage(),
-          ),
+          MaterialPageRoute(builder: (context) => DashboardPage()),
         );
       }
-      
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -155,7 +178,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,10 +187,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
         backgroundColor: const Color(0xFF0F9E99), // Tropical Teal
         title: const Text(
           'Création de Boutique',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -203,7 +223,11 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.white, size: 24),
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                           SizedBox(width: 10),
                           Text(
                             'Informations importantes',
@@ -219,15 +243,12 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                       const Text(
                         'Remplissez tous les champs pour créer votre boutique. '
                         'Les coordonnées GPS sont importantes pour permettre aux clients de vous localiser.',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Formulaire
                 Container(
                   padding: const EdgeInsets.all(25),
@@ -264,7 +285,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                           ),
                         ),
                         const SizedBox(height: 30),
-                        
+
                         // Nom de la boutique
                         TextFormField(
                           controller: _nomController,
@@ -274,7 +295,10 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            prefixIcon: const Icon(Icons.store, color: Color(0xFF0F9E99)),
+                            prefixIcon: const Icon(
+                              Icons.store,
+                              color: Color(0xFF0F9E99),
+                            ),
                             filled: true,
                             fillColor: const Color(0xFFF5F7FA),
                           ),
@@ -288,20 +312,24 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Adresse
                         TextFormField(
                           controller: _adresseController,
                           maxLines: 2,
                           decoration: InputDecoration(
                             labelText: 'Adresse complète *',
-                            hintText: 'Ex: 123 Avenue de la République, 75000 Paris',
+                            hintText:
+                                'Ex: 123 Avenue de la République, 75000 Paris',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            prefixIcon: const Icon(Icons.location_on, color: Color(0xFF0F9E99)),
+                            prefixIcon: const Icon(
+                              Icons.location_on,
+                              color: Color(0xFF0F9E99),
+                            ),
                             filled: true,
                             fillColor: const Color(0xFFF5F7FA),
                           ),
@@ -315,9 +343,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // Catégorie
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,27 +365,34 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                prefixIcon: const Icon(Icons.category, color: Color(0xFF0F9E99)),
+                                prefixIcon: const Icon(
+                                  Icons.category,
+                                  color: Color(0xFF0F9E99),
+                                ),
                                 filled: true,
                                 fillColor: const Color(0xFFF5F7FA),
                               ),
-                              hint: const Text('Sélectionnez le type de boutique'),
-                              items: _boutiqueCategories.map<DropdownMenuItem<String>>((category) {
-                                return DropdownMenuItem<String>(
-                                  value: category['value'] as String,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        category['icon'] as IconData,
-                                        color: const Color(0xFF0F9E99),
-                                        size: 20,
+                              hint: const Text(
+                                'Sélectionnez le type de boutique',
+                              ),
+                              items: _boutiqueCategories
+                                  .map<DropdownMenuItem<String>>((category) {
+                                    return DropdownMenuItem<String>(
+                                      value: category['value'] as String,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            category['icon'] as IconData,
+                                            color: const Color(0xFF0F9E99),
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(category['label'] as String),
+                                        ],
                                       ),
-                                      const SizedBox(width: 10),
-                                      Text(category['label'] as String),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
+                                    );
+                                  })
+                                  .toList(),
                               onChanged: (String? value) {
                                 setState(() {
                                   _selectedCategory = value;
@@ -372,9 +407,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 30),
-                        
+
                         const Text(
                           'Coordonnées GPS',
                           style: TextStyle(
@@ -392,7 +427,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Coordonnées GPS
                         Row(
                           children: [
@@ -406,7 +441,10 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  prefixIcon: const Icon(Icons.navigation, color: Color(0xFF0F9E99)),
+                                  prefixIcon: const Icon(
+                                    Icons.navigation,
+                                    color: Color(0xFF0F9E99),
+                                  ),
                                   filled: true,
                                   fillColor: const Color(0xFFF5F7FA),
                                 ),
@@ -436,7 +474,10 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  prefixIcon: const Icon(Icons.navigation, color: Color(0xFF0F9E99)),
+                                  prefixIcon: const Icon(
+                                    Icons.navigation,
+                                    color: Color(0xFF0F9E99),
+                                  ),
                                   filled: true,
                                   fillColor: const Color(0xFFF5F7FA),
                                 ),
@@ -457,9 +498,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 20),
-                        
+
                         // SECTION POUR LES INSTRUCTIONS GPS
                         Container(
                           width: double.infinity,
@@ -467,14 +508,20 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFF5F7FA),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF0F9E99).withOpacity(0.3)),
+                            border: Border.all(
+                              color: const Color(0xFF0F9E99).withOpacity(0.3),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.location_searching, color: Color(0xFF0F9E99), size: 20),
+                                  Icon(
+                                    Icons.location_searching,
+                                    color: Color(0xFF0F9E99),
+                                    size: 20,
+                                  ),
                                   SizedBox(width: 10),
                                   Text(
                                     'Comment obtenir les coordonnées GPS ?',
@@ -496,14 +543,26 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                     TextSpan(text: '1. Allez sur '),
                                     TextSpan(
                                       text: 'Google Maps',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                    TextSpan(text: '\n2. Cliquez droit sur l\'emplacement de votre boutique\n'),
-                                    TextSpan(text: '3. Sélectionnez "Plus d\'infos" ou "Coordonnées"\n'),
-                                    TextSpan(text: '4. Copiez les coordonnées\n'),
+                                    TextSpan(
+                                      text:
+                                          '\n2. Cliquez droit sur l\'emplacement de votre boutique\n',
+                                    ),
+                                    TextSpan(
+                                      text:
+                                          '3. Sélectionnez "Plus d\'infos" ou "Coordonnées"\n',
+                                    ),
+                                    TextSpan(
+                                      text: '4. Copiez les coordonnées\n',
+                                    ),
                                     TextSpan(
                                       text: '   • La ',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                     TextSpan(
                                       text: 'première valeur ',
@@ -514,11 +573,15 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                     ),
                                     TextSpan(
                                       text: 'est la latitude (N/S)\n',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                     TextSpan(
                                       text: '   • La ',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                     TextSpan(
                                       text: 'deuxième valeur ',
@@ -529,7 +592,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                     ),
                                     TextSpan(
                                       text: 'est la longitude (E/O)',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -541,7 +606,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                   _longitudeController.text = '2.3522';
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Exemple de Paris inséré (48.8566, 2.3522)'),
+                                      content: Text(
+                                        'Exemple de Paris inséré (48.8566, 2.3522)',
+                                      ),
                                       backgroundColor: Color(0xFF0F9E99),
                                     ),
                                   );
@@ -555,9 +622,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 30),
-                        
+
                         // Bouton de soumission
                         SizedBox(
                           width: double.infinity,
@@ -586,9 +653,9 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                                 : const Text('Créer la boutique'),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 15),
-                        
+
                         // Bouton pour annuler
                         SizedBox(
                           width: double.infinity,
@@ -621,21 +688,19 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
 }
 
 // Dashboard Page simplifiée
+// Dashboard Page modifiée
 class DashboardPage extends StatelessWidget {
   DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEFE9E0), // Soft Ivory
+      backgroundColor: const Color(0xFFEFE9E0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F9E99), // Tropical Teal
+        backgroundColor: const Color(0xFF0F9E99),
         title: const Text(
           'Tableau de Bord',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
       body: Center(
@@ -649,11 +714,7 @@ class DashboardPage extends StatelessWidget {
                 color: const Color(0xFF0F9E99),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 60,
-              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 60),
             ),
             const SizedBox(height: 30),
             const Text(
@@ -670,10 +731,7 @@ class DashboardPage extends StatelessWidget {
               child: Text(
                 'Votre boutique a été enregistrée avec succès. Vous pouvez maintenant gérer vos produits et voir les statistiques.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF666666),
-                ),
+                style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
               ),
             ),
             const SizedBox(height: 40),
@@ -685,7 +743,9 @@ class DashboardPage extends StatelessWidget {
                   // Retourner à la création d'une autre boutique
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
-                      builder: (context) => CreateBoutiquePage(firestore: FirebaseFirestore.instance),
+                      builder: (context) => CreateBoutiquePage(
+                        firestore: FirebaseFirestore.instance,
+                      ),
                     ),
                   );
                 },
@@ -703,24 +763,29 @@ class DashboardPage extends StatelessWidget {
             SizedBox(
               width: 200,
               height: 50,
-              child: OutlinedButton(
+              child: ElevatedButton(
+                // Changé de OutlinedButton à ElevatedButton
                 onPressed: () {
-                  // Aller à la liste des boutiques (à implémenter)
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Page liste des boutiques à implémenter'),
+                  // IMPORTANT: Rediriger vers MyBoutiquesScreen
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          MyBoutiquesScreen(), // Votre page existante
                     ),
+                    (route) => false, // Supprime toutes les routes précédentes
                   );
                 },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF0F9E99)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0F9E99),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  side: const BorderSide(color: Color(0xFF0F9E99)),
                 ),
                 child: const Text(
                   'Voir mes boutiques',
-                  style: TextStyle(color: Color(0xFF0F9E99)),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
