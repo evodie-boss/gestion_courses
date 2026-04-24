@@ -1,4 +1,6 @@
 // lib/screens/home_screen.dart - CORRIGÉ AVEC STREAM POUR LE SOLDE
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -548,34 +550,47 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 0.8,
-                          ),
-                          itemCount: _quickActions.length,
-                          itemBuilder: (context, index) {
-                            final action = _quickActions[index];
-                            return _buildAnimatedActionCard(
-                              icon: action['icon'],
-                              title: action['title'],
-                              color: action['color'],
-                              subtitle: action['subtitle'],
-                              onTap: () {
-                                int targetIndex = index;
-                                if (index == 0)
-                                  targetIndex = 1; // Courses
-                                else if (index == 1)
-                                  targetIndex = 2; // Portefeuille
-                                else if (index == 2)
-                                  targetIndex = 3; // Boutiques
-                                else if (index == 3) targetIndex = 4; // Carte
-                                _navigateWithAnimation(targetIndex);
+                        Builder(
+                          builder: (context) {
+                            final screenWidth =
+                                MediaQuery.of(context).size.width;
+                            final actionCrossAxisCount =
+                                screenWidth > 700 ? 2 : 1;
+                            final actionChildAspectRatio =
+                                screenWidth > 700 ? 0.8 : 2.2;
+
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: actionCrossAxisCount,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                                childAspectRatio: actionChildAspectRatio,
+                              ),
+                              itemCount: _quickActions.length,
+                              itemBuilder: (context, index) {
+                                final action = _quickActions[index];
+                                return _buildAnimatedActionCard(
+                                  icon: action['icon'],
+                                  title: action['title'],
+                                  color: action['color'],
+                                  subtitle: action['subtitle'],
+                                  onTap: () {
+                                    int targetIndex = index;
+                                    if (index == 0) {
+                                      targetIndex = 1; // Courses
+                                    } else if (index == 1) {
+                                      targetIndex = 2; // Portefeuille
+                                    } else if (index == 2) {
+                                      targetIndex = 3; // Boutiques
+                                    } else if (index == 3) {
+                                      targetIndex = 4; // Carte
+                                    }
+                                    _navigateWithAnimation(targetIndex);
+                                  },
+                                );
                               },
                             );
                           },
@@ -767,6 +782,7 @@ class _HomeScreenState extends State<HomeScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
+                // widget pour un champ de saisie de texte
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'Nom de la boutique *',
@@ -1105,7 +1121,7 @@ class _HomeScreenState extends State<HomeScreen>
             );
           },
           child: Container(
-            width: 200,
+            width: min(240, MediaQuery.of(context).size.width * 0.7),
             margin: const EdgeInsets.only(right: 16),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1587,7 +1603,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Drawer(
       backgroundColor: Colors.white,
-      width: 280,
+      width: min(280, MediaQuery.of(context).size.width * 0.9),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [

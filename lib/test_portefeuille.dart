@@ -64,7 +64,7 @@ class HomeTestScreen extends StatelessWidget {
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () {
-                Navigator.push(
+                Navigator.push( //ajoute un nouvel écran à la pile de navigation 
                   context,
                   MaterialPageRoute(
                     builder: (context) => const WalletScreen(userId: 'test_user_1'),

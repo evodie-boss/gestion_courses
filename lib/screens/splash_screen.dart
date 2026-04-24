@@ -123,7 +123,7 @@ class _SplashScreenV2State extends State<SplashScreenV2>
                 AnimatedBuilder(
                   animation: _controller,
                   builder: (context, child) {
-                    return Transform(
+                    return Transform( //widget pour appliquer des transformations (rotation, mise à l’échelle, translation, etc.) à son enfant.
                       transform: Matrix4.identity()
                         ..scale(_logoAnimation.value)
                         ..setEntry(3, 2, 0.001) // Perspective

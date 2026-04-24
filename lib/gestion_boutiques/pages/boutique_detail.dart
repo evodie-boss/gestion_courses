@@ -682,7 +682,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                   titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
                 ),
                 actions: [
-                  Stack(
+                  Stack( // permet de superposer des widgets
                     children: [
                       IconButton(
                         icon: const Icon(
@@ -826,7 +826,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                 child: _categories.length > 1
                     ? SizedBox(
                         height: 60,
-                        child: ListView.builder(
+                        child: ListView.builder( //widget adapté pour créer une liste déroulante infinie
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: _categories.length,

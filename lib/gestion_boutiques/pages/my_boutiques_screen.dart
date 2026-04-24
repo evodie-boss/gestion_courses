@@ -3,16 +3,54 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
-// En haut du fichier, ajoutez cet import :
 import 'package:gestion_courses/gestion_boutiques/boutiques/formulaire_inscription.dart';
-import 'package:gestion_courses/gestion_boutiques/boutiques/dashboard.dart'; // Tableau de bord individuel
+import 'package:gestion_courses/gestion_boutiques/boutiques/dashboard.dart';
 
 class MyBoutiquesScreen extends StatelessWidget {
   const MyBoutiquesScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final userId = currentUser?.uid;
+
+    // Si l'utilisateur n'est pas connecté, afficher un message
+    if (userId == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Mes Boutiques'),
+          backgroundColor: AppColors.tropicalTeal,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline,
+                size: 80,
+                color: Colors.grey.withOpacity(0.3),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Connexion requise',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Veuillez vous connecter pour voir vos boutiques',
+                style: TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -20,11 +58,12 @@ class MyBoutiquesScreen extends StatelessWidget {
         backgroundColor: AppColors.tropicalTeal,
         foregroundColor: Colors.white,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
+      body: FutureBuilder<QuerySnapshot>(
+        // ✅ CORRECTION : Filtrer directement dans la requête Firestore
+        future: FirebaseFirestore.instance
             .collection('boutiques')
-            .where('createdBy', isEqualTo: userId)
-            .snapshots(),
+            .where('ownerId', isEqualTo: userId)
+            .get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -41,7 +80,10 @@ class MyBoutiquesScreen extends StatelessWidget {
             );
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          // ✅ CORRECTION : Plus besoin de filtrer, les données sont déjà celles de l'utilisateur
+          final myBoutiques = snapshot.data!.docs;
+
+          if (myBoutiques.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -85,10 +127,8 @@ class MyBoutiquesScreen extends StatelessWidget {
             );
           }
 
-          final boutiques = snapshot.data!.docs;
-
-          // Trier localement côté client
-          boutiques.sort((a, b) {
+          // Trier les boutiques
+          myBoutiques.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
             final bData = b.data() as Map<String, dynamic>;
             final aNom = (aData['nom'] ?? '').toLowerCase();
@@ -98,9 +138,9 @@ class MyBoutiquesScreen extends StatelessWidget {
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: boutiques.length,
+            itemCount: myBoutiques.length,
             itemBuilder: (context, index) {
-              final boutique = boutiques[index];
+              final boutique = myBoutiques[index];
               final data = boutique.data() as Map<String, dynamic>;
 
               // Lire le solde en temps réel
@@ -115,7 +155,7 @@ class MyBoutiquesScreen extends StatelessWidget {
                       context,
                       boutique.id,
                       data,
-                      0.0, // Valeur par défaut
+                      0.0,
                     );
                   }
 
@@ -156,7 +196,6 @@ class MyBoutiquesScreen extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          // Aller au tableau de bord ADMIN pour CETTE boutique
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -269,19 +308,19 @@ class MyBoutiquesScreen extends StatelessWidget {
                   _buildStatItem(
                     Icons.shopping_cart,
                     'Commandes',
-                    '0', // À remplacer par le vrai nombre
+                    '0',
                     context,
                   ),
                   _buildStatItem(
                     Icons.attach_money,
                     'CA du mois',
-                    '0 FCFA', // À remplacer par le vrai montant
+                    '0 FCFA',
                     context,
                   ),
                   _buildStatItem(
                     Icons.star,
                     'Évaluation',
-                    '4.5', // À remplacer par la vraie note
+                    '4.5',
                     context,
                   ),
                 ],
@@ -329,7 +368,6 @@ class MyBoutiquesScreen extends StatelessWidget {
         return;
       }
 
-      // Navigation vers votre formulaire d'inscription existant
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -346,7 +384,7 @@ class MyBoutiquesScreen extends StatelessWidget {
   }
 }
 
-// Dialogue de création de boutique
+// Dialogue de création de boutique (garde l'existant)
 class CreateBoutiqueDialog extends StatefulWidget {
   const CreateBoutiqueDialog({Key? key}) : super(key: key);
 
@@ -425,7 +463,7 @@ class _CreateBoutiqueDialogState extends State<CreateBoutiqueDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
+          onPressed: () => Navigator.pop(context),
           child: const Text('Annuler'),
         ),
         ElevatedButton(

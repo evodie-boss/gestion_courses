@@ -98,7 +98,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Form(
+        child: Form( //widget pour créer un formulaire avec validation
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

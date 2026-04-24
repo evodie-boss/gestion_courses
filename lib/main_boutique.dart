@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; //Bibliothèque pour ajouter des icones
 import 'package:firebase_core/firebase_core.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/boutiques.dart';
 import 'firebase_options.dart'; // IMPORTANT: Ajouter cette importation
@@ -22,7 +22,7 @@ class ElegantBoutiqueApp extends StatelessWidget {  //extends – pour l’héri
     return MaterialApp(
       title: 'StyleShop - Gestion de Boutiques',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
+      theme: ThemeData( // permet de définir un style global (couleurs, polices, etc.).
         fontFamily: 'Poppins',
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0F9E99),

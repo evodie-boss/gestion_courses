@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -132,11 +134,11 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
         'longitude': double.parse(_longitudeController.text.trim()),
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
-        // AJOUTEZ CES CHAMPS CRITIQUES :
-        'createdBy': userId, // Pour filtrer dans Mes Boutiques
-        'isActive': true, // Pour le statut
-        'phone': '', // Champ optionnel
-        'email': '', // Champ optionnel
+        // Clé secondaire reliant aux users
+        'ownerId': userId,
+        'isActive': true,
+        'phone': '',
+        'email': '',
       });
 
       // Réinitialiser le formulaire
@@ -736,7 +738,7 @@ class DashboardPage extends StatelessWidget {
             ),
             const SizedBox(height: 40),
             SizedBox(
-              width: 200,
+              width: min(280, MediaQuery.of(context).size.width * 0.9),
               height: 50,
               child: ElevatedButton(
                 onPressed: () {
@@ -761,7 +763,7 @@ class DashboardPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             SizedBox(
-              width: 200,
+              width: min(280, MediaQuery.of(context).size.width * 0.9),
               height: 50,
               child: ElevatedButton(
                 // Changé de OutlinedButton à ElevatedButton
