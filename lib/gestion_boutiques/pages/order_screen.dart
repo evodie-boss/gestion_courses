@@ -1728,7 +1728,7 @@ class _OrderScreenState extends State<OrderScreen> {
     final anySelected = selectedCount > 0;
 
     return Expanded(
-      child: GestureDetector( // widgets utilisés pour détecter un clic 
+      child: GestureDetector(
         onTap: totalCount == 0
             ? null
             : () => _toggleProductsByCategory(boutiqueId, products, category),

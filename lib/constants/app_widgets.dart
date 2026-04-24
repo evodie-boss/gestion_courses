@@ -39,7 +39,7 @@ class ElegantCard extends StatelessWidget {
     if (onTap != null) {
       card = Material(
         color: Colors.transparent,
-        child: InkWell( // widgets utilisés pour détecter un clic 
+        child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           splashColor: AppColors.tropicalTeal.withOpacity(0.1),
@@ -319,7 +319,7 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded( //permet à un enfant d’une Row ou Column de prendre tout l’espace disponible restant.
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

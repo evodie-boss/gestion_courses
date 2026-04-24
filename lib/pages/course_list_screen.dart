@@ -929,140 +929,123 @@ class _CourseListScreenState extends State<CourseListScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         const SizedBox(height: 12),
-                        // Section d'informations détaillées - RESPONSIVE
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              // Quantité et unité
-                              if (course.quantity > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.format_list_numbered,
-                                        size: 14,
-                                        color: isDone
-                                            ? Colors.grey
-                                            : primaryColor,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${course.quantity} ${course.unit}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isDone
-                                              ? Colors.grey
-                                              : textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              // Prix unitaire
-                              if (course.unitPrice > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.attach_money,
-                                        size: 14,
-                                        color: isDone
-                                            ? Colors.grey
-                                            : primaryColor,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${course.unitPrice.toStringAsFixed(2)} FCFA',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isDone
-                                              ? Colors.grey
-                                              : textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              // Montant total
+                        // Section d'informations détaillées
+                        Row(
+                          children: [
+                            // Quantité et unité
+                            if (course.quantity > 0)
                               Row(
                                 children: [
                                   Icon(
-                                    Icons.calculate,
+                                    Icons.format_list_numbered,
                                     size: 14,
                                     color: isDone
                                         ? Colors.grey
-                                        : primaryColor,
+                                        : primaryColor, // Griser si fait
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '${course.amount.toStringAsFixed(2)} FCFA',
+                                    '${course.quantity} ${course.unit}',
                                     style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
                                       color: isDone
                                           ? Colors.grey
-                                          : primaryColor,
+                                          : textSecondary, // Griser si fait
                                     ),
                                   ),
+                                  const SizedBox(width: 12),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Date limite - RESPONSIVE
-                        if (course.dueDate != null)
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 14,
-                                  color: isDone
-                                      ? Colors.grey
-                                      : textSecondary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Échéance: ${_formatDate(course.dueDate!)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
+                            // Prix unitaire
+                            if (course.unitPrice > 0)
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.attach_money,
+                                    size: 14,
                                     color: isDone
                                         ? Colors.grey
-                                        : textSecondary,
+                                        : primaryColor, // Griser si fait
                                   ),
-                                ),
-                                // Indicateur de retard
-                                if (course.dueDate!.isBefore(DateTime.now()) &&
-                                    !isDone)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: errorColor.withOpacity(0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        'EN RETARD',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: errorColor,
-                                        ),
-                                      ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${course.unitPrice.toStringAsFixed(2)} FCFA/${course.unit}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDone
+                                          ? Colors.grey
+                                          : textSecondary, // Griser si fait
                                     ),
                                   ),
-                              ],
+                                  const SizedBox(width: 12),
+                                ],
+                              ),
+                            // Montant total
+                            Icon(
+                              Icons.calculate,
+                              size: 14,
+                              color: isDone
+                                  ? Colors.grey
+                                  : primaryColor, // Griser si fait
                             ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${course.amount.toStringAsFixed(2)} FCFA',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDone
+                                    ? Colors.grey
+                                    : primaryColor, // Griser si fait
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Date limite
+                        if (course.dueDate != null)
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today,
+                                size: 14,
+                                color: isDone
+                                    ? Colors.grey
+                                    : textSecondary, // Griser si fait
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Échéance: ${_formatDate(course.dueDate!)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDone
+                                      ? Colors.grey
+                                      : textSecondary, // Griser si fait
+                                ),
+                              ),
+                              // Indicateur de retard
+                              if (course.dueDate!.isBefore(DateTime.now()) &&
+                                  !isDone)
+                                Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: errorColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'EN RETARD',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: errorColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                       ],
                     ),

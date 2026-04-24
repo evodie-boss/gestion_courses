@@ -41,49 +41,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAEfKfP_3Ix_NhHy7p9GBWaYK88MX3JQbc',
-    appId: '1:96620784906:web:290c0491c93d1637e59ef3',
-    messagingSenderId: '96620784906',
-    projectId: 'gestion-courses-403c0',
-    authDomain: 'gestion-courses-403c0.firebaseapp.com',
-    storageBucket: 'gestion-courses-403c0.firebasestorage.app',
-    measurementId: 'G-WRJMFFP539',
+    apiKey: 'AIzaSyAcjevH8LIhoKLeD_XrQNktkT4ASPDtDCs',
+    appId: '1:527678259554:web:d1a84114336997098a2c3b',
+    messagingSenderId: '527678259554',
+    projectId: 'gestion-courses-cec47',
+    authDomain: 'gestion-courses-cec47.firebaseapp.com',
+    storageBucket: 'gestion-courses-cec47.firebasestorage.app',
+    measurementId: 'G-S3W33MNG0Z',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDJplFV5sq20tT7838YWorZmJDWFn1J2jM',
-    appId: '1:96620784906:android:31e0675c7d846844e59ef3',
-    messagingSenderId: '96620784906',
-    projectId: 'gestion-courses-403c0',
-    storageBucket: 'gestion-courses-403c0.firebasestorage.app',
+    apiKey: 'AIzaSyCjhoRJsGrrBp8t_IZgke0OfhFKyy5s_fc',
+    appId: '1:527678259554:android:d8f423219502808e8a2c3b',
+    messagingSenderId: '527678259554',
+    projectId: 'gestion-courses-cec47',
+    storageBucket: 'gestion-courses-cec47.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDWUFAudGpedjiJ8US96Zh1dPyixEmY7QY',
-    appId: '1:96620784906:ios:950c573acd413edbe59ef3',
-    messagingSenderId: '96620784906',
-    projectId: 'gestion-courses-403c0',
-    storageBucket: 'gestion-courses-403c0.firebasestorage.app',
+    apiKey: 'AIzaSyDbacDWl5GDnaA8y4l7oou3Y--3Uiu0gac',
+    appId: '1:527678259554:ios:3b88cbc30f0d03728a2c3b',
+    messagingSenderId: '527678259554',
+    projectId: 'gestion-courses-cec47',
+    storageBucket: 'gestion-courses-cec47.firebasestorage.app',
     iosBundleId: 'com.example.gestionCourses',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDWUFAudGpedjiJ8US96Zh1dPyixEmY7QY',
-    appId: '1:96620784906:ios:950c573acd413edbe59ef3',
-    messagingSenderId: '96620784906',
-    projectId: 'gestion-courses-403c0',
-    storageBucket: 'gestion-courses-403c0.firebasestorage.app',
+    apiKey: 'AIzaSyDbacDWl5GDnaA8y4l7oou3Y--3Uiu0gac',
+    appId: '1:527678259554:ios:3b88cbc30f0d03728a2c3b',
+    messagingSenderId: '527678259554',
+    projectId: 'gestion-courses-cec47',
+    storageBucket: 'gestion-courses-cec47.firebasestorage.app',
     iosBundleId: 'com.example.gestionCourses',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAEfKfP_3Ix_NhHy7p9GBWaYK88MX3JQbc',
-    appId: '1:96620784906:web:ca92aab5146e94bee59ef3',
-    messagingSenderId: '96620784906',
-    projectId: 'gestion-courses-403c0',
-    authDomain: 'gestion-courses-403c0.firebaseapp.com',
-    storageBucket: 'gestion-courses-403c0.firebasestorage.app',
-    measurementId: 'G-45839M67HY',
+    apiKey: 'AIzaSyAcjevH8LIhoKLeD_XrQNktkT4ASPDtDCs',
+    appId: '1:527678259554:web:bf371f27f29904998a2c3b',
+    messagingSenderId: '527678259554',
+    projectId: 'gestion-courses-cec47',
+    authDomain: 'gestion-courses-cec47.firebaseapp.com',
+    storageBucket: 'gestion-courses-cec47.firebasestorage.app',
+    measurementId: 'G-L16WQ35V6K',
   );
-
 }

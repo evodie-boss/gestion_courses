@@ -3,56 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
+// En haut du fichier, ajoutez cet import :
 import 'package:gestion_courses/gestion_boutiques/boutiques/formulaire_inscription.dart';
-import 'package:gestion_courses/gestion_boutiques/boutiques/dashboard.dart';
+import 'package:gestion_courses/gestion_boutiques/boutiques/dashboard.dart'; // Tableau de bord individuel
 
 class MyBoutiquesScreen extends StatelessWidget {
   const MyBoutiquesScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final userId = currentUser?.uid;
-
-    if (userId == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Mes Boutiques'),
-          backgroundColor: AppColors.tropicalTeal,
-          foregroundColor: Colors.white,
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: MediaQuery.of(context).size.width * 0.2,
-                  color: Colors.grey.withOpacity(0.3),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Connexion requise',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Veuillez vous connecter pour voir vos boutiques',
-                  style: TextStyle(color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
       appBar: AppBar(
@@ -60,11 +20,11 @@ class MyBoutiquesScreen extends StatelessWidget {
         backgroundColor: AppColors.tropicalTeal,
         foregroundColor: Colors.white,
       ),
-      body: FutureBuilder<QuerySnapshot>(
-        future: FirebaseFirestore.instance
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
             .collection('boutiques')
-            .where('ownerId', isEqualTo: userId)
-            .get(),
+            .where('createdBy', isEqualTo: userId)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -74,67 +34,61 @@ class MyBoutiquesScreen extends StatelessWidget {
 
           if (snapshot.hasError) {
             return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Erreur: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
+              child: Text(
+                'Erreur: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
               ),
             );
           }
 
-          final myBoutiques = snapshot.data!.docs;
-
-          if (myBoutiques.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.store_mall_directory_outlined,
-                      size: MediaQuery.of(context).size.width * 0.2,
-                      color: Colors.grey.withOpacity(0.3),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.store_mall_directory_outlined,
+                    size: 80,
+                    color: Colors.grey.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Vous n\'avez pas encore créé de boutique',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Vous n\'avez pas encore créé de boutique',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Créez votre première boutique pour commencer',
+                    style: TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => _createNewBoutique(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.tropicalTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Créez votre première boutique pour commencer',
-                      style: TextStyle(color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () => _createNewBoutique(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.tropicalTeal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('Créer ma première boutique'),
-                    ),
-                  ],
-                ),
+                    child: const Text('Créer ma première boutique'),
+                  ),
+                ],
               ),
             );
           }
 
-          myBoutiques.sort((a, b) {
+          final boutiques = snapshot.data!.docs;
+
+          // Trier localement côté client
+          boutiques.sort((a, b) {
             final aData = a.data() as Map<String, dynamic>;
             final bData = b.data() as Map<String, dynamic>;
             final aNom = (aData['nom'] ?? '').toLowerCase();
@@ -142,126 +96,42 @@ class MyBoutiquesScreen extends StatelessWidget {
             return aNom.compareTo(bNom);
           });
 
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isTablet = screenWidth >= 600;
-          final isDesktop = screenWidth >= 1200;
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: boutiques.length,
+            itemBuilder: (context, index) {
+              final boutique = boutiques[index];
+              final data = boutique.data() as Map<String, dynamic>;
 
-          if (isDesktop) {
-            return Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.9, // Changé de 0.8 à 0.9 pour plus de hauteur
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: myBoutiques.length,
-                itemBuilder: (context, index) {
-                  final boutique = myBoutiques[index];
-                  final data = boutique.data() as Map<String, dynamic>;
-                  return StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('boutiques')
-                        .doc(boutique.id)
-                        .snapshots(),
-                    builder: (context, boutiqueSnapshot) {
-                      if (!boutiqueSnapshot.hasData) {
-                        return _buildBoutiqueCardDesktop(
-                          context,
-                          boutique.id,
-                          data,
-                          0.0,
-                        );
-                      }
-                      final boutiqueData = boutiqueSnapshot.data!.data() as Map<String, dynamic>?;
-                      final balance = (boutiqueData?['balance'] ?? 0.0).toDouble();
-                      return _buildBoutiqueCardDesktop(
-                        context,
-                        boutique.id,
-                        data,
-                        balance,
-                      );
-                    },
-                  );
-                },
-              ),
-            );
-          } else if (isTablet) {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.85, // Changé de 0.75 à 0.85
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: myBoutiques.length,
-                itemBuilder: (context, index) {
-                  final boutique = myBoutiques[index];
-                  final data = boutique.data() as Map<String, dynamic>;
-                  return StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('boutiques')
-                        .doc(boutique.id)
-                        .snapshots(),
-                    builder: (context, boutiqueSnapshot) {
-                      if (!boutiqueSnapshot.hasData) {
-                        return _buildBoutiqueCardTablet(
-                          context,
-                          boutique.id,
-                          data,
-                          0.0,
-                        );
-                      }
-                      final boutiqueData = boutiqueSnapshot.data!.data() as Map<String, dynamic>?;
-                      final balance = (boutiqueData?['balance'] ?? 0.0).toDouble();
-                      return _buildBoutiqueCardTablet(
-                        context,
-                        boutique.id,
-                        data,
-                        balance,
-                      );
-                    },
-                  );
-                },
-              ),
-            );
-          } else {
-            return ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: myBoutiques.length,
-              itemBuilder: (context, index) {
-                final boutique = myBoutiques[index];
-                final data = boutique.data() as Map<String, dynamic>;
-                return StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('boutiques')
-                      .doc(boutique.id)
-                      .snapshots(),
-                  builder: (context, boutiqueSnapshot) {
-                    if (!boutiqueSnapshot.hasData) {
-                      return _buildBoutiqueCardMobile(
-                        context,
-                        boutique.id,
-                        data,
-                        0.0,
-                      );
-                    }
-                    final boutiqueData = boutiqueSnapshot.data!.data() as Map<String, dynamic>?;
-                    final balance = (boutiqueData?['balance'] ?? 0.0).toDouble();
-                    return _buildBoutiqueCardMobile(
+              // Lire le solde en temps réel
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('boutiques')
+                    .doc(boutique.id)
+                    .snapshots(),
+                builder: (context, boutiqueSnapshot) {
+                  if (!boutiqueSnapshot.hasData) {
+                    return _buildBoutiqueCard(
                       context,
                       boutique.id,
                       data,
-                      balance,
+                      0.0, // Valeur par défaut
                     );
-                  },
-                );
-              },
-            );
-          }
+                  }
+
+                  final boutiqueData = boutiqueSnapshot.data!.data() as Map<String, dynamic>?;
+                  final balance = (boutiqueData?['balance'] ?? 0.0).toDouble();
+                  
+                  return _buildBoutiqueCard(
+                    context,
+                    boutique.id,
+                    data,
+                    balance,
+                  );
+                },
+              );
+            },
+          );
         },
       ),
       floatingActionButton: FloatingActionButton(
@@ -273,20 +143,20 @@ class MyBoutiquesScreen extends StatelessWidget {
     );
   }
 
-  // Version mobile (liste) - Aucun changement nécessaire, ça fonctionne bien
-  Widget _buildBoutiqueCardMobile(
+  Widget _buildBoutiqueCard(
     BuildContext context,
     String boutiqueId,
     Map<String, dynamic> data,
     double balance,
   ) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
+          // Aller au tableau de bord ADMIN pour CETTE boutique
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -298,27 +168,26 @@ class MyBoutiquesScreen extends StatelessWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Important pour éviter l'overflow
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 60,
+                    height: 60,
                     decoration: BoxDecoration(
                       color: AppColors.tropicalTeal.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.storefront,
-                      size: 24,
+                      size: 30,
                       color: AppColors.tropicalTeal,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,49 +195,37 @@ class MyBoutiquesScreen extends StatelessWidget {
                         Text(
                           data['nom'] ?? 'Boutique sans nom',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           data['categories'] ?? 'Général',
                           style: TextStyle(
                             color: Colors.grey[600],
-                            fontSize: 12,
+                            fontSize: 14,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                  Icon(Icons.arrow_forward_ios, color: Colors.grey[400]),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.location_on, size: 12, color: Colors.grey[500]),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      data['adresse'] ?? 'Adresse non définie',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 12),
+              Text(
+                data['adresse'] ?? 'Adresse non définie',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
               ),
               const SizedBox(height: 8),
+              
+              // AFFICHAGE DU SOLDE DE LA BOUTIQUE
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.tropicalTeal.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: AppColors.tropicalTeal.withOpacity(0.2),
                   ),
@@ -381,13 +238,13 @@ class MyBoutiquesScreen extends StatelessWidget {
                         Icon(
                           Icons.account_balance_wallet,
                           color: AppColors.tropicalTeal,
-                          size: 16,
+                          size: 20,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 8),
                         const Text(
-                          'Solde:',
+                          'Solde disponible:',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -396,7 +253,7 @@ class MyBoutiquesScreen extends StatelessWidget {
                     Text(
                       '${balance.toStringAsFixed(0)} FCFA',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppColors.tropicalTeal,
                       ),
@@ -404,13 +261,29 @@ class MyBoutiquesScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildStatItemMobile(Icons.shopping_cart, '0'),
-                  _buildStatItemMobile(Icons.attach_money, '0 FCFA'),
-                  _buildStatItemMobile(Icons.star, '4.5'),
+                  _buildStatItem(
+                    Icons.shopping_cart,
+                    'Commandes',
+                    '0', // À remplacer par le vrai nombre
+                    context,
+                  ),
+                  _buildStatItem(
+                    Icons.attach_money,
+                    'CA du mois',
+                    '0 FCFA', // À remplacer par le vrai montant
+                    context,
+                  ),
+                  _buildStatItem(
+                    Icons.star,
+                    'Évaluation',
+                    '4.5', // À remplacer par la vraie note
+                    context,
+                  ),
                 ],
               ),
             ],
@@ -420,284 +293,25 @@ class MyBoutiquesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItemMobile(IconData icon, String value) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.tropicalTeal),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  // Version tablette corrigée - Plus de Expanded problématique
-  Widget _buildBoutiqueCardTablet(
+  Widget _buildStatItem(
+    IconData icon,
+    String label,
+    String value,
     BuildContext context,
-    String boutiqueId,
-    Map<String, dynamic> data,
-    double balance,
   ) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AdminDashboard(
-                boutiqueId: boutiqueId,
-                boutiqueName: data['nom'] ?? 'Boutique',
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Évite l'overflow
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Logo centré
-              Center(
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: AppColors.tropicalTeal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.storefront,
-                    size: 30,
-                    color: AppColors.tropicalTeal,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                data['nom'] ?? 'Boutique sans nom',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                data['categories'] ?? 'Général',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(Icons.location_on, size: 10, color: Colors.grey[500]),
-                  const SizedBox(width: 2),
-                  Expanded(
-                    child: Text(
-                      data['adresse'] ?? 'Adresse non définie',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 10),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColors.tropicalTeal.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: AppColors.tropicalTeal.withOpacity(0.2),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Solde',
-                      style: TextStyle(fontSize: 10),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${balance.toStringAsFixed(0)} FCFA',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.tropicalTeal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Version desktop corrigée - Plus de Spacer() problématique
-  Widget _buildBoutiqueCardDesktop(
-    BuildContext context,
-    String boutiqueId,
-    Map<String, dynamic> data,
-    double balance,
-  ) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AdminDashboard(
-                boutiqueId: boutiqueId,
-                boutiqueName: data['nom'] ?? 'Boutique',
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // CRUCIAL pour éviter l'overflow
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: AppColors.tropicalTeal.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.storefront,
-                      size: 25,
-                      color: AppColors.tropicalTeal,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data['nom'] ?? 'Boutique sans nom',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          data['categories'] ?? 'Général',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.location_on, size: 12, color: Colors.grey[500]),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      data['adresse'] ?? 'Adresse non définie',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.tropicalTeal.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: AppColors.tropicalTeal.withOpacity(0.2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Solde:',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      '${balance.toStringAsFixed(0)} FCFA',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.tropicalTeal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItemDesktop(Icons.shopping_cart, '0'),
-                  _buildStatItemDesktop(Icons.attach_money, '0 FCFA'),
-                  _buildStatItemDesktop(Icons.star, '4.5'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItemDesktop(IconData icon, String value) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: AppColors.tropicalTeal),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        Row(
+          children: [
+            Icon(icon, size: 16, color: AppColors.tropicalTeal),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+          ],
         ),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
   }
@@ -715,6 +329,7 @@ class MyBoutiquesScreen extends StatelessWidget {
         return;
       }
 
+      // Navigation vers votre formulaire d'inscription existant
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -728,5 +343,119 @@ class MyBoutiquesScreen extends StatelessWidget {
         SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+}
+
+// Dialogue de création de boutique
+class CreateBoutiqueDialog extends StatefulWidget {
+  const CreateBoutiqueDialog({Key? key}) : super(key: key);
+
+  @override
+  State<CreateBoutiqueDialog> createState() => _CreateBoutiqueDialogState();
+}
+
+class _CreateBoutiqueDialogState extends State<CreateBoutiqueDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nomController = TextEditingController();
+  final _adresseController = TextEditingController();
+  final _categorieController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Créer une nouvelle boutique'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _nomController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom de la boutique*',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Le nom est obligatoire';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _adresseController,
+                decoration: const InputDecoration(
+                  labelText: 'Adresse',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _categorieController,
+                decoration: const InputDecoration(
+                  labelText: 'Catégorie (ex: Épicerie, Vêtements)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context, {
+                'nom': _nomController.text,
+                'adresse': _adresseController.text,
+                'categorie': _categorieController.text,
+                'phone': _phoneController.text,
+                'email': _emailController.text,
+              });
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.tropicalTeal,
+          ),
+          child: const Text('Créer'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _nomController.dispose();
+    _adresseController.dispose();
+    _categorieController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
   }
 }
