@@ -110,3 +110,5 @@ flutter_icons:
   android: true
   ios: true
   image_path: "assets/images/logo_courses.jpg"
+  adaptive_icon_background: "#FFFFFF" 
+  min_sdk_android: 21

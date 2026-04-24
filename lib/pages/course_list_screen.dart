@@ -929,19 +929,22 @@ class _CourseListScreenState extends State<CourseListScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         const SizedBox(height: 12),
-                        // Section d'informations détaillées
-                        Row(
+                        // Passe sur plusieurs lignes quand l'espace manque.
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            // Quantité et unité
                             if (course.quantity > 0)
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.format_list_numbered,
                                     size: 14,
                                     color: isDone
                                         ? Colors.grey
-                                        : primaryColor, // Griser si fait
+                                        : primaryColor,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -950,22 +953,21 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                       fontSize: 12,
                                       color: isDone
                                           ? Colors.grey
-                                          : textSecondary, // Griser si fait
+                                          : textSecondary,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
                                 ],
                               ),
-                            // Prix unitaire
                             if (course.unitPrice > 0)
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.attach_money,
                                     size: 14,
                                     color: isDone
                                         ? Colors.grey
-                                        : primaryColor, // Griser si fait
+                                        : primaryColor,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -974,60 +976,63 @@ class _CourseListScreenState extends State<CourseListScreen> {
                                       fontSize: 12,
                                       color: isDone
                                           ? Colors.grey
-                                          : textSecondary, // Griser si fait
+                                          : textSecondary,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
                                 ],
                               ),
-                            // Montant total
-                            Icon(
-                              Icons.calculate,
-                              size: 14,
-                              color: isDone
-                                  ? Colors.grey
-                                  : primaryColor, // Griser si fait
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${course.amount.toStringAsFixed(2)} FCFA',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: isDone
-                                    ? Colors.grey
-                                    : primaryColor, // Griser si fait
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calculate,
+                                  size: 14,
+                                  color: isDone
+                                      ? Colors.grey
+                                      : primaryColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${course.amount.toStringAsFixed(2)} FCFA',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDone
+                                        ? Colors.grey
+                                        : primaryColor,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         // Date limite
                         if (course.dueDate != null)
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Icon(
                                 Icons.calendar_today,
                                 size: 14,
                                 color: isDone
                                     ? Colors.grey
-                                    : textSecondary, // Griser si fait
+                                    : textSecondary,
                               ),
-                              const SizedBox(width: 4),
                               Text(
                                 'Échéance: ${_formatDate(course.dueDate!)}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: isDone
                                       ? Colors.grey
-                                      : textSecondary, // Griser si fait
+                                      : textSecondary,
                                 ),
                               ),
-                              // Indicateur de retard
                               if (course.dueDate!.isBefore(DateTime.now()) &&
                                   !isDone)
                                 Container(
-                                  margin: const EdgeInsets.only(left: 8),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 6,
                                     vertical: 2,

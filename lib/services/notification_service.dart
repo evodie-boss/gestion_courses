@@ -68,17 +68,82 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   // Seuil de solde faible (en FCFA)
-  static const double lowBalanceThreshold = 10000.0; // 10 000FCFA
-  
+  static const double lowBalanceThreshold = 10000.0;
+
   // Stream controllers pour les notifications en temps réel
-  final _walletNotificationsController = StreamController<AppNotification>.broadcast();
-  final _orderNotificationsController = StreamController<AppNotification>.broadcast();
-  
+  final _walletNotificationsController =
+      StreamController<AppNotification>.broadcast();
+  final _orderNotificationsController =
+      StreamController<AppNotification>.broadcast();
+  final _notificationEventsController =
+      StreamController<AppNotification>.broadcast();
+
   // Streams publics
-  Stream<AppNotification> get walletNotifications => _walletNotificationsController.stream;
+  Stream<AppNotification> get walletNotifications =>
+      _walletNotificationsController.stream;
   Stream<AppNotification> get orderNotifications => _orderNotificationsController.stream;
+  Stream<AppNotification> get notificationEvents =>
+      _notificationEventsController.stream;
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _walletSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ordersSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _createdBoutiquesSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _ownedBoutiquesSubscription;
+
+  String? _activeUserId;
+  double? _lastKnownBalance;
+  bool _walletAlertActive = false;
+  final Set<String> _processedOrderIds = <String>{};
+  Set<String> _createdBoutiqueIds = <String>{};
+  Set<String> _ownedBoutiqueIds = <String>{};
+
+  Stream<List<AppNotification>> watchNotifications(String userId) {
+    return _firestore
+        .collection('notifications')
+        .doc(userId)
+        .collection('user_notifications')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AppNotification.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  Future<void> startMonitoring(String userId) async {
+    if (_activeUserId == userId) return;
+
+    await stopMonitoring();
+    _activeUserId = userId;
+
+    await _seedExistingOrders();
+    await _refreshOwnedBoutiques(userId);
+    _listenToOwnedBoutiques(userId);
+    _listenToWallet(userId);
+    _listenToOrders();
+  }
+
+  Future<void> stopMonitoring() async {
+    await _walletSubscription?.cancel();
+    await _ordersSubscription?.cancel();
+    await _createdBoutiquesSubscription?.cancel();
+    await _ownedBoutiquesSubscription?.cancel();
+
+    _walletSubscription = null;
+    _ordersSubscription = null;
+    _createdBoutiquesSubscription = null;
+    _ownedBoutiquesSubscription = null;
+    _activeUserId = null;
+    _lastKnownBalance = null;
+    _walletAlertActive = false;
+    _processedOrderIds.clear();
+    _createdBoutiqueIds = <String>{};
+    _ownedBoutiqueIds = <String>{};
+  }
 
   // Méthode pour vérifier le solde et générer une notification si nécessaire
   Future<void> checkWalletBalance(String userId) async {
@@ -112,52 +177,148 @@ class NotificationService {
     }
   }
 
-  // Méthode pour écouter les nouvelles commandes
-  Stream<AppNotification> listenForNewOrders(String userId) {
-    return _firestore
-        .collection('commandes')
-        .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
-        .limit(1)
+  Future<void> _seedExistingOrders() async {
+    try {
+      final snapshot = await _firestore
+          .collection('orders')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      _processedOrderIds.addAll(snapshot.docs.map((doc) => doc.id));
+    } catch (e) {
+      print('❌ Erreur _seedExistingOrders: $e');
+    }
+  }
+
+  Future<void> _refreshOwnedBoutiques(String userId) async {
+    try {
+      final results = await Future.wait([
+        _firestore
+            .collection('boutiques')
+            .where('createdBy', isEqualTo: userId)
+            .get(),
+        _firestore
+            .collection('boutiques')
+            .where('ownerId', isEqualTo: userId)
+            .get(),
+      ]);
+
+      _createdBoutiqueIds = results[0].docs.map((doc) => doc.id).toSet();
+      _ownedBoutiqueIds = results[1].docs.map((doc) => doc.id).toSet();
+    } catch (e) {
+      print('❌ Erreur _refreshOwnedBoutiques: $e');
+    }
+  }
+
+  void _listenToOwnedBoutiques(String userId) {
+    _createdBoutiquesSubscription = _firestore
+        .collection('boutiques')
+        .where('createdBy', isEqualTo: userId)
         .snapshots()
-        .asyncMap((snapshot) async {
-      if (snapshot.docs.isNotEmpty) {
-        final latestOrder = snapshot.docs.first;
-        final orderData = latestOrder.data();
-        
-        // Vérifier si c'est une nouvelle commande (créée récemment)
-        final orderDate = (orderData['date'] as Timestamp?)?.toDate();
-        if (orderDate != null) {
-          final now = DateTime.now();
-          final difference = now.difference(orderDate);
-          
-          // Si la commande a moins de 5 minutes, c'est une nouvelle commande
-          if (difference.inMinutes < 5) {
-            final notification = AppNotification(
-              id: latestOrder.id,
-              title: 'Nouvelle commande 🛒',
-              message: 'Vous avez une nouvelle commande de ${(orderData['total'] ?? 0).toStringAsFixed(0)}FCFA',
-              type: NotificationType.order,
-              timestamp: orderDate,
-              data: {
-                'orderId': latestOrder.id,
-                'total': orderData['total'],
-                'boutiqueId': orderData['boutiqueId'],
-              },
-            );
-            
-            await _saveNotification(userId, notification);
-            return notification;
-          }
-        }
-      }
-      return AppNotification(
-        id: '',
-        title: '',
-        message: '',
-        type: NotificationType.info,
+        .listen((snapshot) {
+      _createdBoutiqueIds = snapshot.docs.map((doc) => doc.id).toSet();
+    });
+
+    _ownedBoutiquesSubscription = _firestore
+        .collection('boutiques')
+        .where('ownerId', isEqualTo: userId)
+        .snapshots()
+        .listen((snapshot) {
+      _ownedBoutiqueIds = snapshot.docs.map((doc) => doc.id).toSet();
+    });
+  }
+
+  void _listenToWallet(String userId) {
+    _walletSubscription = _firestore
+        .collection('portefeuille')
+        .doc(userId)
+        .snapshots()
+        .listen((snapshot) async {
+      if (!snapshot.exists) return;
+
+      final balance = (snapshot.data()?['balance'] ?? 0.0).toDouble();
+      final isLowBalance = balance <= lowBalanceThreshold;
+      final shouldNotify = isLowBalance &&
+          (!_walletAlertActive ||
+              (_lastKnownBalance != null &&
+                  _lastKnownBalance! > lowBalanceThreshold));
+
+      _lastKnownBalance = balance;
+      _walletAlertActive = isLowBalance;
+
+      if (!shouldNotify) return;
+
+      final notification = AppNotification(
+        id: 'wallet_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Solde faible',
+        message: balance <= 0
+            ? 'Votre portefeuille est vide. Rechargez-le pour continuer.'
+            : 'Votre solde est faible: ${balance.toStringAsFixed(0)} FCFA.',
+        type: NotificationType.wallet,
         timestamp: DateTime.now(),
+        data: {'balance': balance},
       );
+
+      _walletNotificationsController.add(notification);
+      _notificationEventsController.add(notification);
+      await _saveNotification(userId, notification);
+    });
+  }
+
+  void _listenToOrders() {
+    _ordersSubscription = _firestore
+        .collection('orders')
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .listen((snapshot) async {
+      final activeUserId = _activeUserId;
+      if (activeUserId == null) return;
+
+      final ownedBoutiqueIds = {..._createdBoutiqueIds, ..._ownedBoutiqueIds};
+      if (ownedBoutiqueIds.isEmpty) return;
+
+      for (final change in snapshot.docChanges) {
+        if (change.type != DocumentChangeType.added) continue;
+
+        final doc = change.doc;
+        if (_processedOrderIds.contains(doc.id)) continue;
+        _processedOrderIds.add(doc.id);
+
+        final data = doc.data();
+        final boutiqueId = data?['boutiqueId']?.toString();
+        if (boutiqueId == null || !ownedBoutiqueIds.contains(boutiqueId)) {
+          continue;
+        }
+
+        final createdAt = (data?['createdAt'] as Timestamp?)?.toDate();
+        if (createdAt != null &&
+            DateTime.now().difference(createdAt).inHours > 12) {
+          continue;
+        }
+
+        final total = (data?['total'] as num?)?.toDouble() ?? 0.0;
+        final boutiqueName = data?['boutiqueName']?.toString();
+
+        final notification = AppNotification(
+          id: 'order_${doc.id}',
+          title: 'Nouvelle commande',
+          message: boutiqueName != null && boutiqueName.isNotEmpty
+              ? 'Nouvelle commande pour $boutiqueName: ${total.toStringAsFixed(0)} FCFA.'
+              : 'Vous avez reçu une commande de ${total.toStringAsFixed(0)} FCFA.',
+          type: NotificationType.order,
+          timestamp: createdAt ?? DateTime.now(),
+          data: {
+            'orderId': doc.id,
+            'boutiqueId': boutiqueId,
+            'total': total,
+          },
+        );
+
+        _orderNotificationsController.add(notification);
+        _notificationEventsController.add(notification);
+        await _saveNotification(activeUserId, notification);
+      }
     });
   }
 
@@ -318,7 +479,9 @@ class NotificationService {
   }
 
   void dispose() {
+    stopMonitoring();
     _walletNotificationsController.close();
     _orderNotificationsController.close();
+    _notificationEventsController.close();
   }
 }
