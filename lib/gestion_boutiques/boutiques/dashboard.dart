@@ -2255,7 +2255,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(itemMap['name']?.toString() ?? 'Produit',
+                                Text(_getItemProductName(itemMap),
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
                                     overflow: TextOverflow.ellipsis),
                                 Text('Quantité: ${itemMap['quantity'] ?? 1}',
@@ -2483,11 +2483,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String _getProductNameFromOrder(Map<String, dynamic> orderData) {
     try {
       if (orderData['items'] != null && (orderData['items'] as List).isNotEmpty) {
-        final name = (orderData['items'] as List)[0]['name']?.toString() ?? 'Produit';
+        final firstItem = ((orderData['items'] as List).first as Map).cast<String, dynamic>();
+        final name = _getItemProductName(firstItem);
         return name.length > 22 ? '${name.substring(0, 22)}...' : name;
       }
     } catch (_) {}
     return 'Commande';
+  }
+
+  String _getItemProductName(Map<String, dynamic> itemData) {
+    final name = itemData['productName']?.toString();
+    if (name != null && name.trim().isNotEmpty) {
+      return name.trim();
+    }
+
+    final fallback = itemData['name']?.toString();
+    if (fallback != null && fallback.trim().isNotEmpty) {
+      return fallback.trim();
+    }
+
+    return 'Produit';
   }
 
   @override

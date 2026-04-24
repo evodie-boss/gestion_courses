@@ -26,9 +26,9 @@ flutter_launcher_icons:
 
   windows:
     generate: true
-    image_path: "path/to/image.png"
+    image_path: "assets/images/logo_courses.jpg"
     icon_size: 48 # min:48, max:256, default: 48
 
   macos:
     generate: true
-    image_path: "path/to/image.png"
+    image_path: "assets/images/logo_courses.jpg"

@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 
@@ -70,7 +69,7 @@ class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Seuil de solde faible (en FCFA)
-  static const double lowBalanceThreshold = 10000.0;
+  static const double lowBalanceThreshold = 5000.0;
 
   // Stream controllers pour les notifications en temps réel
   final _walletNotificationsController =
@@ -89,11 +88,13 @@ class NotificationService {
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _walletSubscription;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ordersSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _createdBoutiquesSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _ownedBoutiquesSubscription;
+  final Map<String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
+      _orderSubscriptions =
+      <String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>{};
 
   String? _activeUserId;
   double? _lastKnownBalance;
@@ -101,6 +102,7 @@ class NotificationService {
   final Set<String> _processedOrderIds = <String>{};
   Set<String> _createdBoutiqueIds = <String>{};
   Set<String> _ownedBoutiqueIds = <String>{};
+  final Map<String, bool> _boutiqueOwnershipCache = <String, bool>{};
 
   Stream<List<AppNotification>> watchNotifications(String userId) {
     return _firestore
@@ -124,25 +126,28 @@ class NotificationService {
     await _refreshOwnedBoutiques(userId);
     _listenToOwnedBoutiques(userId);
     _listenToWallet(userId);
-    _listenToOrders();
+    _refreshOrderListeners();
   }
 
   Future<void> stopMonitoring() async {
     await _walletSubscription?.cancel();
-    await _ordersSubscription?.cancel();
     await _createdBoutiquesSubscription?.cancel();
     await _ownedBoutiquesSubscription?.cancel();
+    for (final subscription in _orderSubscriptions.values) {
+      await subscription.cancel();
+    }
 
     _walletSubscription = null;
-    _ordersSubscription = null;
     _createdBoutiquesSubscription = null;
     _ownedBoutiquesSubscription = null;
+    _orderSubscriptions.clear();
     _activeUserId = null;
     _lastKnownBalance = null;
     _walletAlertActive = false;
     _processedOrderIds.clear();
     _createdBoutiqueIds = <String>{};
     _ownedBoutiqueIds = <String>{};
+    _boutiqueOwnershipCache.clear();
   }
 
   // Méthode pour vérifier le solde et générer une notification si nécessaire
@@ -205,6 +210,13 @@ class NotificationService {
 
       _createdBoutiqueIds = results[0].docs.map((doc) => doc.id).toSet();
       _ownedBoutiqueIds = results[1].docs.map((doc) => doc.id).toSet();
+      for (final id in _createdBoutiqueIds) {
+        _boutiqueOwnershipCache[id] = true;
+      }
+      for (final id in _ownedBoutiqueIds) {
+        _boutiqueOwnershipCache[id] = true;
+      }
+      _refreshOrderListeners();
     } catch (e) {
       print('❌ Erreur _refreshOwnedBoutiques: $e');
     }
@@ -217,6 +229,10 @@ class NotificationService {
         .snapshots()
         .listen((snapshot) {
       _createdBoutiqueIds = snapshot.docs.map((doc) => doc.id).toSet();
+      for (final id in _createdBoutiqueIds) {
+        _boutiqueOwnershipCache[id] = true;
+      }
+      _refreshOrderListeners();
     });
 
     _ownedBoutiquesSubscription = _firestore
@@ -225,7 +241,35 @@ class NotificationService {
         .snapshots()
         .listen((snapshot) {
       _ownedBoutiqueIds = snapshot.docs.map((doc) => doc.id).toSet();
+      for (final id in _ownedBoutiqueIds) {
+        _boutiqueOwnershipCache[id] = true;
+      }
+      _refreshOrderListeners();
     });
+  }
+
+  Future<bool> _isOwnedBoutique(String userId, String boutiqueId) async {
+    if (_boutiqueOwnershipCache.containsKey(boutiqueId)) {
+      return _boutiqueOwnershipCache[boutiqueId]!;
+    }
+
+    try {
+      final doc =
+          await _firestore.collection('boutiques').doc(boutiqueId).get();
+      if (!doc.exists) {
+        _boutiqueOwnershipCache[boutiqueId] = false;
+        return false;
+      }
+
+      final data = doc.data() ?? <String, dynamic>{};
+      final isOwned =
+          data['createdBy'] == userId || data['ownerId'] == userId;
+      _boutiqueOwnershipCache[boutiqueId] = isOwned;
+      return isOwned;
+    } catch (e) {
+      print('❌ Erreur _isOwnedBoutique: $e');
+      return false;
+    }
   }
 
   void _listenToWallet(String userId) {
@@ -265,61 +309,80 @@ class NotificationService {
     });
   }
 
-  void _listenToOrders() {
-    _ordersSubscription = _firestore
-        .collection('orders')
-        .orderBy('createdAt', descending: true)
-        .limit(50)
-        .snapshots()
-        .listen((snapshot) async {
-      final activeUserId = _activeUserId;
-      if (activeUserId == null) return;
+  void _refreshOrderListeners() {
+    final boutiqueIds = {..._createdBoutiqueIds, ..._ownedBoutiqueIds};
 
-      final ownedBoutiqueIds = {..._createdBoutiqueIds, ..._ownedBoutiqueIds};
-      if (ownedBoutiqueIds.isEmpty) return;
+    final toRemove = _orderSubscriptions.keys
+        .where((id) => !boutiqueIds.contains(id))
+        .toList();
+    for (final boutiqueId in toRemove) {
+      _orderSubscriptions.remove(boutiqueId)?.cancel();
+    }
 
-      for (final change in snapshot.docChanges) {
-        if (change.type != DocumentChangeType.added) continue;
+    for (final boutiqueId in boutiqueIds) {
+      if (_orderSubscriptions.containsKey(boutiqueId)) continue;
 
-        final doc = change.doc;
-        if (_processedOrderIds.contains(doc.id)) continue;
-        _processedOrderIds.add(doc.id);
+      _orderSubscriptions[boutiqueId] = _firestore
+          .collection('orders')
+          .where('boutiqueId', isEqualTo: boutiqueId)
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .snapshots()
+          .listen((snapshot) async {
+        final activeUserId = _activeUserId;
+        if (activeUserId == null) return;
 
-        final data = doc.data();
-        final boutiqueId = data?['boutiqueId']?.toString();
-        if (boutiqueId == null || !ownedBoutiqueIds.contains(boutiqueId)) {
-          continue;
+        for (final change in snapshot.docChanges) {
+          if (change.type != DocumentChangeType.added) continue;
+          await _handleOrderChange(activeUserId, change.doc);
         }
+      });
+    }
+  }
 
-        final createdAt = (data?['createdAt'] as Timestamp?)?.toDate();
-        if (createdAt != null &&
-            DateTime.now().difference(createdAt).inHours > 12) {
-          continue;
-        }
+  Future<void> _handleOrderChange(
+    String activeUserId,
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    if (_processedOrderIds.contains(doc.id)) return;
+    _processedOrderIds.add(doc.id);
 
-        final total = (data?['total'] as num?)?.toDouble() ?? 0.0;
-        final boutiqueName = data?['boutiqueName']?.toString();
+    final data = doc.data();
+    if (data == null) return;
+    final boutiqueId = data['boutiqueId']?.toString();
+    if (boutiqueId == null) return;
 
-        final notification = AppNotification(
-          id: 'order_${doc.id}',
-          title: 'Nouvelle commande',
-          message: boutiqueName != null && boutiqueName.isNotEmpty
-              ? 'Nouvelle commande pour $boutiqueName: ${total.toStringAsFixed(0)} FCFA.'
-              : 'Vous avez reçu une commande de ${total.toStringAsFixed(0)} FCFA.',
-          type: NotificationType.order,
-          timestamp: createdAt ?? DateTime.now(),
-          data: {
-            'orderId': doc.id,
-            'boutiqueId': boutiqueId,
-            'total': total,
-          },
-        );
+    final isOwned = _createdBoutiqueIds.contains(boutiqueId) ||
+        _ownedBoutiqueIds.contains(boutiqueId) ||
+        await _isOwnedBoutique(activeUserId, boutiqueId);
+    if (!isOwned) return;
 
-        _orderNotificationsController.add(notification);
-        _notificationEventsController.add(notification);
-        await _saveNotification(activeUserId, notification);
-      }
-    });
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    if (createdAt != null && DateTime.now().difference(createdAt).inHours > 12) {
+      return;
+    }
+
+    final total = (data['total'] as num?)?.toDouble() ?? 0.0;
+    final boutiqueName = data['boutiqueName']?.toString();
+
+    final notification = AppNotification(
+      id: 'order_${doc.id}',
+      title: 'Nouvelle commande',
+      message: boutiqueName != null && boutiqueName.isNotEmpty
+          ? 'Nouvelle commande pour $boutiqueName: ${total.toStringAsFixed(0)} FCFA.'
+          : 'Vous avez reçu une commande de ${total.toStringAsFixed(0)} FCFA.',
+      type: NotificationType.order,
+      timestamp: createdAt ?? DateTime.now(),
+      data: {
+        'orderId': doc.id,
+        'boutiqueId': boutiqueId,
+        'total': total,
+      },
+    );
+
+    _orderNotificationsController.add(notification);
+    _notificationEventsController.add(notification);
+    await _saveNotification(activeUserId, notification);
   }
 
   // Sauvegarder la notification dans Firestore
@@ -333,6 +396,52 @@ class NotificationService {
           .set(notification.toMap());
     } catch (e) {
       print('❌ Erreur _saveNotification: $e');
+    }
+  }
+
+  Future<void> createOrderNotifications({
+    required String boutiqueId,
+    required String orderId,
+    required double total,
+    String? boutiqueName,
+  }) async {
+    try {
+      final boutiqueDoc =
+          await _firestore.collection('boutiques').doc(boutiqueId).get();
+      if (!boutiqueDoc.exists) return;
+
+      final data = boutiqueDoc.data() ?? <String, dynamic>{};
+      final recipientIds = <String>{
+        if (data['createdBy'] is String) data['createdBy'] as String,
+        if (data['ownerId'] is String) data['ownerId'] as String,
+      }..removeWhere((id) => id.trim().isEmpty);
+
+      if (recipientIds.isEmpty) return;
+
+      final resolvedBoutiqueName = boutiqueName ??
+          data['nom']?.toString() ??
+          data['name']?.toString() ??
+          'Votre boutique';
+
+      for (final userId in recipientIds) {
+        final notification = AppNotification(
+          id: 'order_${orderId}_$userId',
+          title: 'Nouvelle commande',
+          message:
+              'Nouvelle commande pour $resolvedBoutiqueName: ${total.toStringAsFixed(0)} FCFA.',
+          type: NotificationType.order,
+          timestamp: DateTime.now(),
+          data: {
+            'orderId': orderId,
+            'boutiqueId': boutiqueId,
+            'total': total,
+          },
+        );
+
+        await _saveNotification(userId, notification);
+      }
+    } catch (e) {
+      print('❌ Erreur createOrderNotifications: $e');
     }
   }
 

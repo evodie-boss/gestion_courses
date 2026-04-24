@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:gestion_courses/gestion_boutiques/models/products.dart';
 import 'package:gestion_courses/gestion_boutiques/services/firestore_converter.dart';
+import 'package:gestion_courses/services/notification_service.dart';
 
 class BoutiqueDetailScreen extends StatefulWidget {
   final String boutiqueId;
@@ -26,6 +27,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   bool _showCart = false;
   double _cartTotal = 0.0;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final NotificationService _notificationService = NotificationService();
 
   // Images pour chaque catégorie de boutique
   final Map<String, String> _categoryImages = {
@@ -52,6 +54,12 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   bool _isPlacing = false;
   String _deliveryType = 'pickup';
   Map<String, dynamic>? _boutiqueInfo;
+
+  double get _configuredDeliveryFee {
+    final rawFee = _boutiqueInfo?['deliveryFee'];
+    if (rawFee is num) return rawFee.toDouble();
+    return double.tryParse(rawFee?.toString() ?? '') ?? 0.0;
+  }
 
   @override
   void initState() {
@@ -304,6 +312,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
   Future<void> _showDeliveryTypeDialog() async {
     // Sauvegarder le type actuel pour restauration si annulation
     final previousType = _deliveryType;
+    final configuredDeliveryFee = _configuredDeliveryFee;
 
     final result = await showDialog<String>(
       context: context,
@@ -331,7 +340,11 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                   ),
                   RadioListTile<String>(
                     title: const Text('Livraison à domicile'),
-                    subtitle: const Text('+ 2 000 FCFA de frais de livraison'),
+                    subtitle: Text(
+                      configuredDeliveryFee > 0
+                          ? '+ ${configuredDeliveryFee.toStringAsFixed(0)} FCFA de frais de livraison'
+                          : '0 FCFA de frais de livraison',
+                    ),
                     value: 'delivery',
                     groupValue: selectedType,
                     onChanged: (value) {
@@ -365,13 +378,17 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
       },
     );
 
-    if (result != null && result != previousType) {
+    if (result != null) {
       setState(() {
         _deliveryType = result;
       });
 
       await Future.delayed(const Duration(milliseconds: 300));
       await _placeOrder();
+    } else {
+      setState(() {
+        _deliveryType = previousType;
+      });
     }
   }
 
@@ -404,7 +421,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
           .get();
 
       final currentBalance = (walletDoc.data()?['balance'] ?? 0).toDouble();
-      final deliveryFee = _deliveryType == 'delivery' ? 2000.0 : 0.0;
+      final deliveryFee =
+          _deliveryType == 'delivery' ? _configuredDeliveryFee : 0.0;
       final total = _cartTotal + deliveryFee;
 
       if (currentBalance < total) {
@@ -449,6 +467,12 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
 
       // Créer la commande
       final orderRef = await _firestore.collection('orders').add(orderData);
+      await _notificationService.createOrderNotifications(
+        boutiqueId: widget.boutiqueId,
+        orderId: orderRef.id,
+        total: total,
+        boutiqueName: widget.boutiqueName,
+      );
 
       // Débiter le portefeuille
       await _firestore.collection('portefeuille').doc(_currentUser!.uid).update({
@@ -1081,8 +1105,8 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                         ),
                                         Text(
                                           _deliveryType == 'delivery'
-                                              ? '2 000 FCFA'
-                                              : 'Gratuit',
+                                              ? '${_configuredDeliveryFee.toStringAsFixed(0)} FCFA'
+                                              : '0 FCFA',
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: Colors.grey[600],
@@ -1104,7 +1128,7 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '${(_cartTotal + (_deliveryType == 'delivery' ? 2000 : 0)).toStringAsFixed(0)} FCFA',
+                                          '${(_cartTotal + (_deliveryType == 'delivery' ? _configuredDeliveryFee : 0)).toStringAsFixed(0)} FCFA',
                                           style: const TextStyle(
                                             fontSize: 24,
                                             fontWeight: FontWeight.w800,

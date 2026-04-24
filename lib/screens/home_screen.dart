@@ -1,4 +1,6 @@
 // lib/screens/home_screen.dart - CORRIGÉ AVEC STREAM POUR LE SOLDE
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,7 +15,9 @@ import 'package:gestion_courses/pages/course_list_screen.dart';
 import 'package:gestion_courses/gestion_portefeuille/screens/wallet_screen.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/boutiques.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/boutique_detail.dart';
+import 'package:gestion_courses/gestion_boutiques/boutiques/formulaire_inscription.dart';
 import 'package:gestion_courses/services/auth_service.dart';
+import 'package:gestion_courses/services/notification_service.dart';
 import 'package:gestion_courses/models/user_model.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/my_boutiques_screen.dart'; // AJOUTEZ CET IMPORT
 
@@ -29,6 +33,13 @@ class _HomeScreenState extends State<HomeScreen>
   int _currentIndex = 0;
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
+  final NotificationService _notificationService = NotificationService();
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<List<AppNotification>>? _notificationsSubscription;
+  List<AppNotification> _notifications = [];
+  String? _notificationsUserId;
+  final Set<String> _knownNotificationIds = <String>{};
+  bool _hasLoadedNotifications = false;
 
   @override
   void initState() {
@@ -42,10 +53,18 @@ class _HomeScreenState extends State<HomeScreen>
     );
     _loadRecentCourses();
     _loadNearbyShops();
+    _syncNotificationsForUser(FirebaseAuth.instance.currentUser?.uid);
+    _authSubscription =
+        FirebaseAuth.instance.authStateChanges().listen((user) {
+      _syncNotificationsForUser(user?.uid);
+    });
   }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
+    _notificationsSubscription?.cancel();
+    _notificationService.stopMonitoring();
     _scaleController.dispose();
     super.dispose();
   }
@@ -56,6 +75,172 @@ class _HomeScreenState extends State<HomeScreen>
 
   // SUPPRIMÉ : _userWalletBalance - On utilise directement le Stream
   // double _userWalletBalance = 0.0;
+
+  int get _unreadNotificationCount =>
+      _notifications.where((notification) => !notification.isRead).length;
+
+  Future<void> _syncNotificationsForUser(String? userId) async {
+    if (_notificationsUserId == userId) return;
+
+    await _notificationsSubscription?.cancel();
+
+    if (userId == null) {
+      await _notificationService.stopMonitoring();
+      if (!mounted) return;
+      setState(() {
+        _notificationsUserId = null;
+        _notifications = [];
+      });
+      _knownNotificationIds.clear();
+      _hasLoadedNotifications = false;
+      return;
+    }
+
+    _notificationsUserId = userId;
+    _knownNotificationIds.clear();
+    _hasLoadedNotifications = false;
+    await _notificationService.startMonitoring(userId);
+
+    _notificationsSubscription =
+        _notificationService.watchNotifications(userId).listen((items) {
+      final newNotifications = items
+          .where(
+            (notification) =>
+                !_knownNotificationIds.contains(notification.id) &&
+                !notification.isRead,
+          )
+          .toList();
+
+      if (_hasLoadedNotifications) {
+        for (final notification in newNotifications) {
+          if (!mounted) break;
+          NotificationService.showLocalNotification(context, notification);
+        }
+      }
+
+      _knownNotificationIds
+        ..clear()
+        ..addAll(items.map((notification) => notification.id));
+      _hasLoadedNotifications = true;
+
+      if (!mounted) return;
+      setState(() {
+        _notifications = items;
+      });
+    });
+  }
+
+  Future<void> _showNotificationsDialog() async {
+    final userId = _notificationsUserId;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Notifications'),
+          content: SizedBox(
+            width: 380,
+            child: _notifications.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Aucune notification pour le moment.'),
+                  )
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 420),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _notifications.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (context, index) {
+                        final notification = _notifications[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: notification.isRead
+                                ? Colors.grey.shade200
+                                : AppColors.tropicalTeal.withOpacity(0.12),
+                            child: Icon(
+                              _notificationIcon(notification.type),
+                              color: notification.isRead
+                                  ? Colors.grey.shade600
+                                  : AppColors.tropicalTeal,
+                            ),
+                          ),
+                          title: Text(
+                            notification.title,
+                            style: TextStyle(
+                              fontWeight: notification.isRead
+                                  ? FontWeight.w500
+                                  : FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${notification.message}\n${_formatNotificationDate(notification.timestamp)}',
+                          ),
+                          isThreeLine: true,
+                          onTap: userId == null || notification.isRead
+                              ? null
+                              : () async {
+                                  await _notificationService.markAsRead(
+                                    userId,
+                                    notification.id,
+                                  );
+                                },
+                        );
+                      },
+                    ),
+                  ),
+          ),
+          actions: [
+            if (userId != null && _notifications.isNotEmpty)
+              TextButton(
+                onPressed: () async {
+                  await _notificationService.markAllAsRead(userId);
+                  if (!dialogContext.mounted) return;
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Tout marquer comme lu'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Fermer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  IconData _notificationIcon(NotificationType type) {
+    switch (type) {
+      case NotificationType.wallet:
+        return Icons.account_balance_wallet;
+      case NotificationType.order:
+        return Icons.shopping_bag_outlined;
+      case NotificationType.warning:
+        return Icons.warning_amber_rounded;
+      case NotificationType.success:
+        return Icons.check_circle_outline;
+      case NotificationType.info:
+        return Icons.notifications_outlined;
+    }
+  }
+
+  String _formatNotificationDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inMinutes < 1) {
+      return 'À l’instant';
+    }
+    if (difference.inHours < 1) {
+      return 'Il y a ${difference.inMinutes} min';
+    }
+    if (difference.inDays < 1) {
+      return 'Il y a ${difference.inHours} h';
+    }
+    return '${date.day}/${date.month}/${date.year}';
+  }
 
   // MÉTHODE NOUVELLE : Initialiser les actions rapides avec un solde
   void _initializeQuickActions(double walletBalance) {
@@ -226,24 +411,40 @@ class _HomeScreenState extends State<HomeScreen>
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, size: 26),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                    title: const Text('Notifications'),
-                    content: const Text('Aucune notification pour le moment'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('OK'),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined, size: 26),
+                if (_unreadNotificationCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
                       ),
-                    ],
-                  );
-                },
-              );
-            },
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 18),
+                      child: Text(
+                        _unreadNotificationCount > 99
+                            ? '99+'
+                            : '$_unreadNotificationCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: _showNotificationsDialog,
           ),
           const SizedBox(width: 8),
           // AVATAR AVEC MENU DYNAMIQUE
@@ -725,7 +926,7 @@ class _HomeScreenState extends State<HomeScreen>
                 // Bouton Créer une Boutique
                 Center(
                   child: ElevatedButton.icon(
-                    onPressed: () => _showCreateShopDialog(context),
+                    onPressed: () => _openCreateBoutiquePage(context),
                     icon: const Icon(Icons.store),
                     label: const Text('Créer une Boutique'),
                     style: ElevatedButton.styleFrom(
@@ -751,217 +952,15 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _showCreateShopDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final locationController = TextEditingController();
-    final categoriesController = TextEditingController();
-    final latitudeController = TextEditingController();
-    final longitudeController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Créer une Boutique'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nom de la boutique *',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.store),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: categoriesController,
-                decoration: const InputDecoration(
-                  labelText: 'Catégories (séparées par des virgules)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.category),
-                  hintText: 'Alimentation, Électronique, Vêtements',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Localisation/Adresse',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.location_on),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Coordonnées GPS (optionnel)',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: latitudeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Latitude',
-                        border: OutlineInputBorder(),
-                        hintText: '48.8566',
-                      ),
-                      keyboardType: TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: longitudeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Longitude',
-                        border: OutlineInputBorder(),
-                        hintText: '2.3522',
-                      ),
-                      keyboardType: TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info, size: 18, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '* Champ obligatoire\nCoordonnées GPS: optionnel, par défaut Paris',
-                        style: TextStyle(fontSize: 12, color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+  void _openCreateBoutiquePage(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateBoutiquePage(
+          firestore: FirebaseFirestore.instance,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Veuillez entrer le nom de la boutique'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-
-              try {
-                double? latitude;
-                double? longitude;
-
-                if (latitudeController.text.isNotEmpty &&
-                    longitudeController.text.isNotEmpty) {
-                  latitude = double.tryParse(latitudeController.text);
-                  longitude = double.tryParse(longitudeController.text);
-
-                  if (latitude == null ||
-                      longitude == null ||
-                      latitude < -90 ||
-                      latitude > 90 ||
-                      longitude < -180 ||
-                      longitude > 180) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Coordonnées GPS invalides\nLatitude: -90 à 90\nLongitude: -180 à 180',
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-                }
-
-                final userId = FirebaseAuth.instance.currentUser?.uid;
-                if (userId != null) {
-                  final shopData = {
-                    'nom': nameController.text,
-                    'categories': categoriesController.text.isNotEmpty
-                        ? categoriesController.text
-                        : 'Général',
-                    'location': locationController.text.isNotEmpty
-                        ? locationController.text
-                        : 'Localisation non spécifiée',
-                    'ownerId': userId,
-                    'rating': 5.0,
-                    'reviewCount': 0,
-                    'distance': 0.5,
-                    'createdAt': FieldValue.serverTimestamp(),
-                  };
-
-                  // Ajouter les coordonnées si fournies
-                  if (latitude != null && longitude != null) {
-                    shopData['latitude'] = latitude;
-                    shopData['longitude'] = longitude;
-                  } else {
-                    // Coordonnées par défaut (Paris)
-                    shopData['latitude'] = 48.8566;
-                    shopData['longitude'] = 2.3522;
-                  }
-
-                  await FirebaseFirestore.instance
-                      .collection('boutiques')
-                      .add(shopData);
-
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Boutique "${nameController.text}" créée avec succès ! 🎉',
-                      ),
-                      backgroundColor: Colors.green,
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-
-                  _loadNearbyShops();
-                }
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Erreur: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('Créer'),
-          ),
-        ],
       ),
-    );
+    ).then((_) => _loadNearbyShops());
   }
 
   Widget _buildAnimatedActionCard({

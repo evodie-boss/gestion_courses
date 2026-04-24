@@ -8,7 +8,7 @@ import 'package:gestion_courses/gestion_boutiques/boutiques/formulaire_inscripti
 import 'package:gestion_courses/gestion_boutiques/boutiques/dashboard.dart'; // Tableau de bord individuel
 
 class MyBoutiquesScreen extends StatelessWidget {
-  const MyBoutiquesScreen({Key? key}) : super(key: key);
+  const MyBoutiquesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +23,6 @@ class MyBoutiquesScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('boutiques')
-            .where('createdBy', isEqualTo: userId)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -41,7 +40,12 @@ class MyBoutiquesScreen extends StatelessWidget {
             );
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          final boutiques = (snapshot.data?.docs ?? []).where((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            return data['createdBy'] == userId || data['ownerId'] == userId;
+          }).toList();
+
+          if (boutiques.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -84,8 +88,6 @@ class MyBoutiquesScreen extends StatelessWidget {
               ),
             );
           }
-
-          final boutiques = snapshot.data!.docs;
 
           // Trier localement côté client
           boutiques.sort((a, b) {
@@ -343,119 +345,5 @@ class MyBoutiquesScreen extends StatelessWidget {
         SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
       );
     }
-  }
-}
-
-// Dialogue de création de boutique
-class CreateBoutiqueDialog extends StatefulWidget {
-  const CreateBoutiqueDialog({Key? key}) : super(key: key);
-
-  @override
-  State<CreateBoutiqueDialog> createState() => _CreateBoutiqueDialogState();
-}
-
-class _CreateBoutiqueDialogState extends State<CreateBoutiqueDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nomController = TextEditingController();
-  final _adresseController = TextEditingController();
-  final _categorieController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Créer une nouvelle boutique'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nomController,
-                decoration: const InputDecoration(
-                  labelText: 'Nom de la boutique*',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Le nom est obligatoire';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _adresseController,
-                decoration: const InputDecoration(
-                  labelText: 'Adresse',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _categorieController,
-                decoration: const InputDecoration(
-                  labelText: 'Catégorie (ex: Épicerie, Vêtements)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Téléphone',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
-          child: const Text('Annuler'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pop(context, {
-                'nom': _nomController.text,
-                'adresse': _adresseController.text,
-                'categorie': _categorieController.text,
-                'phone': _phoneController.text,
-                'email': _emailController.text,
-              });
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.tropicalTeal,
-          ),
-          child: const Text('Créer'),
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _nomController.dispose();
-    _adresseController.dispose();
-    _categorieController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    super.dispose();
   }
 }

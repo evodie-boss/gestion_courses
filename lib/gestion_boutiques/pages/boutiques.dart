@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gestion_courses/gestion_boutiques/boutiques/formulaire_inscription.dart';
 import 'package:gestion_courses/gestion_boutiques/pages/boutique_detail.dart';
 import 'package:gestion_courses/constants/app_colors.dart';
 
@@ -7,17 +8,12 @@ class ElegantBoutiquePage extends StatelessWidget {
   const ElegantBoutiquePage({super.key});
 
   void _createNewBoutique(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Créer une boutique'),
-        content: const Text('Cette fonctionnalité sera bientôt disponible ici !'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), // Permet de retourner à la page précédente
-            child: const Text('OK'),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateBoutiquePage(
+          firestore: FirebaseFirestore.instance,
+        ),
       ),
     );
   }
