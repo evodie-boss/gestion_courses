@@ -14,6 +14,7 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("✅ Firebase initialisé avec le projet: ${Firebase.app().options.projectId}");
   runApp(
     MultiProvider(
       providers: [
@@ -85,6 +86,3 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 }
-
-// SUPPRIME cette ancienne classe SplashScreen qui était ici
-// Elle est maintenant dans screens/splash_screen.dart
