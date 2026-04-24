@@ -5,7 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'dart:typed_data';
 import 'package:gestion_courses/firebase_options.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker/image_picker.dart'; // Utilisez ce package UNIQUEMENT
+import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
@@ -15,7 +15,7 @@ const Color tropicalTeal = Color(0xFF0F9E99);
 const Color darkText = Color(0xFF2C3E50);
 const Color mediumText = Color(0xFF5D6D7E);
 const Color lightText = Color(0xFF95A5A6);
-const Color accentColor = Color(0xFF6D5DFC); // Gardé pour certains éléments
+const Color accentColor = Color(0xFF6D5DFC);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +62,24 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// ============================================================
+// HELPER: Breakpoints
+// ============================================================
+class _Screen {
+  static bool isMobile(BuildContext ctx) =>
+      MediaQuery.of(ctx).size.width < 600;
+  static bool isTablet(BuildContext ctx) =>
+      MediaQuery.of(ctx).size.width >= 600 &&
+      MediaQuery.of(ctx).size.width < 1024;
+  static bool isDesktop(BuildContext ctx) =>
+      MediaQuery.of(ctx).size.width >= 1024;
+  static double width(BuildContext ctx) => MediaQuery.of(ctx).size.width;
+  static double height(BuildContext ctx) => MediaQuery.of(ctx).size.height;
+}
+
+// ============================================================
+// MAIN WIDGET
+// ============================================================
 class AdminDashboard extends StatefulWidget {
   final String boutiqueId;
   final String boutiqueName;
@@ -77,12 +95,12 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  int _selectedIndex = 0; // Tableau de bord par défaut
+  int _selectedIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _orderSearchController = TextEditingController();
 
-  // Variables pour stocker l'image
   Uint8List? _selectedImageBytes;
   String? _uploadedImageUrl;
   bool _isUploading = false;
@@ -90,53 +108,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String _orderSearchQuery = '';
   double _uploadProgress = 0.0;
 
-  // Map pour stocker les noms des clients
   Map<String, String> _clientNames = {};
 
   final List<Map<String, dynamic>> _categories = [
-    {
-      'value': 'clothing',
-      'label': 'Vêtements',
-      'color': tropicalTeal,
-    },
-    {
-      'value': 'shoes',
-      'label': 'Chaussures',
-      'color': Color(0xFF2ECC71),
-    },
-    {
-      'value': 'accessories',
-      'label': 'Accessoires',
-      'color': Color(0xFFF39C12),
-    },
-    {
-      'value': 'electronics',
-      'label': 'Électronique',
-      'color': Color(0xFF3498DB),
-    },
-    {
-      'value': 'food',
-      'label': 'Aliments',
-      'color': Color(0xFF9B59B6),
-    },
+    {'value': 'clothing', 'label': 'Vêtements', 'color': tropicalTeal},
+    {'value': 'shoes', 'label': 'Chaussures', 'color': Color(0xFF2ECC71)},
+    {'value': 'accessories', 'label': 'Accessoires', 'color': Color(0xFFF39C12)},
+    {'value': 'electronics', 'label': 'Électronique', 'color': Color(0xFF3498DB)},
+    {'value': 'food', 'label': 'Aliments', 'color': Color(0xFF9B59B6)},
   ];
 
-  // Statuts des commandes
   final List<String> _orderStatuses = [
-    'En attente',
-    'Confirmée',
-    'En préparation',
-    'Expédiée',
-    'Livrée',
-    'Annulée'
-  ];
-
-  // Méthodes de livraison
-  final List<String> _deliveryMethods = [
-    'Standard',
-    'Express',
-    'Point relais',
-    'Retrait en magasin'
+    'En attente', 'Confirmée', 'En préparation', 'Expédiée', 'Livrée', 'Annulée'
   ];
 
   @override
@@ -147,7 +130,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _loadClientNames() async {
     try {
-      // Charger les noms des clients qui ont commandé dans cette boutique
       final orders = await _firestore
           .collection('orders')
           .where('boutiqueId', isEqualTo: widget.boutiqueId)
@@ -171,59 +153,165 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final nom = userData['nom']?.toString() ?? 'Client inconnu';
         final prenom = userData['prenom']?.toString() ?? '';
         final fullName = prenom.isNotEmpty ? '$prenom $nom' : nom;
-
         _clientNames[doc.id] = fullName;
       }
+      if (mounted) setState(() {});
     } catch (e) {
-      print('Erreur lors du chargement des noms des clients: $e');
+      debugPrint('Erreur chargement clients: $e');
     }
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
   @override
   Widget build(BuildContext context) {
+    final isMobile = _Screen.isMobile(context);
+
+    if (isMobile) {
+      return _buildMobileScaffold();
+    } else {
+      return _buildDesktopScaffold();
+    }
+  }
+
+  // ---- MOBILE ----
+  Widget _buildMobileScaffold() {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: softIvory,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 2,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: tropicalTeal),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.boutiqueName,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: darkText,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Text(
+              'Tableau de bord',
+              style: TextStyle(fontSize: 11, color: mediumText),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu, color: tropicalTeal),
+            onPressed: () {
+              _scaffoldKey.currentState?.openDrawer();
+            },
+          ),
+        ],
+      ),
+      drawer: _buildDrawer(),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _buildSelectedTab(),
+      ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: tropicalTeal.withOpacity(0.05),
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: tropicalTeal.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.store, color: tropicalTeal),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.boutiqueName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: darkText,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(8),
+                children: [
+                  _buildNavItem(0, Icons.dashboard_rounded, 'Tableau de bord', isActive: _selectedIndex == 0, isDrawer: true),
+                  _buildNavItem(1, Icons.inventory_2_rounded, 'Produits', isActive: _selectedIndex == 1, isDrawer: true),
+                  _buildNavItem(2, Icons.shopping_cart_checkout_rounded, 'Commandes', isActive: _selectedIndex == 2, isDrawer: true),
+                  _buildNavItem(3, Icons.settings_rounded, 'Paramètres', isActive: _selectedIndex == 3, isDrawer: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---- DESKTOP / TABLET ----
+  Widget _buildDesktopScaffold() {
     return Scaffold(
       body: Column(
         children: [
-          // Barre de navigation supérieure
+          // Top bar
           Container(
             height: 70,
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withOpacity(0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  // Bouton retour
                   IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    color: tropicalTeal,
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
+                    icon: const Icon(Icons.arrow_back, color: tropicalTeal),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const SizedBox(width: 15),
-                  // Logo/Nom de la boutique
+                  const SizedBox(width: 10),
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: tropicalTeal.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
-                      Icons.store,
-                      color: tropicalTeal,
-                    ),
+                    child: const Icon(Icons.store, color: tropicalTeal, size: 20),
                   ),
-                  const SizedBox(width: 15),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -232,18 +320,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         Text(
                           widget.boutiqueName,
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: darkText,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
+                        const Text(
                           'Tableau de bord administrateur',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: mediumText,
-                          ),
+                          style: TextStyle(fontSize: 11, color: mediumText),
                         ),
                       ],
                     ),
@@ -252,34 +337,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
           ),
+
           Expanded(
             child: Row(
               children: [
                 // Sidebar
                 Container(
-                  width: 250,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 5,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
-                  ),
+                  width: _Screen.isTablet(context) ? 200 : 240,
+                  color: Colors.white,
                   child: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(25),
+                      Padding(
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
                             Container(
-                              width: 80,
-                              height: 80,
+                              width: 70,
+                              height: 70,
                               decoration: BoxDecoration(
                                 color: tropicalTeal.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: tropicalTeal.withOpacity(0.3),
                                   width: 2,
@@ -288,14 +365,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               child: const Icon(
                                 Icons.store_mall_directory,
                                 color: tropicalTeal,
-                                size: 40,
+                                size: 34,
                               ),
                             ),
-                            const SizedBox(height: 15),
+                            const SizedBox(height: 12),
                             Text(
                               widget.boutiqueName,
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 color: darkText,
                               ),
@@ -303,89 +380,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               overflow: TextOverflow.ellipsis,
                               maxLines: 2,
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 4),
                             Text(
-                              'Boutique ID: ${widget.boutiqueId.substring(0, 8)}...',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: lightText,
-                              ),
+                              'ID: ${widget.boutiqueId.length > 8 ? widget.boutiqueId.substring(0, 8) : widget.boutiqueId}...',
+                              style: const TextStyle(fontSize: 11, color: lightText),
                             ),
                           ],
                         ),
                       ),
                       const Divider(color: softIvory, height: 1),
                       Expanded(
-                        child: ListView( //Permet de défiler le contenu verticalement
-                          padding: const EdgeInsets.all(10),
+                        child: ListView(
+                          padding: const EdgeInsets.all(8),
                           children: [
-                            _buildNavItem(
-                              0,
-                              Icons.dashboard_rounded,
-                              'Tableau de bord',
-                              isActive: _selectedIndex == 0,
-                            ),
-                            _buildNavItem(
-                              1,
-                              Icons.inventory_2_rounded,
-                              'Produits',
-                              isActive: _selectedIndex == 1,
-                            ),
-                            _buildNavItem(
-                              2,
-                              Icons.shopping_cart_checkout_rounded,
-                              'Commandes',
-                              isActive: _selectedIndex == 2,
-                            ),
-                            _buildNavItem(
-                              3,
-                              Icons.settings_rounded,
-                              'Paramètres',
-                              isActive: _selectedIndex == 3,
-                            ),
+                            _buildNavItem(0, Icons.dashboard_rounded, 'Tableau de bord', isActive: _selectedIndex == 0),
+                            _buildNavItem(1, Icons.inventory_2_rounded, 'Produits', isActive: _selectedIndex == 1),
+                            _buildNavItem(2, Icons.shopping_cart_checkout_rounded, 'Commandes', isActive: _selectedIndex == 2),
+                            _buildNavItem(3, Icons.settings_rounded, 'Paramètres', isActive: _selectedIndex == 3),
                           ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: tropicalTeal.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                color: tropicalTeal,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Admin Dashboard',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: tropicalTeal,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
+
                 const VerticalDivider(width: 1, color: softIvory),
 
-                // Contenu principal
                 Expanded(
                   child: Container(
                     color: softIvory,
-                    padding: const EdgeInsets.all(25),
+                    padding: EdgeInsets.all(_Screen.isTablet(context) ? 16 : 24),
                     child: _buildSelectedTab(),
                   ),
                 ),
@@ -402,41 +426,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
     IconData icon,
     String title, {
     bool isActive = false,
+    bool isDrawer = false,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: BoxDecoration(
         color: isActive ? tropicalTeal : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
       ),
       child: ListTile(
-        leading: Icon(
-          icon,
-          color: isActive ? Colors.white : mediumText,
-          size: 22,
-        ),
+        dense: true,
+        leading: Icon(icon, color: isActive ? Colors.white : mediumText, size: 20),
         title: Text(
           title,
           style: TextStyle(
             color: isActive ? Colors.white : darkText,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
           ),
         ),
-        trailing: isActive
-            ? Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              )
-            : null,
         onTap: () {
-          setState(() {
-            _selectedIndex = index;
-          });
+          setState(() => _selectedIndex = index);
+          if (isDrawer) Navigator.of(context).pop();
         },
       ),
     );
@@ -444,154 +455,136 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildSelectedTab() {
     switch (_selectedIndex) {
-      case 0:
-        return _buildDashboardTab();
-      case 1:
-        return _buildProductsTab();
-      case 2:
-        return _buildOrdersTab();
-      case 3:
-        return _buildSettingsTab();
-      default:
-        return _buildDashboardTab();
+      case 0: return _buildDashboardTab();
+      case 1: return _buildProductsTab();
+      case 2: return _buildOrdersTab();
+      case 3: return _buildSettingsTab();
+      default: return _buildDashboardTab();
     }
   }
 
-  // ============================================
-  // TABLEAU DE BORD
-  // ============================================
+  // ============================================================
+  // DASHBOARD TAB
+  // ============================================================
   Widget _buildDashboardTab() {
-    return SingleChildScrollView( //Permet de défiler le contenu verticalement
+    final isMobile = _Screen.isMobile(context);
+
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête
             Text(
               'Tableau de bord',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: isMobile ? 22 : 26,
                 fontWeight: FontWeight.w700,
                 color: tropicalTeal,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Text(
               'Aperçu général de votre boutique',
-              style: TextStyle(
-                fontSize: 16,
-                color: mediumText,
-              ),
+              style: TextStyle(fontSize: isMobile ? 13 : 15, color: mediumText),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
 
-            // Cartes de statistiques
+            // Stats cards
             StreamBuilder<QuerySnapshot>(
               stream: _firestore
                   .collection('products')
                   .where('boutique_id', isEqualTo: widget.boutiqueId)
                   .snapshots(),
-              builder: (context, snapshot) {
-                final totalProducts =
-                    snapshot.hasData ? snapshot.data!.docs.length : 0;
+              builder: (context, productSnap) {
+                final totalProducts = productSnap.hasData ? productSnap.data!.docs.length : 0;
 
                 return StreamBuilder<QuerySnapshot>(
                   stream: _firestore
                       .collection('orders')
                       .where('boutiqueId', isEqualTo: widget.boutiqueId)
                       .snapshots(),
-                  builder: (context, orderSnapshot) {
-                    final totalOrders = orderSnapshot.hasData
-                        ? orderSnapshot.data!.docs.length
-                        : 0;
+                  builder: (context, orderSnap) {
+                    int totalOrders = 0;
                     double totalRevenue = 0;
                     int pendingOrders = 0;
 
-                    if (orderSnapshot.hasData) {
-                      for (var doc in orderSnapshot.data!.docs) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        totalRevenue += (data['total'] ?? 0).toDouble();
-
-                        final status = data['status']?.toString() ?? '';
-                        if (status == 'En attente') {
-                          pendingOrders++;
-                        }
+                    if (orderSnap.hasData) {
+                      totalOrders = orderSnap.data!.docs.length;
+                      for (var doc in orderSnap.data!.docs) {
+                        final d = doc.data() as Map<String, dynamic>;
+                        totalRevenue += (d['total'] ?? 0).toDouble();
+                        if ((d['status']?.toString() ?? '') == 'En attente') pendingOrders++;
                       }
                     }
 
-                    return GridView.builder(
+                    // Adaptive grid
+                    final crossCount = isMobile ? 2 : (_Screen.isTablet(context) ? 3 : 4);
+
+                    return GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount:
-                            MediaQuery.of(context).size.width > 1000 ? 4 : 2,
-                        crossAxisSpacing: 20,
-                        mainAxisSpacing: 20,
-                        childAspectRatio: 1.8,
-                      ),
-                      itemCount: 4,
-                      itemBuilder: (context, index) {
-                        switch (index) {
-                          case 0:
-                            return _buildStatCard(
-                              title: 'Produits',
-                              value: totalProducts.toString(),
-                              icon: Icons.inventory_2_rounded,
-                              color: tropicalTeal,
-                              subtitle: 'en stock',
-                            );
-                          case 1:
-                            return _buildStatCard(
-                              title: 'Commandes',
-                              value: totalOrders.toString(),
-                              icon: Icons.shopping_cart_checkout_rounded,
-                              color: Color(0xFF2ECC71),
-                              subtitle: 'au total',
-                            );
-                          case 2:
-                            return _buildStatCard(
-                              title: 'En attente',
-                              value: pendingOrders.toString(),
-                              icon: Icons.pending_actions_rounded,
-                              color: Color(0xFF3498DB),
-                              subtitle: 'commandes',
-                            );
-                          default:
-                            return Container();
-                        }
-                      },
+                      crossAxisCount: crossCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: isMobile ? 1.4 : 1.8,
+                      children: [
+                        _buildStatCard(
+                          title: 'Produits',
+                          value: totalProducts.toString(),
+                          icon: Icons.inventory_2_rounded,
+                          color: tropicalTeal,
+                          subtitle: 'en stock',
+                        ),
+                        _buildStatCard(
+                          title: 'Commandes',
+                          value: totalOrders.toString(),
+                          icon: Icons.shopping_cart_checkout_rounded,
+                          color: const Color(0xFF2ECC71),
+                          subtitle: 'au total',
+                        ),
+                        _buildStatCard(
+                          title: 'En attente',
+                          value: pendingOrders.toString(),
+                          icon: Icons.pending_actions_rounded,
+                          color: const Color(0xFF3498DB),
+                          subtitle: 'commandes',
+                        ),
+                        _buildStatCard(
+                          title: 'Revenus',
+                          value: '${totalRevenue.toStringAsFixed(0)}',
+                          icon: Icons.attach_money_rounded,
+                          color: const Color(0xFFF39C12),
+                          subtitle: 'FCFA',
+                        ),
+                      ],
                     );
                   },
                 );
               },
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 28),
 
-            // Deux colonnes pour les commandes récentes et produits populaires
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.5,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Commandes récentes
-                  Expanded(
-                    flex: 2,
-                    child: _buildRecentOrders(),
+            // Bottom section: responsive layout
+            isMobile
+                ? Column(
+                    children: [
+                      _buildRecentOrders(),
+                      const SizedBox(height: 16),
+                      _buildCategoryStats(),
+                    ],
+                  )
+                : IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 2, child: _buildRecentOrders()),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 1, child: _buildCategoryStats()),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 20),
-
-                  // Statistiques par catégorie
-                  Expanded(
-                    flex: 1,
-                    child: _buildCategoryStats(),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -605,69 +598,66 @@ class _AdminDashboardState extends State<AdminDashboard> {
     required Color color,
     required String subtitle,
   }) {
+    final isMobile = _Screen.isMobile(context);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
       child: Row(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: isMobile ? 44 : 52,
+            height: isMobile ? 44 : 52,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withOpacity(0.2), width: 2),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Center(
-              child: Icon(icon, color: color, size: 28),
-            ),
+            child: Icon(icon, color: color, size: isMobile ? 22 : 26),
           ),
-          const SizedBox(width: 15),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: darkText,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: isMobile ? 20 : 22,
+                      fontWeight: FontWeight.w800,
+                      color: darkText,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: isMobile ? 11 : 13,
                     fontWeight: FontWeight.w600,
                     color: mediumText,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: lightText,
-                  ),
+                  style: TextStyle(fontSize: isMobile ? 10 : 11, color: lightText),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: color.withOpacity(0.5),
           ),
         ],
       ),
@@ -675,558 +665,391 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildRecentOrders() {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.5,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Commandes récentes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: tropicalTeal,
-                  ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Commandes récentes',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: tropicalTeal),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _selectedIndex = 2),
+                style: TextButton.styleFrom(foregroundColor: tropicalTeal, padding: EdgeInsets.zero),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Voir tout', style: TextStyle(fontSize: 12)),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios, size: 11),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedIndex = 2;
-                    });
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: tropicalTeal,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<QuerySnapshot>(
+            stream: _firestore
+                .collection('orders')
+                .where('boutiqueId', isEqualTo: widget.boutiqueId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: tropicalTeal));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Icon(Icons.shopping_cart_outlined, size: 40, color: Colors.grey[300]),
+                        const SizedBox(height: 8),
+                        Text('Aucune commande', style: TextStyle(color: lightText, fontSize: 13)),
+                      ],
+                    ),
                   ),
-                  child: const Row(
-                    children: [
-                      Text('Voir tout'),
-                      SizedBox(width: 5),
-                      Icon(Icons.arrow_forward_ios, size: 12),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore
-                    .collection('orders')
-                    .where('boutiqueId', isEqualTo: widget.boutiqueId)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Erreur: ${snapshot.error}'));
-                  }
+                );
+              }
 
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(color: tropicalTeal),
-                    );
-                  }
+              final orders = snapshot.data!.docs.toList()
+                ..sort((a, b) {
+                  final aDate = (a.data() as Map)['createdAt'] as Timestamp?;
+                  final bDate = (b.data() as Map)['createdAt'] as Timestamp?;
+                  return (bDate?.millisecondsSinceEpoch ?? 0)
+                      .compareTo(aDate?.millisecondsSinceEpoch ?? 0);
+                });
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shopping_cart_outlined,
-                            size: 50,
-                            color: Colors.grey[300],
+              final recent = orders.take(5).toList();
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: recent.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, color: softIvory),
+                itemBuilder: (context, index) {
+                  final data = recent[index].data() as Map<String, dynamic>;
+                  final status = data['status']?.toString() ?? '';
+                  final amount = (data['total'] ?? 0).toDouble();
+                  final ts = data['createdAt'] as Timestamp?;
+                  final dateStr = ts != null
+                      ? DateFormat('dd/MM/yy HH:mm').format(ts.toDate())
+                      : '';
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Aucune commande',
-                            style: TextStyle(color: lightText),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  // TRI LOCAL des commandes par date
-                  final orders = snapshot.data!.docs.toList()
-                    ..sort((a, b) {
-                      final aData = a.data() as Map<String, dynamic>;
-                      final bData = b.data() as Map<String, dynamic>;
-                      final aDate = aData['createdAt'] as Timestamp?;
-                      final bDate = bData['createdAt'] as Timestamp?;
-
-                      final aTime = aDate?.millisecondsSinceEpoch ?? 0;
-                      final bTime = bDate?.millisecondsSinceEpoch ?? 0;
-
-                      return bTime.compareTo(aTime);
-                    });
-
-                  // Prendre seulement les 5 premières commandes
-                  final recentOrders = orders.take(5).toList();
-
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: recentOrders.length,
-                    separatorBuilder: (context, index) =>
-                        Divider(height: 1, color: softIvory),
-                    itemBuilder: (context, index) {
-                      final doc = recentOrders[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      final orderId = doc.id;
-                      final amount = (data['total'] ?? 0).toDouble();
-                      final status = data['status']?.toString() ?? 'pending';
-                      final ts = data['createdAt'] as Timestamp?;
-                      String formattedDate = '';
-                      if (ts != null) {
-                        try {
-                          formattedDate =
-                              DateFormat('dd/MM/yy HH:mm').format(ts.toDate());
-                        } catch (e) {
-                          formattedDate = ts.toDate().toString();
-                        }
-                      }
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
+                          child: Icon(_getOrderStatusIcon(status), color: _getStatusColor(status), size: 18),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 15, vertical: 10),
-                          leading: Container(
-                            width: 45,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(status).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _getStatusColor(status).withOpacity(0.3),
-                                width: 1,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getProductNameFromOrder(data),
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(dateStr, style: const TextStyle(fontSize: 11, color: mediumText)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${amount.toStringAsFixed(0)} F',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: tropicalTeal),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(status),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                status.length > 12 ? '${status.substring(0, 12)}...' : status,
+                                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
                               ),
                             ),
-                            child: Icon(
-                              _getOrderStatusIcon(status),
-                              color: _getStatusColor(status),
-                              size: 20,
-                            ),
-                          ),
-                          title: Text(
-                            _getProductNameFromOrder(data),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: darkText,
-                            ),
-                          ),
-                          subtitle: Text(
-                            formattedDate,
-                            style: TextStyle(fontSize: 12, color: mediumText),
-                          ),
-                          trailing: SizedBox(
-                            width: 120,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${amount.toStringAsFixed(0)} FCFA',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: tropicalTeal,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(status),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    status,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          ],
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   );
                 },
-              ),
-            ),
-          ],
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCategoryStats() {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.5,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Produits par catégorie',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: tropicalTeal,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore
-                    .collection('products')
-                    .where('boutique_id', isEqualTo: widget.boutiqueId)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Erreur: ${snapshot.error}'));
-                  }
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Produits par catégorie',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: tropicalTeal),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<QuerySnapshot>(
+            stream: _firestore
+                .collection('products')
+                .where('boutique_id', isEqualTo: widget.boutiqueId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: tropicalTeal));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Icon(Icons.category_outlined, size: 36, color: Colors.grey[300]),
+                        const SizedBox(height: 8),
+                        Text('Aucun produit', style: TextStyle(color: lightText, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                );
+              }
 
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(color: tropicalTeal),
-                    );
-                  }
+              final products = snapshot.data!.docs;
+              final Map<String, int> counts = {};
+              for (var doc in products) {
+                final cat = (doc.data() as Map)['categorie']?.toString() ?? 'Autre';
+                counts[cat] = (counts[cat] ?? 0) + 1;
+              }
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.category_outlined,
-                            size: 40,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Aucun produit',
-                            style: TextStyle(color: lightText, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+              final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
-                  final products = snapshot.data!.docs;
-                  final categoryCounts = <String, int>{};
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: sorted.length,
+                itemBuilder: (context, i) {
+                  final entry = sorted[i];
+                  final pct = products.isNotEmpty ? entry.value / products.length : 0.0;
+                  final color = _getCategoryColor(entry.key);
+                  final label = _getCategoryName(entry.key);
 
-                  for (var doc in products) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final category =
-                        data['categorie']?.toString() ?? 'Non catégorisé';
-                    categoryCounts[category] =
-                        (categoryCounts[category] ?? 0) + 1;
-                  }
-
-                  final sortedCategories = categoryCounts.entries.toList()
-                    ..sort((a, b) => b.value.compareTo(a.value));
-
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: sortedCategories.length,
-                    separatorBuilder: (context, index) =>
-                        Divider(height: 1, color: softIvory),
-                    itemBuilder: (context, index) {
-                      final entry = sortedCategories[index];
-                      final categoryName = _getCategoryName(entry.key);
-                      final count = entry.value;
-                      final totalProducts = products.length;
-                      final percentage =
-                          totalProducts > 0 ? (count / totalProducts * 100) : 0;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 4),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 0, vertical: 5),
-                          leading: Container(
-                            width: 35,
-                            height: 35,
-                            decoration: BoxDecoration(
-                              color: _getCategoryColor(entry.key),
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _getCategoryColor(entry.key)
-                                      .withOpacity(0.3),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                categoryName.substring(0, 1),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                          title: Row(
-                            children: [
-                              Expanded(
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+                              child: Center(
                                 child: Text(
-                                  categoryName.length > 15
-                                      ? '${categoryName.substring(0, 15)}...'
-                                      : categoryName,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    color: darkText,
-                                  ),
+                                  label.substring(0, 1),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
                               ),
-                              Text(
-                                '$count',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  color: tropicalTeal,
-                                ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: darkText),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 8),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
-                                child: LinearProgressIndicator(
-                                  value: percentage / 100,
-                                  backgroundColor: softIvory,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    _getCategoryColor(entry.key),
-                                  ),
-                                  minHeight: 4,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${percentage.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: mediumText,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${count} sur $totalProducts',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: lightText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                            ),
+                            Text(
+                              '${entry.value}',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: color),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pct,
+                            backgroundColor: softIvory,
+                            valueColor: AlwaysStoppedAnimation<Color>(color),
+                            minHeight: 5,
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   );
                 },
-              ),
-            ),
-          ],
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  // ============================================
-  // ONGLET PRODUITS
-  // ============================================
+  // ============================================================
+  // PRODUCTS TAB
+  // ============================================================
   Widget _buildProductsTab() {
+    final isMobile = _Screen.isMobile(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // En-tête - FIXE
         Text(
           'Gestion des Produits',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: tropicalTeal,
-          ),
+          style: TextStyle(fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w700, color: tropicalTeal),
         ),
-        const SizedBox(height: 5),
-        Text(
-          'Gérez les produits de votre boutique',
-          style: TextStyle(
-            fontSize: 16,
-            color: mediumText,
-          ),
-        ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 4),
+        Text('Gérez les produits de votre boutique',
+            style: TextStyle(fontSize: isMobile ? 12 : 14, color: mediumText)),
+        const SizedBox(height: 20),
 
-        // Barre de recherche et bouton d'ajout - FIXE
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search_rounded,
-                      color: tropicalTeal,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher un produit...',
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(
-                            color: lightText,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value.toLowerCase();
-                          });
-                        },
-                      ),
-                    ),
-                    if (_searchQuery.isNotEmpty)
-                      IconButton(
-                        icon: Icon(Icons.clear, size: 18, color: lightText),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 15),
-            Container(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: tropicalTeal.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+        // Search + Add
+        isMobile
+            ? Column(
+                children: [
+                  _buildSearchBar(_searchController, 'Rechercher un produit...', (v) {
+                    setState(() => _searchQuery = v.toLowerCase());
+                  }, () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  }, _searchQuery.isNotEmpty),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildAddButton(),
                   ),
                 ],
-              ),
-              child: ElevatedButton.icon(
-                onPressed: () => _showAddProductDialog(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: tropicalTeal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: _buildSearchBar(_searchController, 'Rechercher un produit...', (v) {
+                      setState(() => _searchQuery = v.toLowerCase());
+                    }, () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    }, _searchQuery.isNotEmpty),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: const Text('Ajouter un produit'),
+                  const SizedBox(width: 14),
+                  _buildAddButton(),
+                ],
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 25),
 
-        // Table des produits - EXPANDABLE
+        const SizedBox(height: 20),
+
         Expanded(
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4)),
               ],
             ),
-            child: _buildProductsTable(),
+            child: _buildProductsContent(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildProductsTable() {
+  Widget _buildAddButton() {
+    return ElevatedButton.icon(
+      onPressed: () => _showAddProductDialog(),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: tropicalTeal,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      icon: const Icon(Icons.add_rounded, size: 18),
+      label: const Text('Ajouter un produit', style: TextStyle(fontSize: 13)),
+    );
+  }
+
+  Widget _buildSearchBar(
+    TextEditingController controller,
+    String hint,
+    Function(String) onChanged,
+    VoidCallback onClear,
+    bool showClear,
+  ) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          const Icon(Icons.search_rounded, color: tropicalTeal, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: hint,
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: lightText, fontSize: 13),
+              ),
+              style: const TextStyle(fontSize: 13),
+              onChanged: onChanged,
+            ),
+          ),
+          if (showClear)
+            GestureDetector(
+              onTap: onClear,
+              child: Icon(Icons.clear, size: 16, color: lightText),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductsContent() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('products')
@@ -1234,863 +1057,425 @@ class _AdminDashboardState extends State<AdminDashboard> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline_rounded,
-                    color: Color(0xFFE74C3C), size: 50),
-                const SizedBox(height: 15),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Erreur: ${snapshot.error}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: mediumText),
-                  ),
-                ),
-              ],
-            ),
-          );
+          return _buildErrorState('${snapshot.error}');
         }
-
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: tropicalTeal),
-                const SizedBox(height: 15),
-                Text('Chargement des produits...',
-                    style: TextStyle(color: mediumText)),
-              ],
-            ),
-          );
+          return _buildLoadingState('Chargement des produits...');
         }
 
         final products = snapshot.data!.docs;
-
-        final filteredProducts = products.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final nom = (data['nom'] ?? '').toString().toLowerCase();
-          final categorie = (data['categorie'] ?? '').toString().toLowerCase();
-          final search = _searchQuery.toLowerCase();
-
-          return nom.contains(search) || categorie.contains(search);
+        final filtered = products.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          final nom = (d['nom'] ?? '').toString().toLowerCase();
+          final cat = (d['categorie'] ?? '').toString().toLowerCase();
+          return nom.contains(_searchQuery) || cat.contains(_searchQuery);
         }).toList();
 
-        if (filteredProducts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.inventory_2_outlined,
-                  size: 60,
-                  color: Colors.grey[300],
-                ),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    _searchQuery.isEmpty
-                        ? 'Aucun produit disponible dans cette boutique'
-                        : 'Aucun produit trouvé pour "$_searchQuery"',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: mediumText,
-                    ),
-                  ),
-                ),
-                if (_searchQuery.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 20),
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showAddProductDialog(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: tropicalTeal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: const Text('Ajouter votre premier produit'),
-                    ),
-                  ),
-              ],
-            ),
+        if (filtered.isEmpty) {
+          return _buildEmptyState(
+            Icons.inventory_2_outlined,
+            _searchQuery.isEmpty
+                ? 'Aucun produit disponible'
+                : 'Aucun résultat pour "$_searchQuery"',
+            showAdd: _searchQuery.isEmpty,
           );
         }
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: DataTable(
-              columnSpacing: 25,
-              horizontalMargin: 25,
-              headingRowHeight: 60,
-              dataRowHeight: 70,
-              headingRowColor: MaterialStateProperty.resolveWith<Color?>(
-                (Set<MaterialState> states) {
-                  return softIvory;
-                },
-              ),
-              columns: [
-                DataColumn(
-                  label: Text(
-                    'Image',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Nom',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Prix',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Catégorie',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Actions',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-              ],
-              rows: filteredProducts.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final imageRef = data['image'] as String?;
+        return _Screen.isMobile(context)
+            ? _buildProductsListMobile(filtered)
+            : _buildProductsTable(filtered);
+      },
+    );
+  }
 
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color: softIvory,
-                          border: Border.all(
-                              color: tropicalTeal.withOpacity(0.2), width: 1),
-                        ),
-                        child: imageRef != null && imageRef.isNotEmpty
-                            ? imageRef.startsWith('firestore:')
-                                ? _buildFirestoreImage(imageRef)
-                                : ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      imageRef,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder:
-                                          (context, child, loadingProgress) {
-                                        if (loadingProgress == null)
-                                          return child;
-                                        return Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: tropicalTeal,
-                                          ),
-                                        );
-                                      },
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return Center(
-                                          child: Icon(
-                                            Icons.broken_image_rounded,
-                                            color: tropicalTeal,
-                                            size: 24,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  )
-                            : Icon(
-                                Icons.shopping_bag_rounded,
-                                color: tropicalTeal,
-                                size: 24,
-                              ),
-                      ),
+  // Mobile: card list
+  Widget _buildProductsListMobile(List<QueryDocumentSnapshot> products) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: products.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final doc = products[index];
+        final data = doc.data() as Map<String, dynamic>;
+        final imageRef = data['image'] as String?;
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: softIvory,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              _buildProductImage(imageRef, size: 50),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['nom']?.toString() ?? 'Sans nom',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: Text(
-                          data['nom']?.toString() ?? 'Sans nom',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: darkText,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${(data['prix'] ?? 0).toStringAsFixed(0)} FCFA',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: tropicalTeal,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getCategoryColor(data['categorie'])
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _getCategoryColor(data['categorie'])
-                                .withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          _getCategoryName(data['categorie']),
-                          style: TextStyle(
-                            color: _getCategoryColor(data['categorie']),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Row(
-                        children: [
-                          Container(
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: Color(0xFF3498DB).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              color: _getCategoryColor(data['categorie']).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.edit_rounded,
-                                size: 18,
-                                color: Color(0xFF3498DB),
+                            child: Text(
+                              _getCategoryName(data['categorie']),
+                              style: TextStyle(
+                                color: _getCategoryColor(data['categorie']),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
                               ),
-                              onPressed: () => _editProduct(doc.id, data),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFE74C3C).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: IconButton(
-                              icon: Icon(
-                                Icons.delete_rounded,
-                                size: 18,
-                                color: Color(0xFFE74C3C),
-                              ),
-                              onPressed: () => _deleteProduct(
-                                doc.id,
-                                data['nom']?.toString() ?? 'ce produit',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(data['prix'] ?? 0).toStringAsFixed(0)} FCFA',
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: tropicalTeal, fontSize: 13),
+                        ),
+                      ],
                     ),
                   ],
-                );
-              }).toList(),
-            ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _iconBtn(Icons.edit_rounded, const Color(0xFF3498DB), () => _editProduct(doc.id, data)),
+                  const SizedBox(width: 6),
+                  _iconBtn(Icons.delete_rounded, const Color(0xFFE74C3C),
+                      () => _deleteProduct(doc.id, data['nom']?.toString() ?? 'ce produit')),
+                ],
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  // ============================================
-  // ONGLET COMMANDES
-  // ============================================
+  // Desktop: data table
+  Widget _buildProductsTable(List<QueryDocumentSnapshot> products) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: DataTable(
+          columnSpacing: 20,
+          horizontalMargin: 20,
+          headingRowHeight: 50,
+          dataRowHeight: 65,
+          headingRowColor: MaterialStateProperty.all(softIvory),
+          columns: _tableColumns(['Image', 'Nom', 'Prix', 'Catégorie', 'Actions']),
+          rows: products.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return DataRow(cells: [
+              DataCell(_buildProductImage(data['image'] as String?, size: 45)),
+              DataCell(SizedBox(
+                width: 140,
+                child: Text(data['nom']?.toString() ?? 'Sans nom',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
+                    overflow: TextOverflow.ellipsis, maxLines: 2),
+              )),
+              DataCell(Text('${(data['prix'] ?? 0).toStringAsFixed(0)} FCFA',
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: tropicalTeal, fontSize: 13))),
+              DataCell(_categoryBadge(data['categorie'])),
+              DataCell(Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _iconBtn(Icons.edit_rounded, const Color(0xFF3498DB), () => _editProduct(doc.id, data)),
+                  const SizedBox(width: 6),
+                  _iconBtn(Icons.delete_rounded, const Color(0xFFE74C3C),
+                      () => _deleteProduct(doc.id, data['nom']?.toString() ?? 'ce produit')),
+                ],
+              )),
+            ]);
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ORDERS TAB
+  // ============================================================
   Widget _buildOrdersTab() {
+    final isMobile = _Screen.isMobile(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // En-tête
-        Text(
-          'Gestion des Commandes',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: tropicalTeal,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          'Suivez et gérez les commandes de votre boutique',
-          style: TextStyle(
-            fontSize: 16,
-            color: mediumText,
-          ),
-        ),
-        const SizedBox(height: 30),
+        Text('Gestion des Commandes',
+            style: TextStyle(fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w700, color: tropicalTeal)),
+        const SizedBox(height: 4),
+        Text('Suivez et gérez les commandes',
+            style: TextStyle(fontSize: isMobile ? 12 : 14, color: mediumText)),
+        const SizedBox(height: 20),
 
-        // Barre de recherche
-        Container(
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          child: Row(
-            children: [
-              Icon(
-                Icons.search_rounded,
-                color: tropicalTeal,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _orderSearchController,
-                  decoration: InputDecoration(
-                    hintText: 'Rechercher une commande...',
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(
-                      color: lightText,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _orderSearchQuery = value.toLowerCase();
-                    });
-                  },
-                ),
-              ),
-              if (_orderSearchQuery.isNotEmpty)
-                IconButton(
-                  icon: Icon(Icons.clear, size: 18, color: lightText),
-                  onPressed: () {
-                    _orderSearchController.clear();
-                    setState(() {
-                      _orderSearchQuery = '';
-                    });
-                  },
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 25),
+        _buildSearchBar(_orderSearchController, 'Rechercher une commande...', (v) {
+          setState(() => _orderSearchQuery = v.toLowerCase());
+        }, () {
+          _orderSearchController.clear();
+          setState(() => _orderSearchQuery = '');
+        }, _orderSearchQuery.isNotEmpty),
 
-        // Table des commandes
+        const SizedBox(height: 20),
+
         Expanded(
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4)),
               ],
             ),
-            child: _buildOrdersTable(),
+            child: _buildOrdersContent(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildOrdersTable() {
+  Widget _buildOrdersContent() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('orders')
           .where('boutiqueId', isEqualTo: widget.boutiqueId)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline_rounded,
-                    color: Color(0xFFE74C3C), size: 50),
-                const SizedBox(height: 15),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Erreur: ${snapshot.error}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: mediumText),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
+        if (snapshot.hasError) return _buildErrorState('${snapshot.error}');
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: tropicalTeal),
-                const SizedBox(height: 15),
-                Text('Chargement des commandes...',
-                    style: TextStyle(color: mediumText)),
-              ],
-            ),
-          );
+          return _buildLoadingState('Chargement des commandes...');
         }
 
         final orders = snapshot.data!.docs;
-
-        // Filtrer les commandes selon la recherche
-        final filteredOrders = orders.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          final orderId = (data['id'] ?? '').toString().toLowerCase();
-          final status = (data['status'] ?? '').toString().toLowerCase();
-          final userId = (data['userId'] ?? '').toString().toLowerCase();
+        final filtered = orders.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          final status = (d['status'] ?? '').toString().toLowerCase();
+          final userId = (d['userId'] ?? '').toString().toLowerCase();
           final clientName = _getClientName(userId).toLowerCase();
-          final search = _orderSearchQuery.toLowerCase();
-
-          return orderId.contains(search) ||
-              status.contains(search) ||
-              userId.contains(search) ||
-              clientName.contains(search);
+          return status.contains(_orderSearchQuery) ||
+              userId.contains(_orderSearchQuery) ||
+              clientName.contains(_orderSearchQuery);
         }).toList();
 
-        if (filteredOrders.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.shopping_cart_outlined,
-                  size: 60,
-                  color: Colors.grey[300],
-                ),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    _orderSearchQuery.isEmpty
-                        ? 'Aucune commande pour cette boutique'
-                        : 'Aucune commande trouvée pour "$_orderSearchQuery"',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: mediumText,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        if (filtered.isEmpty) {
+          return _buildEmptyState(
+            Icons.shopping_cart_outlined,
+            _orderSearchQuery.isEmpty
+                ? 'Aucune commande pour cette boutique'
+                : 'Aucun résultat pour "$_orderSearchQuery"',
           );
         }
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: DataTable(
-              columnSpacing: 25,
-              horizontalMargin: 25,
-              headingRowHeight: 60,
-              dataRowHeight: 70,
-              headingRowColor: MaterialStateProperty.resolveWith<Color?>(
-                (Set<MaterialState> states) {
-                  return softIvory;
-                },
+        return _Screen.isMobile(context)
+            ? _buildOrdersListMobile(filtered)
+            : _buildOrdersTable(filtered);
+      },
+    );
+  }
+
+  Widget _buildOrdersListMobile(List<QueryDocumentSnapshot> orders) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: orders.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final doc = orders[index];
+        final data = doc.data() as Map<String, dynamic>;
+        final status = data['status']?.toString() ?? '';
+        final amount = (data['total'] ?? 0).toDouble();
+        final ts = data['createdAt'] as Timestamp?;
+        final dateStr = ts != null ? DateFormat('dd/MM/yy HH:mm').format(ts.toDate()) : '';
+        final userId = data['userId']?.toString() ?? '';
+        final clientName = _getClientName(userId);
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: softIvory,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _getProductNameFromOrder(data),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    '${amount.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: tropicalTeal, fontSize: 13),
+                  ),
+                ],
               ),
-              columns: [
-                DataColumn(
-                  label: Text(
-                    'Produit',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.person_outline, size: 12, color: mediumText),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(clientName,
+                        style: const TextStyle(fontSize: 11, color: mediumText), overflow: TextOverflow.ellipsis),
                   ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Date',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
+                  Text(dateStr, style: const TextStyle(fontSize: 11, color: lightText)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _statusBadge(status),
+                  Row(
+                    children: [
+                      _iconBtn(Icons.visibility_rounded, const Color(0xFF3498DB),
+                          () => _viewOrderDetails(doc.id, data, clientName)),
+                      const SizedBox(width: 6),
+                      _buildStatusPopup(doc.id),
+                    ],
                   ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Montant',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Statut',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Client',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Actions',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                ),
-              ],
-              rows: filteredOrders.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final orderId = doc.id;
-                final date = data['createdAt'] != null
-                    ? (data['createdAt'] as Timestamp).toDate().toString()
-                    : 'N/A';
-                final amount = (data['total'] ?? 0).toDouble();
-                final status = data['status']?.toString() ?? 'pending';
-                final userId = data['userId']?.toString() ?? 'N/A';
-                final clientName = _getClientName(userId);
-
-                // Formater la date
-                String formattedDate = 'Date inconnue';
-
-                try {
-                  final dynamic dateData = data['createdAt'];
-
-                  if (dateData != null) {
-                    if (dateData is Timestamp) {
-                      // Cas 1: C'est un Timestamp Firebase normal
-                      formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss')
-                          .format(dateData.toDate());
-                    } else if (dateData is String &&
-                        dateData.contains('Timestamp')) {
-                      // Cas 2: C'est une string "Timestamp(seconds=..., nanoseconds=...)"
-                      final secondsMatch =
-                          RegExp(r'seconds=(\d+)').firstMatch(dateData);
-                      if (secondsMatch != null) {
-                        final seconds = int.parse(secondsMatch.group(1)!);
-                        final date =
-                            DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-                        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss')
-                            .format(date);
-                      } else {
-                        formattedDate = 'Format timestamp invalide';
-                      }
-                    } else if (dateData is String) {
-                      // Cas 3: C'est déjà une string de date
-                      try {
-                        final parsedDate = DateTime.parse(dateData);
-                        formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss')
-                            .format(parsedDate);
-                      } catch (e) {
-                        formattedDate = dateData; // Afficher tel quel
-                      }
-                    } else {
-                      // Cas 4: Autre format, on affiche la représentation string
-                      formattedDate = dateData.toString();
-                    }
-                  }
-                } catch (e) {
-                  formattedDate = 'Erreur date';
-                  print('Erreur conversion date: $e');
-                }
-
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Tooltip(
-                          message: _getProductNameFromOrder(data),
-                          child: Text(
-                            _getProductNameFromOrder(data),
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: darkText,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Text(
-                          formattedDate,
-                          style: TextStyle(fontSize: 12, color: mediumText),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        '${amount.toStringAsFixed(0)} FCFA',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: tropicalTeal,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(status).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _getStatusColor(status).withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          data['status'] ?? 'En attente',
-                          style: TextStyle(
-                            color: _getStatusColor(data['status']),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Text(
-                          clientName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: darkText,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Row(
-                        children: [
-                          // Bouton Voir détails
-                          Container(
-                            decoration: BoxDecoration(
-                              color:
-                                  const Color(0xFF3498DB).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.visibility_rounded,
-                                  size: 18, color: Color(0xFF3498DB)),
-                              onPressed: () => _viewOrderDetails(
-                                  doc.id, data, clientName),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Menu pour changer le statut
-                          Container(
-                            decoration: BoxDecoration(
-                              color: tropicalTeal.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: PopupMenuButton<String>(
-                              onSelected: (value) =>
-                                  _updateOrderStatus(orderId, value),
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                    value: 'En préparation',
-                                    child: Text('En préparation')),
-                                const PopupMenuItem(
-                                    value: 'Prêt', child: Text('Prêt')),
-                                const PopupMenuItem(
-                                    value: 'Livrée', child: Text('Livrée')),
-                                const PopupMenuItem(
-                                    value: 'Annulée', child: Text('Annulée')),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
+                ],
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  // ============================================
-  // ONGLET PARAMÈTRES
-  // ============================================
+  Widget _buildOrdersTable(List<QueryDocumentSnapshot> orders) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: DataTable(
+          columnSpacing: 18,
+          horizontalMargin: 20,
+          headingRowHeight: 50,
+          dataRowHeight: 65,
+          headingRowColor: MaterialStateProperty.all(softIvory),
+          columns: _tableColumns(['Produit', 'Date', 'Montant', 'Statut', 'Client', 'Actions']),
+          rows: orders.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final status = data['status']?.toString() ?? '';
+            final amount = (data['total'] ?? 0).toDouble();
+            final userId = data['userId']?.toString() ?? '';
+            final clientName = _getClientName(userId);
+
+            String formattedDate = '';
+            try {
+              final dateData = data['createdAt'];
+              if (dateData is Timestamp) {
+                formattedDate = DateFormat('dd/MM/yy HH:mm').format(dateData.toDate());
+              }
+            } catch (_) {}
+
+            return DataRow(cells: [
+              DataCell(SizedBox(
+                width: 110,
+                child: Text(_getProductNameFromOrder(data),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: darkText),
+                    overflow: TextOverflow.ellipsis),
+              )),
+              DataCell(SizedBox(
+                width: 100,
+                child: Text(formattedDate,
+                    style: const TextStyle(fontSize: 11, color: mediumText)),
+              )),
+              DataCell(Text('${amount.toStringAsFixed(0)} FCFA',
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: tropicalTeal, fontSize: 12))),
+              DataCell(_statusBadge(status)),
+              DataCell(SizedBox(
+                width: 110,
+                child: Text(clientName,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: darkText),
+                    overflow: TextOverflow.ellipsis),
+              )),
+              DataCell(Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _iconBtn(Icons.visibility_rounded, const Color(0xFF3498DB),
+                      () => _viewOrderDetails(doc.id, data, clientName)),
+                  const SizedBox(width: 6),
+                  _buildStatusPopup(doc.id),
+                ],
+              )),
+            ]);
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SETTINGS TAB
+  // ============================================================
   Widget _buildSettingsTab() {
+    final isMobile = _Screen.isMobile(context);
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête
-            Text(
-              'Paramètres de la boutique',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                color: tropicalTeal,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Gérez les paramètres de ${widget.boutiqueName}',
-              style: TextStyle(
-                fontSize: 16,
-                color: mediumText,
-              ),
-            ),
-            const SizedBox(height: 30),
+            Text('Paramètres de la boutique',
+                style: TextStyle(fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w700, color: tropicalTeal)),
+            const SizedBox(height: 4),
+            Text('Gérez les paramètres de ${widget.boutiqueName}',
+                style: TextStyle(fontSize: isMobile ? 12 : 14, color: mediumText)),
+            const SizedBox(height: 24),
 
-            // Informations de la boutique
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(25),
+            // Infos boutique
+            _buildCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Informations de la boutique',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                  const SizedBox(height: 25),
+                  const Text('Informations de la boutique',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: tropicalTeal)),
+                  const SizedBox(height: 20),
                   StreamBuilder<DocumentSnapshot>(
-                    stream: _firestore
-                        .collection('boutiques')
-                        .doc(widget.boutiqueId)
-                        .snapshots(),
+                    stream: _firestore.collection('boutiques').doc(widget.boutiqueId).snapshots(),
                     builder: (context, snapshot) {
                       if (!snapshot.hasData) {
-                        return Center(
-                            child:
-                                CircularProgressIndicator(color: tropicalTeal));
+                        return const Center(child: CircularProgressIndicator(color: tropicalTeal));
                       }
-
-                      final data =
-                          snapshot.data!.data() as Map<String, dynamic>? ?? {};
-
+                      final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
                       return Column(
                         children: [
-                          _buildSettingItem(
-                            'Nom de la boutique',
-                            data['nom'] ?? widget.boutiqueName,
-                            icon: Icons.store_rounded,
-                          ),
-                          const SizedBox(height: 20),
-                          _buildSettingItem(
-                            'Adresse',
-                            data['adresse'] ?? 'Non définie',
-                            icon: Icons.location_on_rounded,
-                          ),
-                          const SizedBox(height: 20),
-                          _buildSettingItem(
-                            'Catégorie',
-                            data['categories'] ?? 'Général',
-                            icon: Icons.category_rounded,
-                          ),
-                          const SizedBox(height: 30),
+                          _buildSettingItem('Nom de la boutique', data['nom'] ?? widget.boutiqueName, icon: Icons.store_rounded),
+                          const SizedBox(height: 16),
+                          _buildSettingItem('Adresse', data['adresse'] ?? 'Non définie', icon: Icons.location_on_rounded),
+                          const SizedBox(height: 16),
+                          _buildSettingItem('Catégorie', data['categories'] ?? 'Général', icon: Icons.category_rounded),
+                          const SizedBox(height: 24),
                           ElevatedButton.icon(
                             onPressed: () => _editBoutiqueSettings(data),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: tropicalTeal,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 25,
-                                vertical: 15,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            icon: const Icon(Icons.edit_rounded, size: 18),
+                            icon: const Icon(Icons.edit_rounded, size: 16),
                             label: const Text('Modifier les informations'),
                           ),
                         ],
@@ -2101,67 +1486,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
 
-            // Actions administratives
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(25),
+            _buildCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Actions administratives',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: tropicalTeal,
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  Column(
-                    children: [
-                      _buildActionTile(
-                        Icons.delete_outline_rounded,
-                        'Supprimer la boutique',
-                        'Cette action est irréversible',
-                        Color(0xFFE74C3C),
-                        () => _deleteBoutique(),
-                      ),
-                      const Divider(color: softIvory),
-                      _buildActionTile(
-                        Icons.notifications_active_rounded,
-                        'Notifications',
-                        'Gérer les notifications',
-                        Color(0xFF3498DB),
-                        () {},
-                      ),
-                      const Divider(color: softIvory),
-                      _buildActionTile(
-                        Icons.security_rounded,
-                        'Sécurité',
-                        'Paramètres de sécurité',
-                        Color(0xFF2ECC71),
-                        () {},
-                      ),
-                    ],
-                  ),
+                  const Text('Actions administratives',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: tropicalTeal)),
+                  const SizedBox(height: 20),
+                  _buildActionTile(Icons.delete_outline_rounded, 'Supprimer la boutique',
+                      'Cette action est irréversible', const Color(0xFFE74C3C), () => _deleteBoutique()),
+                  const Divider(color: softIvory),
+                  _buildActionTile(Icons.notifications_active_rounded, 'Notifications',
+                      'Gérer les notifications', const Color(0xFF3498DB), () {}),
+                  const Divider(color: softIvory),
+                  _buildActionTile(Icons.security_rounded, 'Sécurité',
+                      'Paramètres de sécurité', const Color(0xFF2ECC71), () {}),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: child,
     );
   }
 
@@ -2171,1659 +1533,287 @@ class _AdminDashboardState extends State<AdminDashboard> {
       children: [
         Row(
           children: [
-            if (icon != null)
-              Icon(
-                icon,
-                color: tropicalTeal,
-                size: 18,
-              ),
-            if (icon != null) const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: mediumText,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            if (icon != null) Icon(icon, color: tropicalTeal, size: 16),
+            if (icon != null) const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontSize: 13, color: mediumText, fontWeight: FontWeight.w600)),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(15),
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             color: softIvory,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: tropicalTeal.withOpacity(0.2), width: 1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: tropicalTeal.withOpacity(0.2)),
           ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: darkText,
-            ),
-          ),
+          child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: darkText)),
         ),
       ],
     );
   }
 
-  Widget _buildActionTile(
-    IconData icon,
-    String title,
-    String subtitle,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _buildActionTile(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      contentPadding: const EdgeInsets.symmetric(vertical: 6),
       leading: Container(
-        width: 45,
-        height: 45,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
         ),
         child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: darkText,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: mediumText,
-          fontSize: 12,
-        ),
-      ),
-      trailing: Container(
-        width: 35,
-        height: 35,
-        decoration: BoxDecoration(
-          color: tropicalTeal.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: IconButton(
-          icon: Icon(Icons.arrow_forward_ios_rounded,
-              size: 14, color: tropicalTeal),
-          onPressed: onTap,
-          padding: EdgeInsets.zero,
-        ),
-      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: darkText, fontSize: 14)),
+      subtitle: Text(subtitle, style: const TextStyle(color: mediumText, fontSize: 12)),
+      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: mediumText),
       onTap: onTap,
     );
   }
 
-  // ============================================
-  // MÉTHODES D'AIDE
-  // ============================================
-  Color _getStatusColor(String status) {
-    if (status == null) return const Color(0xFF7F8C8D);
+  // ============================================================
+  // SHARED UI HELPERS
+  // ============================================================
+  List<DataColumn> _tableColumns(List<String> titles) {
+    return titles.map((t) => DataColumn(
+      label: Text(t, style: const TextStyle(fontWeight: FontWeight.w700, color: tropicalTeal, fontSize: 13)),
+    )).toList();
+  }
 
-    if (status.contains('attente') || status == 'En attente') {
-      return const Color(0xFFF39C12);
-    } else if (status.contains('préparation') || status == 'En préparation') {
-      return const Color(0xFF9B59B6);
-    } else if (status.contains('Prêt') || status == 'Prêt') {
-      return const Color(0xFF2ECC71);
-    } else if (status.contains('Livrée') || status == 'Livrée') {
-      return const Color(0xFF27AE60);
-    } else if (status.contains('Annulée') || status == 'Annulée') {
-      return const Color(0xFFE74C3C);
+  Widget _iconBtn(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 16, color: color),
+      ),
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _getStatusColor(status).withOpacity(0.3)),
+      ),
+      child: Text(
+        status.isEmpty ? 'En attente' : status,
+        style: TextStyle(color: _getStatusColor(status), fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _categoryBadge(String? category) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _getCategoryColor(category).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _getCategoryColor(category).withOpacity(0.3)),
+      ),
+      child: Text(
+        _getCategoryName(category),
+        style: TextStyle(color: _getCategoryColor(category), fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildStatusPopup(String orderId) {
+    return PopupMenuButton<String>(
+      icon: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: tropicalTeal.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.more_vert_rounded, size: 16, color: tropicalTeal),
+      ),
+      onSelected: (value) => _updateOrderStatus(orderId, value),
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'En préparation', child: Text('En préparation')),
+        PopupMenuItem(value: 'Prêt', child: Text('Prêt')),
+        PopupMenuItem(value: 'Livrée', child: Text('Livrée')),
+        PopupMenuItem(value: 'Annulée', child: Text('Annulée')),
+      ],
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Color(0xFFE74C3C), size: 48),
+            const SizedBox(height: 12),
+            Text('Erreur: $error', textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: mediumText)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: tropicalTeal),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(color: mediumText, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(IconData icon, String message, {bool showAdd = false}) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 56, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: mediumText)),
+          if (showAdd) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _showAddProductDialog(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: tropicalTeal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text('Ajouter votre premier produit'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductImage(String? imageRef, {double size = 45}) {
+    final container = BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+      color: softIvory,
+      border: Border.all(color: tropicalTeal.withOpacity(0.2)),
+    );
+
+    if (imageRef == null || imageRef.isEmpty) {
+      return Container(
+        width: size, height: size,
+        decoration: container,
+        child: Icon(Icons.shopping_bag_rounded, color: tropicalTeal, size: size * 0.5),
+      );
     }
-    return const Color(0xFF7F8C8D);
-  }
 
-  IconData _getOrderStatusIcon(String status) {
-    if (status == null || status.isEmpty) return Icons.receipt;
-
-    if (status.contains('En attente')) return Icons.pending;
-    if (status.contains('En préparation')) return Icons.local_shipping;
-    if (status.contains('Prêt')) return Icons.check_circle_outline;
-    if (status.contains('Livrée')) return Icons.home;
-    if (status.contains('Annulée')) return Icons.cancel;
-
-    return Icons.receipt;
-  }
-
-  Color _getCategoryColor(String? category) {
-    final cat = (category ?? '').toLowerCase();
-    for (var catItem in _categories) {
-      if (catItem['value'] == cat) {
-        return catItem['color'] as Color;
-      }
+    if (imageRef.startsWith('firestore:')) {
+      return SizedBox(width: size, height: size, child: _buildFirestoreImage(imageRef));
     }
-    return const Color(0xFF7F8C8D);
+
+    return Container(
+      width: size, height: size,
+      decoration: container,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          imageRef,
+          fit: BoxFit.cover,
+          loadingBuilder: (ctx, child, progress) =>
+              progress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2, color: tropicalTeal)),
+          errorBuilder: (_, __, ___) => Icon(Icons.broken_image_rounded, color: tropicalTeal, size: size * 0.5),
+        ),
+      ),
+    );
   }
 
-  String _getCategoryName(String? category) {
-    final cat = (category ?? '').toLowerCase();
-    for (var catItem in _categories) {
-      if (catItem['value'] == cat) {
-        return catItem['label'] as String;
-      }
-    }
-    return cat.isNotEmpty ? cat : 'Non catégorisé';
+  // ============================================================
+  // IMAGE METHODS
+  // ============================================================
+  Widget _buildFirestoreImage(String firestoreId) {
+    final imageId = firestoreId.replaceFirst('firestore:', '');
+    return FutureBuilder<DocumentSnapshot>(
+      future: _firestore.collection('product_images').doc(imageId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: softIvory),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: tropicalTeal)),
+          );
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Container(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: softIvory),
+            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+          );
+        }
+        final base64Image = (snapshot.data!.data() as Map<String, dynamic>)['image_base64'] as String?;
+        if (base64Image == null || base64Image.isEmpty) {
+          return Container(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: softIvory),
+            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+          );
+        }
+        try {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(base64Decode(base64Image), fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.error, color: Colors.red, size: 20)),
+          );
+        } catch (_) {
+          return const Icon(Icons.broken_image, color: Colors.grey, size: 24);
+        }
+      },
+    );
   }
 
-  String _getClientName(String userId) {
-    return _clientNames[userId] ??
-        'Client ${userId.length > 8 ? userId.substring(0, 8) + '...' : userId}';
-  }
-
-  // ============================================
-  // GESTION DES IMAGES - VERSION CORRIGÉE
-  // ============================================
   Future<void> _pickImage() async {
-    // Utilisez uniquement image_picker qui fonctionne sur toutes les plateformes
-    await _pickImageMobile();
-  }
-
-  Future<void> _pickImageMobile() async {
-    final ImagePicker picker = ImagePicker();
+    final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 800,
       maxHeight: 600,
       imageQuality: 85,
     );
-
     if (image != null) {
       final bytes = await image.readAsBytes();
-      setState(() {
-        _selectedImageBytes = bytes;
-      });
+      setState(() => _selectedImageBytes = bytes);
     }
   }
 
   Future<void> _takePhoto() async {
-    // Utilisez uniquement image_picker qui fonctionne aussi sur web
-    final ImagePicker picker = ImagePicker();
+    final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.camera,
       maxWidth: 800,
       maxHeight: 600,
       imageQuality: 85,
     );
-
     if (image != null) {
       final bytes = await image.readAsBytes();
-      setState(() {
-        _selectedImageBytes = bytes;
-      });
+      setState(() => _selectedImageBytes = bytes);
     }
   }
 
-  Widget _buildFirestoreImage(String firestoreId) {
-    final imageId = firestoreId.replaceFirst('firestore:', '');
-
-    return FutureBuilder<DocumentSnapshot>(
-      future: _firestore.collection('product_images').doc(imageId).get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              color: const Color(0xFFEFE9E0),
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        }
-
-        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-          return Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              color: const Color(0xFFEFE9E0),
-            ),
-            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
-          );
-        }
-
-        final data = snapshot.data!.data() as Map<String, dynamic>;
-        final base64Image = data['image_base64'] as String?;
-
-        if (base64Image == null || base64Image.isEmpty) {
-          return Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              color: const Color(0xFFEFE9E0),
-            ),
-            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
-          );
-        }
-
-        try {
-          return Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              color: const Color(0xFFEFE9E0),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.memory(
-                base64Decode(base64Image),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.error, color: Colors.red, size: 24);
-                },
-              ),
-            ),
-          );
-        } catch (e) {
-          return Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              color: const Color(0xFFEFE9E0),
-            ),
-            child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildImagePreview() {
-    if (_selectedImageBytes != null) {
-      return Container(
-        width: 150,
-        height: 150,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF6D5DFC), width: 2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(
-            _selectedImageBytes!,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(child: Icon(Icons.error, color: Colors.red));
-            },
-          ),
-        ),
-      );
-    } else if (_uploadedImageUrl != null) {
-      if (_uploadedImageUrl!.startsWith('firestore:')) {
-        return Container(
-          width: 150,
-          height: 150,
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF6D5DFC), width: 2),
-          ),
-          child: _buildFirestoreImage(_uploadedImageUrl!),
-        );
-      }
-      return Container(
-        width: 150,
-        height: 150,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF6D5DFC), width: 2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            _uploadedImageUrl!,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const Center(child: CircularProgressIndicator());
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(child: Icon(Icons.error, color: Colors.red));
-            },
-          ),
-        ),
-      );
-    } else {
-      return Container(
-        width: 150,
-        height: 150,
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey[300]!, width: 2),
-          color: Colors.grey[100],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.image, size: 40, color: Colors.grey),
-            SizedBox(height: 5),
-            Text('Aucune image', style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      );
-    }
-  }
-
-  Widget _buildUploadProgressIndicator() {
-    if (!_isUploading) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        LinearProgressIndicator(
-          value: _uploadProgress,
-          backgroundColor: Colors.grey[300],
-          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6D5DFC)),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          'Enregistrement de l\'image... ${(_uploadProgress * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
-        ),
-      ],
-    );
-  }
-
-  // ============================================
-  // DIALOGUES DE PRODUITS
-  // ============================================
-  Future<void> _showAddProductDialog() async {
-    _selectedImageBytes = null;
-    _uploadedImageUrl = null;
-    _isUploading = false;
-    _uploadProgress = 0.0;
-
-    final formKey = GlobalKey<FormState>();
-    final TextEditingController nomController = TextEditingController();
-    final TextEditingController prixController = TextEditingController();
-    final TextEditingController descriptionController = TextEditingController();
-    String selectedCategory = 'clothing';
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Ajouter un produit'),
-              content: Container(
-                width: MediaQuery.of(context).size.width * 0.8,
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Column(
-                          children: [
-                            _buildImagePreview(),
-                            const SizedBox(height: 15),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    await _pickImage();
-                                    setState(() {});
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF3498DB),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 15,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.photo_library,
-                                    size: 16,
-                                  ),
-                                  label: const Text('Sélectionner'),
-                                ),
-                                const SizedBox(width: 10),
-                                if (!kIsWeb)
-                                  ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await _takePhoto();
-                                      setState(() {});
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2ECC71),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 15,
-                                        vertical: 8,
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.camera_alt,
-                                      size: 16,
-                                    ),
-                                    label: const Text('Camera'),
-                                  ),
-                              ],
-                            ),
-                            if (_selectedImageBytes != null && !_isUploading)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final imageUrl =
-                                        await _uploadImageToFirestore();
-                                    if (imageUrl != null) {
-                                      setState(() {
-                                        _uploadedImageUrl = imageUrl;
-                                      });
-                                    } else {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Erreur lors de l\'enregistrement de l\'image',
-                                          ),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF6D5DFC),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 15,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.upload, size: 16),
-                                  label: const Text('Enregistrer l\'image'),
-                                ),
-                              ),
-                            _buildUploadProgressIndicator(),
-                            if (_uploadedImageUrl != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: Colors.green[700],
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Image enregistrée',
-                                      style: TextStyle(
-                                        color: Colors.green[700],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (_selectedImageBytes != null && !_isUploading)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Text(
-                                  'Taille: ${(_selectedImageBytes!.length / 1024).toStringAsFixed(1)} KB',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: nomController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nom du produit *',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.shopping_bag),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Le nom est obligatoire';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: prixController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Prix (FCFA) *',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.money),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Le prix est obligatoire';
-                            }
-                            if (double.tryParse(value) == null) {
-                              return 'Prix invalide';
-                            }
-                            if (double.parse(value) <= 0) {
-                              return 'Le prix doit être positif';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        DropdownButtonFormField<String>(
-                          value: selectedCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'Catégorie *',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.category),
-                          ),
-                          items: _categories.map<DropdownMenuItem<String>>(
-                            (category) {
-                              return DropdownMenuItem<String>(
-                                value: category['value'] as String,
-                                child: Text(category['label'] as String),
-                              );
-                            },
-                          ).toList(),
-                          onChanged: (String? value) {
-                            if (value != null) {
-                              selectedCategory = value;
-                              setState(() {});
-                            }
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'La catégorie est obligatoire';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: descriptionController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                            border: OutlineInputBorder(),
-                            alignLabelWithHint: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (_uploadedImageUrl == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Veuillez sélectionner et enregistrer une image',
-                          ),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (formKey.currentState!.validate()) {
-                      try {
-                        final docRef = _firestore.collection('products').doc();
-                        await _firestore.collection('products').add({
-                          'id': docRef.id,
-                          'nom': nomController.text.trim(),
-                          'prix': double.parse(prixController.text.trim()),
-                          'categorie': selectedCategory,
-                          'image': _uploadedImageUrl!,
-                          'image_type': 'firestore_base64',
-                          'description': descriptionController.text.trim(),
-                          'boutique_id': widget.boutiqueId,
-                          'created_at': FieldValue.serverTimestamp(),
-                        });
-
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Produit ajouté avec succès !'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                          Navigator.of(context).pop();
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Erreur: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6D5DFC),
-                  ),
-                  child: const Text('Ajouter le produit'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _editProduct(String productId, Map<String, dynamic> data) async {
-    _selectedImageBytes = null;
-    _uploadedImageUrl = data['image'] as String?;
-    _isUploading = false;
-    _uploadProgress = 0.0;
-
-    final formKey = GlobalKey<FormState>();
-    final TextEditingController nomController = TextEditingController(
-      text: data['nom']?.toString() ?? '',
-    );
-    final TextEditingController prixController = TextEditingController(
-      text: (data['prix'] ?? 0).toStringAsFixed(0),
-    );
-    final TextEditingController descriptionController = TextEditingController(
-      text: data['description']?.toString() ?? '',
-    );
-    String selectedCategory = data['categorie']?.toString() ?? 'clothing';
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Modifier le produit'),
-              content: Container(
-                width: MediaQuery.of(context).size.width * 0.8,
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Column(
-                          children: [
-                            if (_selectedImageBytes != null)
-                              Container(
-                                width: 150,
-                                height: 150,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFF6D5DFC),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.memory(
-                                    _selectedImageBytes!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Icon(Icons.error,
-                                            color: Colors.red),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              )
-                            else if (_uploadedImageUrl != null &&
-                                _uploadedImageUrl!.startsWith('firestore:'))
-                              Container(
-                                width: 150,
-                                height: 150,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFF6D5DFC),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: _buildFirestoreImage(_uploadedImageUrl!),
-                              )
-                            else if (_uploadedImageUrl != null &&
-                                _uploadedImageUrl!.isNotEmpty)
-                              Container(
-                                width: 150,
-                                height: 150,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFF6D5DFC),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    _uploadedImageUrl!,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder:
-                                        (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return const Center(
-                                          child: CircularProgressIndicator());
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Icon(Icons.error,
-                                            color: Colors.red),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              )
-                            else
-                              Container(
-                                width: 150,
-                                height: 150,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.grey[300]!,
-                                    width: 2,
-                                  ),
-                                  color: Colors.grey[100],
-                                ),
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.image,
-                                        size: 40, color: Colors.grey),
-                                    SizedBox(height: 5),
-                                    Text('Aucune image',
-                                        style: TextStyle(color: Colors.grey)),
-                                  ],
-                                ),
-                              ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    await _pickImage();
-                                    setState(() {});
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF3498DB),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 15,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  icon:
-                                      const Icon(Icons.photo_library, size: 16),
-                                  label: const Text('Changer image'),
-                                ),
-                                const SizedBox(width: 10),
-                                if (!kIsWeb)
-                                  ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await _takePhoto();
-                                      setState(() {});
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2ECC71),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 15,
-                                        vertical: 8,
-                                      ),
-                                    ),
-                                    icon:
-                                        const Icon(Icons.camera_alt, size: 16),
-                                    label: const Text('Camera'),
-                                  ),
-                              ],
-                            ),
-                            if (_selectedImageBytes != null && !_isUploading)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final imageUrl =
-                                        await _uploadImageToFirestore();
-                                    if (imageUrl != null) {
-                                      setState(() {
-                                        _uploadedImageUrl = imageUrl;
-                                      });
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Nouvelle image enregistrée',
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Erreur lors de l\'enregistrement de l\'image',
-                                          ),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF6D5DFC),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 15,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.upload, size: 16),
-                                  label: const Text(
-                                    'Enregistrer la nouvelle image',
-                                  ),
-                                ),
-                              ),
-                            _buildUploadProgressIndicator(),
-                            if (_selectedImageBytes == null &&
-                                _uploadedImageUrl != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_circle,
-                                        color: Colors.green[700], size: 16),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Image actuelle',
-                                      style: TextStyle(
-                                        color: Colors.green[700],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (_selectedImageBytes != null &&
-                                _uploadedImageUrl != null &&
-                                _uploadedImageUrl!.startsWith('firestore:'))
-                              Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_circle,
-                                        color: Colors.green[700], size: 16),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      'Nouvelle image enregistrée',
-                                      style: TextStyle(
-                                        color: Colors.green[700],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: nomController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nom du produit *',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.shopping_bag),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Le nom est obligatoire';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: prixController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Prix (FCFA) *',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.money),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Le prix est obligatoire';
-                            }
-                            if (double.tryParse(value) == null) {
-                              return 'Prix invalide';
-                            }
-                            if (double.parse(value) <= 0) {
-                              return 'Le prix doit être positif';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        DropdownButtonFormField<String>(
-                          value: selectedCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'Catégorie *',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.category),
-                          ),
-                          items: _categories.map<DropdownMenuItem<String>>(
-                            (category) {
-                              return DropdownMenuItem<String>(
-                                value: category['value'] as String,
-                                child: Text(category['label'] as String),
-                              );
-                            },
-                          ).toList(),
-                          onChanged: (String? value) {
-                            if (value != null) {
-                              setState(() {
-                                selectedCategory = value;
-                              });
-                            }
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'La catégorie est obligatoire';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: descriptionController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                            border: OutlineInputBorder(),
-                            alignLabelWithHint: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (_selectedImageBytes != null &&
-                        _uploadedImageUrl == data['image']) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Veuillez enregistrer la nouvelle image avant de modifier le produit',
-                          ),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-
-                    if (formKey.currentState!.validate()) {
-                      try {
-                        await _firestore
-                            .collection('products')
-                            .doc(productId)
-                            .update({
-                          'nom': nomController.text.trim(),
-                          'prix': double.parse(prixController.text.trim()),
-                          'categorie': selectedCategory,
-                          'image': _uploadedImageUrl ?? data['image'],
-                          'image_type': 'firestore_base64',
-                          'description': descriptionController.text.trim(),
-                          'updated_at': FieldValue.serverTimestamp(),
-                        });
-
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Produit modifié avec succès !'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                          Navigator.of(context).pop();
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Erreur: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6D5DFC),
-                  ),
-                  child: const Text('Enregistrer les modifications'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _deleteProduct(String productId, String productName) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer le produit'),
-        content: Text(
-          'Êtes-vous sûr de vouloir supprimer "$productName" ?\nCette action est irréversible.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE74C3C),
-            ),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await _firestore.collection('products').doc(productId).delete();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('"$productName" supprimé avec succès'),
-              backgroundColor: const Color(0xFF2ECC71),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur: $e'),
-              backgroundColor: const Color(0xFFE74C3C),
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  // ============================================
-  // GESTION DES COMMANDES
-  // ============================================
-  Future<void> _viewOrderDetails(
-      String orderId, Map<String, dynamic> data, String clientName) async {
-    // Formater la date
-    String formattedDate = 'Non spécifiée';
-    try {
-      final dynamic dateData = data['createdAt'];
-      if (dateData != null) {
-        if (dateData is Timestamp) {
-          formattedDate =
-              DateFormat('dd/MM/yyyy HH:mm:ss').format(dateData.toDate());
-        } else if (dateData is String && dateData.contains('Timestamp')) {
-          final secondsMatch = RegExp(r'seconds=(\d+)').firstMatch(dateData);
-          if (secondsMatch != null) {
-            final seconds = int.parse(secondsMatch.group(1)!);
-            final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-            formattedDate = DateFormat('dd/MM/yyyy HH:mm:ss').format(date);
-          }
-        }
-      }
-    } catch (e) {
-      formattedDate = data['createdAt']?.toString() ?? 'Date invalide';
-    }
-
-    // Traduire deliveryType
-    String deliveryMethod = 'Retrait en boutique';
-    if (data['deliveryType'] == 'delivery') {
-      deliveryMethod = 'Livraison à domicile';
-    }
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Détails de la commande'),
-          content: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Informations client
-                  _buildDetailCard(
-                    Icons.person,
-                    'Client',
-                    clientName,
-                  ),
-                  const SizedBox(height: 15),
-
-                  _buildDetailCard(
-                    Icons.receipt,
-                    'Commande',
-                    _getProductNameFromOrder(data),
-                  ),
-                  const SizedBox(height: 15),
-
-                  _buildDetailCard(
-                    Icons.calendar_today,
-                    'Date',
-                    formattedDate,
-                  ),
-                  const SizedBox(height: 15),
-
-                  _buildDetailCard(
-                    Icons.money,
-                    'Montant Total',
-                    '${(data['total'] ?? 0).toStringAsFixed(0)} FCFA',
-                    isAmount: true,
-                  ),
-                  const SizedBox(height: 15),
-
-                  _buildDetailCard(
-                    Icons.local_shipping,
-                    'Méthode de livraison',
-                    deliveryMethod,
-                  ),
-                  const SizedBox(height: 15),
-
-                  _buildDetailCard(
-                    Icons.info,
-                    'Statut',
-                    data['status']?.toString() ?? 'En attente',
-                    status: data['status']?.toString(),
-                  ),
-
-                  // Liste des produits commandés
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Produits commandés:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Color(0xFF2C3E50),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  if (data['items'] != null && (data['items'] as List).isNotEmpty)
-                    ...(data['items'] as List).map<Widget>((item) {
-                      final itemMap = item as Map<String, dynamic>;
-
-                      final quantity = itemMap['quantity'] ?? 1;
-                      final productName = itemMap['name']?.toString() ?? 'Produit';
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: const Color(0xFFEFE9E0), width: 1),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F9E99).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.shopping_bag,
-                                color: Color(0xFF0F9E99),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    productName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: Color(0xFF2C3E50),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Quantité: $quantity',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF5D6D7E),
-                                    ),
-                                  ),
-                                  // Description
-                                  if (itemMap['description'] != null &&
-                                      itemMap['description'].toString().isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        itemMap['description'].toString(),
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF95A5A6),
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList()
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'Aucun produit dans cette commande',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-
-                  // Notes du client
-                  const SizedBox(height: 20),
-                  if (data['customerNotes'] != null &&
-                      data['customerNotes'].toString().isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Note du client:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Color(0xFF2C3E50),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFE9E0),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            data['customerNotes'].toString(),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF5D6D7E),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Fermer'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
-    try {
-      // Stocker DIRECTEMENT en français
-      await _firestore.collection('orders').doc(orderId).update({
-        'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Statut mis à jour: $newStatus'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      print('✅ Stocké en français: "$newStatus"');
-    } catch (e) {
-      print('❌ Erreur: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildDetailCard(IconData icon, String label, String value,
-      {bool isAmount = false, String? status}) {
-    Color valueColor = const Color(0xFF2C3E50);
-
-    if (isAmount) {
-      valueColor = const Color(0xFF2C3E50);
-    } else if (status != null) {
-      valueColor = _getStatusColor(status);
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEFE9E0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 24, color: const Color(0xFF0F9E99)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: valueColor,
-                    fontWeight: isAmount ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================
-  // GESTION DES PARAMÈTRES DE LA BOUTIQUE
-  // ============================================
-  Future<void> _editBoutiqueSettings(Map<String, dynamic> data) async {
-    final TextEditingController nomController =
-        TextEditingController(text: data['nom'] ?? widget.boutiqueName);
-    final TextEditingController adresseController =
-        TextEditingController(text: data['adresse'] ?? '');
-    final TextEditingController categorieController =
-        TextEditingController(text: data['categories'] ?? 'Général');
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Modifier les informations de la boutique'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nomController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom de la boutique',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: adresseController,
-                  decoration: const InputDecoration(
-                    labelText: 'Adresse',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: categorieController,
-                  decoration: const InputDecoration(
-                    labelText: 'Catégorie',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  await _firestore
-                      .collection('boutiques')
-                      .doc(widget.boutiqueId)
-                      .update({
-                    'nom': nomController.text.trim(),
-                    'adresse': adresseController.text.trim(),
-                    'categories': categorieController.text.trim(),
-                    'updatedAt': FieldValue.serverTimestamp(),
-                  });
-
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Boutique mise à jour avec succès !'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    Navigator.of(context).pop();
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Erreur: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6D5DFC),
-              ),
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _deleteBoutique() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer la boutique'),
-        content: const Text(
-          'Êtes-vous sûr de vouloir supprimer cette boutique ?\nTous les produits et commandes associés seront également supprimés.\nCette action est irréversible.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE74C3C),
-            ),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        // Supprimer la boutique
-        await _firestore
-            .collection('boutiques')
-            .doc(widget.boutiqueId)
-            .delete();
-
-        // Supprimer les produits de cette boutique
-        final products = await _firestore
-            .collection('products')
-            .where('boutique_id', isEqualTo: widget.boutiqueId)
-            .get();
-
-        for (var doc in products.docs) {
-          await doc.reference.delete();
-        }
-
-        // Supprimer les commandes de cette boutique
-        final orders = await _firestore
-            .collection('orders')
-            .where('boutiqueId', isEqualTo: widget.boutiqueId)
-            .get();
-
-        for (var doc in orders.docs) {
-          await doc.reference.delete();
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Boutique supprimée avec succès'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.of(context).pop();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  // ============================================
-  // MÉTHODES UTILITAIRES MANQUANTES
-  // ============================================
   Future<String?> _uploadImageToFirestore() async {
     if (_selectedImageBytes == null) return null;
-
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0.0;
-    });
-
+    setState(() { _isUploading = true; _uploadProgress = 0.0; });
     try {
       final base64Image = base64Encode(_selectedImageBytes!);
-
-      // Vérifier la taille
-      if (base64Image.length > 900000) {
-        throw Exception('Image trop grande (max 900KB en base64)');
-      }
+      if (base64Image.length > 900000) throw Exception('Image trop grande (max ~900KB)');
 
       setState(() => _uploadProgress = 0.3);
       await Future.delayed(const Duration(milliseconds: 200));
@@ -3838,35 +1828,665 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       setState(() => _uploadProgress = 1.0);
       await Future.delayed(const Duration(milliseconds: 200));
-
-      final imageId = docRef.id;
-      return 'firestore:$imageId';
+      return 'firestore:${docRef.id}';
     } catch (e) {
-      print('❌ Erreur Firestore: $e');
+      debugPrint('Erreur upload: $e');
       return null;
     } finally {
-      setState(() {
-        _isUploading = false;
-        _uploadProgress = 0.0;
-      });
+      setState(() { _isUploading = false; _uploadProgress = 0.0; });
     }
+  }
+
+  Widget _buildImagePreview() {
+    if (_selectedImageBytes != null) {
+      return _imageBox(child: Image.memory(_selectedImageBytes!, fit: BoxFit.cover));
+    } else if (_uploadedImageUrl != null && _uploadedImageUrl!.isNotEmpty) {
+      if (_uploadedImageUrl!.startsWith('firestore:')) {
+        return _imageBox(child: _buildFirestoreImage(_uploadedImageUrl!));
+      }
+      return _imageBox(
+        child: Image.network(_uploadedImageUrl!, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const Icon(Icons.error, color: Colors.red)),
+      );
+    }
+    return _imageBox(
+      child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.image, size: 36, color: Colors.grey),
+        SizedBox(height: 4),
+        Text('Aucune image', style: TextStyle(color: Colors.grey, fontSize: 12)),
+      ]),
+    );
+  }
+
+  Widget _imageBox({required Widget child}) {
+    return Container(
+      width: 140,
+      height: 140,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accentColor, width: 2),
+        color: Colors.grey[100],
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(8), child: child),
+    );
+  }
+
+  // ============================================================
+  // PRODUCT DIALOGS
+  // ============================================================
+  Future<void> _showAddProductDialog() async {
+    _selectedImageBytes = null;
+    _uploadedImageUrl = null;
+    _isUploading = false;
+    _uploadProgress = 0.0;
+
+    final formKey = GlobalKey<FormState>();
+    final nomCtrl = TextEditingController();
+    final prixCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String selectedCat = 'clothing';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Ajouter un produit'),
+          content: SizedBox(
+            width: _Screen.isMobile(context) ? double.maxFinite : 480,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildImagePreview(),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () async { await _pickImage(); setDialogState(() {}); },
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3498DB), foregroundColor: Colors.white),
+                          icon: const Icon(Icons.photo_library, size: 14),
+                          label: const Text('Galerie', style: TextStyle(fontSize: 12)),
+                        ),
+                        if (!kIsWeb)
+                          ElevatedButton.icon(
+                            onPressed: () async { await _takePhoto(); setDialogState(() {}); },
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2ECC71), foregroundColor: Colors.white),
+                            icon: const Icon(Icons.camera_alt, size: 14),
+                            label: const Text('Caméra', style: TextStyle(fontSize: 12)),
+                          ),
+                        if (_selectedImageBytes != null && !_isUploading)
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final url = await _uploadImageToFirestore();
+                              setDialogState(() { if (url != null) _uploadedImageUrl = url; });
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: accentColor, foregroundColor: Colors.white),
+                            icon: const Icon(Icons.upload, size: 14),
+                            label: const Text('Enregistrer', style: TextStyle(fontSize: 12)),
+                          ),
+                      ],
+                    ),
+                    if (_isUploading) ...[
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(value: _uploadProgress, color: accentColor),
+                    ],
+                    if (_uploadedImageUrl != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.check_circle, color: Colors.green[700], size: 14),
+                          const SizedBox(width: 4),
+                          Text('Image enregistrée', style: TextStyle(color: Colors.green[700], fontSize: 12)),
+                        ]),
+                      ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nomCtrl,
+                      decoration: const InputDecoration(labelText: 'Nom du produit *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.shopping_bag)),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Obligatoire' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: prixCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Prix (FCFA) *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.money)),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Obligatoire';
+                        final n = double.tryParse(v);
+                        if (n == null || n <= 0) return 'Prix invalide';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedCat,
+                      decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.category)),
+                      items: _categories.map<DropdownMenuItem<String>>((c) =>
+                        DropdownMenuItem(value: c['value'] as String, child: Text(c['label'] as String))).toList(),
+                      onChanged: (v) { if (v != null) setDialogState(() => selectedCat = v); },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder(), alignLabelWithHint: true),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Annuler')),
+            ElevatedButton(
+              onPressed: () async {
+                if (_uploadedImageUrl == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Veuillez enregistrer une image'), backgroundColor: Colors.orange),
+                  );
+                  return;
+                }
+                if (formKey.currentState!.validate()) {
+                  try {
+                    await _firestore.collection('products').add({
+                      'nom': nomCtrl.text.trim(),
+                      'prix': double.parse(prixCtrl.text.trim()),
+                      'categorie': selectedCat,
+                      'image': _uploadedImageUrl!,
+                      'image_type': 'firestore_base64',
+                      'description': descCtrl.text.trim(),
+                      'boutique_id': widget.boutiqueId,
+                      'created_at': FieldValue.serverTimestamp(),
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Produit ajouté !'), backgroundColor: Colors.green),
+                      );
+                      Navigator.of(ctx).pop();
+                    }
+                  } catch (e) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: accentColor),
+              child: const Text('Ajouter'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editProduct(String productId, Map<String, dynamic> data) async {
+    _selectedImageBytes = null;
+    _uploadedImageUrl = data['image'] as String?;
+    _isUploading = false;
+    _uploadProgress = 0.0;
+
+    final formKey = GlobalKey<FormState>();
+    final nomCtrl = TextEditingController(text: data['nom']?.toString() ?? '');
+    final prixCtrl = TextEditingController(text: (data['prix'] ?? 0).toStringAsFixed(0));
+    final descCtrl = TextEditingController(text: data['description']?.toString() ?? '');
+    String selectedCat = data['categorie']?.toString() ?? 'clothing';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Modifier le produit'),
+          content: SizedBox(
+            width: _Screen.isMobile(context) ? double.maxFinite : 480,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildImagePreview(),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () async { await _pickImage(); setDialogState(() {}); },
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3498DB), foregroundColor: Colors.white),
+                          icon: const Icon(Icons.photo_library, size: 14),
+                          label: const Text('Changer image', style: TextStyle(fontSize: 12)),
+                        ),
+                        if (_selectedImageBytes != null && !_isUploading)
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final url = await _uploadImageToFirestore();
+                              setDialogState(() { if (url != null) _uploadedImageUrl = url; });
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: accentColor, foregroundColor: Colors.white),
+                            icon: const Icon(Icons.upload, size: 14),
+                            label: const Text('Enregistrer', style: TextStyle(fontSize: 12)),
+                          ),
+                      ],
+                    ),
+                    if (_isUploading) ...[
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(value: _uploadProgress, color: accentColor),
+                    ],
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nomCtrl,
+                      decoration: const InputDecoration(labelText: 'Nom du produit *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.shopping_bag)),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Obligatoire' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: prixCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Prix (FCFA) *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.money)),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Obligatoire';
+                        final n = double.tryParse(v);
+                        if (n == null || n <= 0) return 'Prix invalide';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedCat,
+                      decoration: const InputDecoration(labelText: 'Catégorie *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.category)),
+                      items: _categories.map<DropdownMenuItem<String>>((c) =>
+                        DropdownMenuItem(value: c['value'] as String, child: Text(c['label'] as String))).toList(),
+                      onChanged: (v) { if (v != null) setDialogState(() => selectedCat = v); },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder(), alignLabelWithHint: true),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Annuler')),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  try {
+                    await _firestore.collection('products').doc(productId).update({
+                      'nom': nomCtrl.text.trim(),
+                      'prix': double.parse(prixCtrl.text.trim()),
+                      'categorie': selectedCat,
+                      'image': _uploadedImageUrl ?? data['image'],
+                      'image_type': 'firestore_base64',
+                      'description': descCtrl.text.trim(),
+                      'updated_at': FieldValue.serverTimestamp(),
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Produit modifié !'), backgroundColor: Colors.green),
+                      );
+                      Navigator.of(ctx).pop();
+                    }
+                  } catch (e) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: accentColor),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteProduct(String productId, String productName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer le produit'),
+        content: Text('Supprimer "$productName" ? Cette action est irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE74C3C)),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await _firestore.collection('products').doc(productId).delete();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"$productName" supprimé'), backgroundColor: const Color(0xFF2ECC71)),
+        );
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: const Color(0xFFE74C3C)),
+        );
+      }
+    }
+  }
+
+  // ============================================================
+  // ORDER METHODS
+  // ============================================================
+  Future<void> _viewOrderDetails(String orderId, Map<String, dynamic> data, String clientName) async {
+    String formattedDate = 'Non spécifiée';
+    try {
+      final dateData = data['createdAt'];
+      if (dateData is Timestamp) {
+        formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(dateData.toDate());
+      }
+    } catch (_) {}
+
+    final deliveryMethod = data['deliveryType'] == 'delivery' ? 'Livraison à domicile' : 'Retrait en boutique';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Détails de la commande'),
+        content: SizedBox(
+          width: _Screen.isMobile(context) ? double.maxFinite : 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDetailCard(Icons.person, 'Client', clientName),
+                const SizedBox(height: 12),
+                _buildDetailCard(Icons.receipt, 'Commande', _getProductNameFromOrder(data)),
+                const SizedBox(height: 12),
+                _buildDetailCard(Icons.calendar_today, 'Date', formattedDate),
+                const SizedBox(height: 12),
+                _buildDetailCard(Icons.money, 'Montant Total',
+                    '${(data['total'] ?? 0).toStringAsFixed(0)} FCFA', isAmount: true),
+                const SizedBox(height: 12),
+                _buildDetailCard(Icons.local_shipping, 'Livraison', deliveryMethod),
+                const SizedBox(height: 12),
+                _buildDetailCard(Icons.info, 'Statut', data['status']?.toString() ?? 'En attente',
+                    status: data['status']?.toString()),
+                const SizedBox(height: 16),
+                const Text('Produits commandés:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: darkText)),
+                const SizedBox(height: 8),
+                if (data['items'] != null && (data['items'] as List).isNotEmpty)
+                  ...(data['items'] as List).map<Widget>((item) {
+                    final itemMap = item as Map<String, dynamic>;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: softIvory),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(
+                              color: tropicalTeal.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.shopping_bag, color: tropicalTeal, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(itemMap['name']?.toString() ?? 'Produit',
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
+                                    overflow: TextOverflow.ellipsis),
+                                Text('Quantité: ${itemMap['quantity'] ?? 1}',
+                                    style: const TextStyle(fontSize: 11, color: mediumText)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList()
+                else
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
+                    child: const Center(child: Text('Aucun produit', style: TextStyle(color: Colors.grey))),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Fermer')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Statut: $newStatus'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Widget _buildDetailCard(IconData icon, String label, String value, {bool isAmount = false, String? status}) {
+    Color valueColor = darkText;
+    if (status != null) valueColor = _getStatusColor(status);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: softIvory),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: tropicalTeal),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 3),
+                Text(value,
+                    style: TextStyle(fontSize: 14, color: valueColor,
+                        fontWeight: isAmount ? FontWeight.w700 : FontWeight.w500)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SETTINGS METHODS
+  // ============================================================
+  Future<void> _editBoutiqueSettings(Map<String, dynamic> data) async {
+    final nomCtrl = TextEditingController(text: data['nom'] ?? widget.boutiqueName);
+    final adresseCtrl = TextEditingController(text: data['adresse'] ?? '');
+    final catCtrl = TextEditingController(text: data['categories'] ?? 'Général');
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modifier la boutique'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(controller: nomCtrl,
+                  decoration: const InputDecoration(labelText: 'Nom', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextFormField(controller: adresseCtrl,
+                  decoration: const InputDecoration(labelText: 'Adresse', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextFormField(controller: catCtrl,
+                  decoration: const InputDecoration(labelText: 'Catégorie', border: OutlineInputBorder())),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _firestore.collection('boutiques').doc(widget.boutiqueId).update({
+                  'nom': nomCtrl.text.trim(),
+                  'adresse': adresseCtrl.text.trim(),
+                  'categories': catCtrl.text.trim(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Boutique mise à jour !'), backgroundColor: Colors.green),
+                  );
+                  Navigator.of(ctx).pop();
+                }
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: accentColor),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteBoutique() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer la boutique'),
+        content: const Text('Êtes-vous sûr ? Tous les produits et commandes seront supprimés. Cette action est irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE74C3C)),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _firestore.collection('boutiques').doc(widget.boutiqueId).delete();
+
+        final products = await _firestore.collection('products')
+            .where('boutique_id', isEqualTo: widget.boutiqueId).get();
+        for (var doc in products.docs) await doc.reference.delete();
+
+        final orders = await _firestore.collection('orders')
+            .where('boutiqueId', isEqualTo: widget.boutiqueId).get();
+        for (var doc in orders.docs) await doc.reference.delete();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Boutique supprimée'), backgroundColor: Colors.green),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ============================================================
+  // UTILITY METHODS
+  // ============================================================
+  Color _getStatusColor(String? status) {
+    final s = status ?? '';
+    if (s.contains('attente')) return const Color(0xFFF39C12);
+    if (s.contains('préparation')) return const Color(0xFF9B59B6);
+    if (s == 'Prêt') return const Color(0xFF2ECC71);
+    if (s == 'Livrée') return const Color(0xFF27AE60);
+    if (s == 'Annulée') return const Color(0xFFE74C3C);
+    return const Color(0xFF7F8C8D);
+  }
+
+  IconData _getOrderStatusIcon(String? status) {
+    final s = status ?? '';
+    if (s.contains('attente')) return Icons.pending;
+    if (s.contains('préparation')) return Icons.local_shipping;
+    if (s == 'Prêt') return Icons.check_circle_outline;
+    if (s == 'Livrée') return Icons.home;
+    if (s == 'Annulée') return Icons.cancel;
+    return Icons.receipt;
+  }
+
+  Color _getCategoryColor(String? category) {
+    final cat = (category ?? '').toLowerCase();
+    for (var c in _categories) {
+      if (c['value'] == cat) return c['color'] as Color;
+    }
+    return const Color(0xFF7F8C8D);
+  }
+
+  String _getCategoryName(String? category) {
+    final cat = (category ?? '').toLowerCase();
+    for (var c in _categories) {
+      if (c['value'] == cat) return c['label'] as String;
+    }
+    return cat.isNotEmpty ? cat : 'Non catégorisé';
+  }
+
+  String _getClientName(String userId) {
+    return _clientNames[userId] ??
+        'Client ${userId.length > 8 ? '${userId.substring(0, 8)}...' : userId}';
   }
 
   String _getProductNameFromOrder(Map<String, dynamic> orderData) {
     try {
       if (orderData['items'] != null && (orderData['items'] as List).isNotEmpty) {
-        final firstItem = (orderData['items'] as List)[0];
-        final productName = firstItem['name']?.toString() ?? 'Produit';
-        
-        // Tronquer si trop long
-        if (productName.length > 20) {
-          return '${productName.substring(0, 20)}...';
-        }
-        return productName;
+        final name = (orderData['items'] as List)[0]['name']?.toString() ?? 'Produit';
+        return name.length > 22 ? '${name.substring(0, 22)}...' : name;
       }
-    } catch (e) {
-      print('Erreur nom produit: $e');
-    }
+    } catch (_) {}
     return 'Commande';
   }
 
