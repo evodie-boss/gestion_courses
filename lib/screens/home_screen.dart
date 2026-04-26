@@ -353,7 +353,10 @@ class _HomeScreenState extends State<HomeScreen>
             'id': doc.id,
             'name': data['nom'] ?? 'Boutique',
             'categories': data['categories'] ?? 'Catégorie inconnue',
-            'location': data['location'] ?? 'Localisation inconnue',
+            'location':
+                data['adresse'] ??
+                data['location'] ??
+                'Localisation inconnue',
           };
         }).toList();
       });
@@ -1422,6 +1425,12 @@ class _HomeScreenState extends State<HomeScreen>
         ? (data['createdAt'] as Timestamp).toDate()
         : DateTime.now();
     final items = data['items'] as List<dynamic>? ?? [];
+    final firstItem = items.isNotEmpty && items.first is Map<String, dynamic>
+        ? items.first as Map<String, dynamic>
+        : <String, dynamic>{};
+    final firstProductName =
+        firstItem['name']?.toString() ?? 'Produit non renseigne';
+    final additionalItemsCount = items.length > 1 ? items.length - 1 : 0;
 
     return Card(
       elevation: 2,
@@ -1440,13 +1449,23 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Commande #${doc.id.substring(0, 8)}...',
+                        firstProductName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.purple,
                         ),
                       ),
+                      if (additionalItemsCount > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '+ $additionalItemsCount autre(s) produit(s)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(
                         'Date: ${createdAt.day}/${createdAt.month}/${createdAt.year} ${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/course_model.dart';
 import '../course_service.dart';
+import '../gestion_portefeuille/services/portefeuille_service.dart';
 import 'add_edit_course_screen.dart';
 import '../gestion_boutiques/pages/order_screen.dart';
 
@@ -14,8 +15,10 @@ class CourseListScreen extends StatefulWidget {
 
 class _CourseListScreenState extends State<CourseListScreen> {
   final CourseService _service = CourseService();
+  final PortefeuilleService _portefeuilleService = PortefeuilleService();
   String _sortBy = 'priority';
   bool _descending = true; // Par défaut: haute priorité d'abord
+  String _selectedMonthKey = _currentMonthKey();
   bool _selectionMode = false;
   final Set<String> _selectedCourseIds = <String>{};
 
@@ -34,6 +37,41 @@ class _CourseListScreenState extends State<CourseListScreen> {
   String get _userId {
     final u = FirebaseAuth.instance.currentUser;
     return u?.uid ?? 'test_user';
+  }
+
+  static String _currentMonthKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}';
+  }
+
+  String _formatMonthKey(String monthKey) {
+    final parts = monthKey.split('-');
+    if (parts.length != 2) return monthKey;
+    const monthNames = <String>[
+      'Janvier',
+      'Fevrier',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Aout',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'Decembre',
+    ];
+    final monthIndex = int.tryParse(parts[1]);
+    if (monthIndex == null || monthIndex < 1 || monthIndex > 12) {
+      return monthKey;
+    }
+    return '${monthNames[monthIndex - 1]} ${parts[0]}';
+  }
+
+  List<String> _extractMonthKeys(List<Course> courses) {
+    final monthKeys = courses.map((course) => course.monthKey).toSet().toList();
+    monthKeys.sort((a, b) => b.compareTo(a));
+    return monthKeys;
   }
 
   // Méthode pour obtenir la couleur de priorité
@@ -292,8 +330,6 @@ class _CourseListScreenState extends State<CourseListScreen> {
       body: StreamBuilder<List<Course>>(
         stream: _service.coursesStream(
           userId: _userId,
-          sortBy: _sortBy,
-          descending: _descending,
         ),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -304,26 +340,82 @@ class _CourseListScreenState extends State<CourseListScreen> {
             return _buildLoadingWidget();
           }
 
-          final courses = snapshot.data!;
+          final allCourses = snapshot.data!;
+          final monthKeys = _extractMonthKeys(allCourses);
+          if (!monthKeys.contains(_selectedMonthKey) && monthKeys.isNotEmpty) {
+            _selectedMonthKey = monthKeys.first;
+          }
+          final courses = allCourses
+              .where((course) => course.monthKey == _selectedMonthKey)
+              .toList();
 
-          if (courses.isEmpty) {
+          switch (_sortBy) {
+            case 'dueDate':
+              courses.sort((a, b) {
+                final aD = a.dueDate ?? DateTime(2100);
+                final bD = b.dueDate ?? DateTime(2100);
+                return _descending ? bD.compareTo(aD) : aD.compareTo(bD);
+              });
+              break;
+            case 'createdAt':
+              courses.sort((a, b) => _descending
+                  ? b.createdAt.compareTo(a.createdAt)
+                  : a.createdAt.compareTo(b.createdAt));
+              break;
+            case 'amount':
+              courses.sort((a, b) => _descending
+                  ? b.amount.compareTo(a.amount)
+                  : a.amount.compareTo(b.amount));
+              break;
+            case 'priority':
+            default:
+              courses.sort((a, b) => _descending
+                  ? b.priority.index.compareTo(a.priority.index)
+                  : a.priority.index.compareTo(b.priority.index));
+          }
+
+          if (allCourses.isEmpty) {
             return _buildEmptyState();
           }
 
-          return Column(
-            children: [
-              if (_selectionMode && _selectedCourseIds.isNotEmpty)
-                _buildSelectionActions(courses),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: courses.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) =>
-                      _buildCourseCard(context, courses[index]),
-                ),
-              ),
-            ],
+          return StreamBuilder<Map<String, dynamic>>(
+            stream: _portefeuilleService.getStatsStream(_userId),
+            builder: (context, statsSnapshot) {
+              final stats = statsSnapshot.data ?? const <String, dynamic>{};
+              final monthlyBudget = (stats['monthlyBudget'] as double?) ?? 0.0;
+              final remainingBudget =
+                  (stats['remainingBudget'] as double?) ?? monthlyBudget;
+              final plannedTotal = courses.fold<double>(
+                0.0,
+                (sum, course) => sum + course.amount,
+              );
+
+              return Column(
+                children: [
+                  _buildMonthSelector(monthKeys),
+                  _buildBudgetSummary(
+                    monthKey: _selectedMonthKey,
+                    monthlyBudget: monthlyBudget,
+                    remainingBudget: remainingBudget,
+                    plannedTotal: plannedTotal,
+                  ),
+                  if (_selectionMode && _selectedCourseIds.isNotEmpty)
+                    _buildSelectionActions(courses),
+                  Expanded(
+                    child: courses.isEmpty
+                        ? _buildEmptyMonthState()
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: courses.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) =>
+                                _buildCourseCard(context, courses[index]),
+                          ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -591,6 +683,199 @@ class _CourseListScreenState extends State<CourseListScreen> {
     );
   }
 
+  Widget _buildEmptyMonthState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.calendar_month_outlined,
+              color: primaryColor.withOpacity(0.45),
+              size: 72,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Aucune course pour ${_formatMonthKey(_selectedMonthKey)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Ajoute les courses de ce mois pour mieux suivre ton budget mensuel.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthSelector(List<String> monthKeys) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Mois de courses',
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: monthKeys.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final monthKey = monthKeys[index];
+                final isSelected = monthKey == _selectedMonthKey;
+                return ChoiceChip(
+                  label: Text(_formatMonthKey(monthKey)),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedMonthKey = monthKey;
+                      _selectedCourseIds.clear();
+                      _selectionMode = false;
+                    });
+                  },
+                  selectedColor: primaryColor,
+                  backgroundColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  side: BorderSide(
+                    color: isSelected ? primaryColor : Colors.grey.shade300,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetSummary({
+    required String monthKey,
+    required double monthlyBudget,
+    required double remainingBudget,
+    required double plannedTotal,
+  }) {
+    final isCurrentMonth = monthKey == _currentMonthKey();
+    final referenceBudget = isCurrentMonth ? remainingBudget : monthlyBudget;
+    final gap = referenceBudget - plannedTotal;
+    final isOverBudget = gap < 0;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isOverBudget
+              ? errorColor.withOpacity(0.25)
+              : primaryColor.withOpacity(0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Resume budget ${_formatMonthKey(monthKey)}',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildBudgetMetric(
+                  isCurrentMonth ? 'Budget disponible' : 'Budget mensuel',
+                  referenceBudget,
+                  primaryColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildBudgetMetric(
+                  'Total prevu',
+                  plannedTotal,
+                  warningColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildBudgetMetric(
+                  isOverBudget ? 'Depassement' : 'Ecart',
+                  gap.abs(),
+                  isOverBudget ? errorColor : successColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetMetric(String label, double value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${value.toStringAsFixed(0)} FCFA',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Construire les actions de sélection
   Widget _buildSelectionActions(List<Course> courses) {
     final selectedTotal = _calculateSelectedTotal(courses);
@@ -688,9 +973,34 @@ class _CourseListScreenState extends State<CourseListScreen> {
   }
 
   // Afficher le dialogue d'optimisation
-  void _showOptimizationDialog(BuildContext context, List<Course> allCourses) {
+  Future<void> _showOptimizationDialog(
+      BuildContext context, List<Course> allCourses) async {
     final selectedCourses = _getSelectedCourses(allCourses);
-    final total = _calculateSelectedTotal(allCourses);
+    final total = selectedCourses.fold<double>(
+      0.0,
+      (sum, course) => sum + course.amount,
+    );
+
+    if (selectedCourses.isEmpty) {
+      _showErrorSnackbar(
+        context,
+        'Selectionne au moins une course a reajuster',
+      );
+      return;
+    }
+
+    final stats = await _portefeuilleService.getStatsStream(_userId).first;
+    final monthlyBudget = (stats['monthlyBudget'] as double?) ?? 0.0;
+    final remainingBudget = (stats['remainingBudget'] as double?) ?? monthlyBudget;
+    final availableBudget = _selectedMonthKey == _currentMonthKey()
+        ? remainingBudget
+        : monthlyBudget;
+    final result = _computeBudgetOptimization(
+      selectedCourses,
+      availableBudget: availableBudget,
+      monthlyBudget: monthlyBudget,
+      remainingBudget: remainingBudget,
+    );
 
     showDialog(
       context: context,
@@ -708,16 +1018,60 @@ class _CourseListScreenState extends State<CourseListScreen> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Text('Total: ${total.toStringAsFixed(2)} FCFA'),
+                Text('Mois: ${_formatMonthKey(_selectedMonthKey)}'),
+                const SizedBox(height: 6),
+                Text('Total actuel: ${total.toStringAsFixed(0)} FCFA'),
+                const SizedBox(height: 6),
+                Text(
+                  _selectedMonthKey == _currentMonthKey()
+                      ? 'Budget disponible: ${availableBudget.toStringAsFixed(0)} FCFA'
+                      : 'Budget mensuel: ${availableBudget.toStringAsFixed(0)} FCFA',
+                ),
                 const SizedBox(height: 16),
-                const Text('Cette fonctionnalité sera bientôt disponible.'),
-                const SizedBox(height: 8),
-                const Text('Elle permettra de :'),
-                const SizedBox(height: 8),
-                const Text('• Réduire automatiquement les prix'),
-                const Text('• Ajuster les quantités'),
-                const Text('• Prioriser les articles essentiels'),
-                const Text('• Suggérer des alternatives'),
+                if (result.excess <= 0)
+                  const Text(
+                    'Les courses selectionnees rentrent deja dans le budget.',
+                  )
+                else ...[
+                  Text(
+                    'Depassement: ${result.excess.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.red,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Total apres reajustement: ${result.optimizedTotal.toStringAsFixed(0)} FCFA',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    result.unresolvedExcess > 0
+                        ? 'Il reste ${result.unresolvedExcess.toStringAsFixed(0)} FCFA impossibles a absorber sans toucher aux articles essentiels.'
+                        : 'Le reajustement tient compte des priorites et protege les articles essentiels autant que possible.',
+                  ),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: result.changes.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final change = result.changes[index];
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(change.label),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -726,10 +1080,138 @@ class _CourseListScreenState extends State<CourseListScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Fermer'),
             ),
+            if (result.excess > 0 && result.changes.isNotEmpty)
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _applyOptimization(result);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Appliquer'),
+              ),
           ],
         );
       },
     );
+  }
+
+  _BudgetOptimizationResult _computeBudgetOptimization(
+    List<Course> selectedCourses, {
+    required double availableBudget,
+    required double monthlyBudget,
+    required double remainingBudget,
+  }) {
+    final total = selectedCourses.fold<double>(
+      0.0,
+      (sum, course) => sum + course.amount,
+    );
+    final excess = total - availableBudget;
+    if (excess <= 0) {
+      return _BudgetOptimizationResult(
+        availableBudget: availableBudget,
+        currentTotal: total,
+        optimizedTotal: total,
+        excess: 0,
+        unresolvedExcess: 0,
+        changes: const [],
+      );
+    }
+
+    final courses = List<Course>.from(selectedCourses);
+    courses.sort((a, b) {
+      final essentialOrder = (a.isEssential ? 1 : 0).compareTo(b.isEssential ? 1 : 0);
+      if (essentialOrder != 0) return essentialOrder;
+      final priorityOrder = b.priority.order.compareTo(a.priority.order);
+      if (priorityOrder != 0) return priorityOrder;
+      return b.amount.compareTo(a.amount);
+    });
+
+    final changes = <_BudgetChange>[];
+    double remainingExcess = excess;
+
+    for (final course in courses) {
+      if (remainingExcess <= 0) break;
+      final maxRemovableUnits = course.isEssential
+          ? (course.quantity - 1).clamp(0, course.quantity)
+          : course.quantity;
+      if (maxRemovableUnits <= 0) continue;
+
+      final unitPrice = course.unitPrice > 0
+          ? course.unitPrice
+          : (course.quantity > 0 ? course.amount / course.quantity : course.amount);
+      if (unitPrice <= 0) continue;
+
+      final unitsToRemove = (remainingExcess / unitPrice).ceil().clamp(1, maxRemovableUnits);
+      final removedAmount = unitsToRemove * unitPrice;
+      final newQuantity = course.quantity - unitsToRemove;
+
+      if (newQuantity <= 0) {
+        changes.add(
+          _BudgetChange(
+            course: course,
+            newQuantity: 0,
+            removedAmount: removedAmount,
+            deleteCourse: true,
+            label: 'Retirer ${course.title} pour economiser ${removedAmount.toStringAsFixed(0)} FCFA',
+          ),
+        );
+      } else {
+        changes.add(
+          _BudgetChange(
+            course: course,
+            newQuantity: newQuantity,
+            removedAmount: removedAmount,
+            deleteCourse: false,
+            label:
+                'Reduire ${course.title} de ${course.quantity} a $newQuantity (${removedAmount.toStringAsFixed(0)} FCFA economises)',
+          ),
+        );
+      }
+
+      remainingExcess -= removedAmount;
+    }
+
+    final optimizedTotal =
+        total - changes.fold<double>(0.0, (sum, change) => sum + change.removedAmount);
+
+    return _BudgetOptimizationResult(
+      availableBudget: availableBudget,
+      currentTotal: total,
+      optimizedTotal: optimizedTotal,
+      excess: excess,
+      unresolvedExcess: remainingExcess > 0 ? remainingExcess : 0,
+      changes: changes,
+    );
+  }
+
+  Future<void> _applyOptimization(_BudgetOptimizationResult result) async {
+    try {
+      for (final change in result.changes) {
+        if (change.deleteCourse) {
+          await _service.deleteCourse(change.course.id);
+        } else {
+          final updatedCourse = change.course.adjustQuantity(change.newQuantity);
+          await _service.updateCourse(change.course.id, updatedCourse);
+        }
+      }
+
+      if (!mounted) return;
+      _selectedCourseIds.clear();
+      _selectionMode = false;
+      setState(() {});
+      _showSuccessSnackbar(
+        context,
+        result.unresolvedExcess > 0
+            ? 'Reajustement applique partiellement'
+            : 'Reajustement budgetaire applique',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackbar(context, 'Erreur lors du reajustement: $e');
+    }
   }
 
   // Construire la carte d'une course
@@ -1154,4 +1636,38 @@ class _CourseListScreenState extends State<CourseListScreen> {
       }
     }
   }
+}
+
+class _BudgetOptimizationResult {
+  final double availableBudget;
+  final double currentTotal;
+  final double optimizedTotal;
+  final double excess;
+  final double unresolvedExcess;
+  final List<_BudgetChange> changes;
+
+  const _BudgetOptimizationResult({
+    required this.availableBudget,
+    required this.currentTotal,
+    required this.optimizedTotal,
+    required this.excess,
+    required this.unresolvedExcess,
+    required this.changes,
+  });
+}
+
+class _BudgetChange {
+  final Course course;
+  final int newQuantity;
+  final double removedAmount;
+  final bool deleteCourse;
+  final String label;
+
+  const _BudgetChange({
+    required this.course,
+    required this.newQuantity,
+    required this.removedAmount,
+    required this.deleteCourse,
+    required this.label,
+  });
 }

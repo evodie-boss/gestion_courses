@@ -7,7 +7,8 @@ class Portefeuille {
   String userId;
   double balance;          // Solde actuel
   double monthlyBudget;    // Budget mensuel
-  double monthlyExpenses;  // <-- NOUVEAU CHAMP !
+  double monthlyExpenses;  // Dépenses du mois en cours
+  String currentMonth;     // Mois actuel au format "YYYY-MM" (ex: "2026-05" pour mai 2026)
   String currency;         // 'EUR' ou 'XOF'
   double exchangeRate;     // Taux de change EUR → FCFA
   DateTime lastUpdated;
@@ -17,7 +18,8 @@ class Portefeuille {
     required this.userId,
     required this.balance,
     required this.monthlyBudget,
-    this.monthlyExpenses = 0.0,  // <-- AJOUTER AVEC VALEUR PAR DÉFAUT
+    this.monthlyExpenses = 0.0,
+    this.currentMonth = '',  // Nouveau champ pour le mois
     this.currency = 'XOF',
     this.exchangeRate = 655.96,
     required this.lastUpdated,
@@ -28,11 +30,40 @@ class Portefeuille {
     required this.userId,
     this.balance = 0.0,
     this.monthlyBudget = 655960.0, // 1000€ en FCFA
-    this.monthlyExpenses = 0.0,    // <-- AJOUTER
+    this.monthlyExpenses = 0.0,
     this.currency = 'XOF',
     this.exchangeRate = 655.96,
   }) : id = '',
+      currentMonth = _getCurrentMonthString(),
       lastUpdated = DateTime.now();
+  
+  // Méthode statique pour obtenir le mois actuel
+  static String _getCurrentMonthString() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}';
+  }
+  
+  // Méthode pour vérifier si on est dans un nouveau mois
+  bool isNewMonth() {
+    final currentMonthStr = _getCurrentMonthString();
+    return currentMonth != currentMonthStr;
+  }
+  
+  // Obtenir le nom du mois pour l'affichage
+  String get currentMonthName {
+    if (currentMonth.isEmpty) return '';
+    final parts = currentMonth.split('-');
+    if (parts.length != 2) return '';
+    
+    final monthNumber = int.tryParse(parts[1]) ?? 0;
+    final months = [
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+    if (monthNumber < 1 || monthNumber > 12) return '';
+    
+    return months[monthNumber - 1];
+  }
   
   // Convertir en Map pour Firestore
   Map<String, dynamic> toMap() {
@@ -40,7 +71,8 @@ class Portefeuille {
       'userId': userId,
       'balance': balance,
       'monthlyBudget': monthlyBudget,
-      'monthlyExpenses': monthlyExpenses,  // <-- AJOUTER
+      'monthlyExpenses': monthlyExpenses,
+      'currentMonth': currentMonth,
       'currency': currency,
       'exchangeRate': exchangeRate,
       'lastUpdated': Timestamp.fromDate(lastUpdated),
@@ -73,7 +105,8 @@ class Portefeuille {
       userId: map['userId']?.toString() ?? '',
       balance: (map['balance'] ?? 0.0).toDouble(),
       monthlyBudget: (map['monthlyBudget'] ?? 655960.0).toDouble(),
-      monthlyExpenses: (map['monthlyExpenses'] ?? 0.0).toDouble(),  // <-- AJOUTER
+      monthlyExpenses: (map['monthlyExpenses'] ?? 0.0).toDouble(),
+      currentMonth: map['currentMonth']?.toString() ?? _getCurrentMonthString(),
       currency: map['currency']?.toString() ?? 'XOF',
       exchangeRate: (map['exchangeRate'] ?? 655.96).toDouble(),
       lastUpdated: parseLastUpdated(map['lastUpdated']),

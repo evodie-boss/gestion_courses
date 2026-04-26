@@ -9,6 +9,7 @@ enum CoursePriority { high, medium, low }
 class Course {
   final String id;
   final String userId;
+  final String monthKey;
   final String title;
   final String description;
   final double amount;
@@ -25,6 +26,7 @@ class Course {
   Course({
     required this.id,
     required this.userId,
+    required this.monthKey,
     required this.title,
     required this.description,
     required this.amount,
@@ -85,6 +87,7 @@ class Course {
     return Course(
       id: doc.id,
       userId: data['userId']?.toString() ?? '',
+      monthKey: data['monthKey']?.toString() ?? _monthKeyFromDate(created),
       title: data['title']?.toString() ?? '',
       description: data['description']?.toString() ?? '',
       amount: amount,
@@ -102,6 +105,7 @@ class Course {
   Map<String, dynamic> toMap({bool useServerTimestampForCreated = false}) {
     final map = <String, dynamic>{
       'userId': userId,
+      'monthKey': monthKey,
       'title': title,
       'description': description,
       'amount': amount, // On stocke le montant total
@@ -148,6 +152,7 @@ class Course {
   Course copyWith({
     String? id,
     String? userId,
+    String? monthKey,
     String? title,
     String? description,
     double? amount,
@@ -163,6 +168,7 @@ class Course {
     return Course(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      monthKey: monthKey ?? this.monthKey,
       title: title ?? this.title,
       description: description ?? this.description,
       amount: amount ?? this.amount,
@@ -204,7 +210,12 @@ class Course {
 
   @override
   String toString() {
-    return 'Course{id: $id, title: $title, amount: $amount, quantity: $quantity, unitPrice: $unitPrice}';
+    return 'Course{id: $id, monthKey: $monthKey, title: $title, amount: $amount, quantity: $quantity, unitPrice: $unitPrice}';
+  }
+
+  static String _monthKeyFromDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    return '${date.year}-$month';
   }
 }
 

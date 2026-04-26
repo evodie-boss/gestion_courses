@@ -31,7 +31,12 @@ class PortefeuilleService {
           await _firestore.collection(_collectionName).doc(userId).get();
 
       if (doc.exists) {
-        return Portefeuille.fromMap(doc.data()!, doc.id);
+        final portefeuille = Portefeuille.fromMap(doc.data()!, doc.id);
+        
+        // Vérifier si on est dans un nouveau mois et réinitialiser si nécessaire
+        await _checkAndResetMonthlyExpenses(userId, portefeuille);
+        
+        return portefeuille;
       } else {
         // Créer un nouveau portefeuille AVEC monthlyExpenses
         final newPortefeuille = Portefeuille.newPortefeuille(userId: userId);
@@ -49,6 +54,24 @@ class PortefeuilleService {
     }
   }
 
+  // Méthode pour vérifier et réinitialiser les dépenses mensuelles si nouveau mois
+  Future<void> _checkAndResetMonthlyExpenses(String userId, Portefeuille portefeuille) async {
+    final now = DateTime.now();
+    final currentMonthStr = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    
+    // Si le mois stocké est différent du mois actuel, réinitialiser les dépenses
+    if (portefeuille.currentMonth != currentMonthStr) {
+      print('🔄 Nouveau mois détecté! Réinitialisation des dépenses mensuelles');
+      print('   Ancien mois: ${portefeuille.currentMonth}, Nouveau mois: $currentMonthStr');
+      
+      await _firestore.collection(_collectionName).doc(userId).update({
+        'monthlyExpenses': 0.0,
+        'currentMonth': currentMonthStr,
+        'lastUpdated': Timestamp.now(),
+      });
+    }
+  }
+
   // 2. Récupérer le portefeuille (Stream)
   Stream<Portefeuille> getPortefeuilleStream(String userId) {
     return _firestore
@@ -60,7 +83,18 @@ class PortefeuilleService {
         // Créer un portefeuille par défaut
         return Portefeuille.newPortefeuille(userId: userId);
       }
-      return Portefeuille.fromMap(snapshot.data()!, snapshot.id);
+      final portefeuille = Portefeuille.fromMap(snapshot.data()!, snapshot.id);
+      
+      // Vérifier si nouveau mois (sans await car on est dans un map synchrone)
+      final now = DateTime.now();
+      final currentMonthStr = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      if (portefeuille.currentMonth != currentMonthStr) {
+        // Le mois a changé, on retourne quand même le portefeuille
+        // La réinitialisation se fera lors du prochain appel à getOrCreatePortefeuille
+        print('🔄 Nouveau mois détecté dans le stream!');
+      }
+      
+      return portefeuille;
     });
   }
 

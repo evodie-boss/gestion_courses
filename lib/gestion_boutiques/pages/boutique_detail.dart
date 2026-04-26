@@ -474,9 +474,23 @@ class _BoutiqueDetailScreenState extends State<BoutiqueDetailScreen> {
         boutiqueName: widget.boutiqueName,
       );
 
+      // Enregistrer la dépense dans l'historique des transactions
+      await _firestore.collection('transactions').add({
+        'userId': _currentUser!.uid,
+        'orderId': orderRef.id,
+        'boutiqueId': widget.boutiqueId,
+        'amount': -total,
+        'type': 'order_payment',
+        'description': 'Commande chez ${widget.boutiqueName}',
+        'date': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'currency': 'XOF',
+      });
+
       // Débiter le portefeuille
       await _firestore.collection('portefeuille').doc(_currentUser!.uid).update({
         'balance': FieldValue.increment(-total),
+        'monthlyExpenses': FieldValue.increment(total),
         'lastUpdated': FieldValue.serverTimestamp(),
       });
 

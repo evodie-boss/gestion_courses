@@ -10,13 +10,17 @@ class CourseService {
   /// Le tri demandé (sortBy) est appliqué côté client pour éviter les index composites.
   Stream<List<Course>> coursesStream({
     required String userId,
+    String? monthKey,
     String sortBy = 'priority', // 'priority' | 'dueDate' | 'createdAt'
     bool descending = false,
   }) {
     final query = _courses.where('userId', isEqualTo: userId);
 
     return query.snapshots().map((snap) {
-      final list = snap.docs.map((d) => Course.fromDoc(d)).toList();
+      final list = snap.docs
+          .map((d) => Course.fromDoc(d))
+          .where((course) => monthKey == null || course.monthKey == monthKey)
+          .toList();
 
       // tri côté client
       switch (sortBy) {
@@ -98,6 +102,7 @@ class CourseService {
         return Course(
           id: '', // Firestore donnera l'id
           userId: userId,
+          monthKey: '${now.year}-${now.month.toString().padLeft(2, '0')}',
           title: 'Course d\'essai ${i + 1}',
           description: 'Description ${i + 1}',
           amount: (i + 1) * 100.0,

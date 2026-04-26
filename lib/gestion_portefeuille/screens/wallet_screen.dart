@@ -108,6 +108,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       isLoading: false,
                       currencySymbol: portefeuille.currencySymbol,
                       monthlyBudget: monthlyBudget,
+                      currentMonthName: portefeuille.currentMonthName,
                     ),
                     const SizedBox(height: 20),
 
