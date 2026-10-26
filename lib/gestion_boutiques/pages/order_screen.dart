@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gestion_courses/models/course_model.dart';
+import 'package:gestion_courses/services/notification_service.dart';
 
 class OrderScreen extends StatefulWidget {
   final List<Course> selectedCourses;
@@ -18,6 +19,7 @@ class OrderScreen extends StatefulWidget {
 class _OrderScreenState extends State<OrderScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificationService _notificationService = NotificationService();
 
   // Couleurs
   static const Color primaryColor = Color(0xFF0F9E99);
@@ -268,6 +270,7 @@ class _OrderScreenState extends State<OrderScreen> {
               'longitude': boutiqueData['longitude'] ?? 0.0,
               'rating': (boutiqueData['rating'] ?? 0.0).toDouble(),
               'deliveryFee': (boutiqueData['deliveryFee'] ?? 0).toDouble(),
+              'categories': boutiqueData['categories'] ?? '',
               'products': products,
               'matchCount': boutiquesMap[boutiqueId]!['matchCount'],
               'highPriorityCount':
@@ -487,7 +490,13 @@ class _OrderScreenState extends State<OrderScreen> {
             globalTotalsByPriority['B']! + totalsByPriority['B']!;
         globalTotalsByPriority['E'] =
             globalTotalsByPriority['E']! + totalsByPriority['E']!;
-        globalDeliveryFee += (boutique['deliveryFee'] ?? 0).toDouble();
+        
+        // Pour les marchés, pas de livraison
+        final categories = boutique['categories']?.toString() ?? '';
+        final isMarche = categories == 'marche';
+        if (!isMarche) {
+          globalDeliveryFee += (boutique['deliveryFee'] ?? 0).toDouble();
+        }
 
         if (_userBalance - _calculateSelectedTotal(boutiqueId, boutique) <
             5000) {
@@ -547,14 +556,43 @@ class _OrderScreenState extends State<OrderScreen> {
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Frais de livraison:',
-                      style: const TextStyle(fontSize: 14)),
-                  Text('${globalDeliveryFee.toStringAsFixed(0)} FCFA',
-                      style: const TextStyle(fontSize: 14)),
-                ],
+              // Afficher le type de livraison selon le type de boutique
+              Builder(
+                builder: (context) {
+                  // Vérifier si toutes les boutiques sont des marchés
+                  bool allMarches = true;
+                  for (var boutique in _availableBoutiques) {
+                    final selectedCount = _selectedProductsByBoutique[boutique['id']]?.length ?? 0;
+                    if (selectedCount > 0) {
+                      final categories = boutique['categories']?.toString() ?? '';
+                      if (categories != 'marche') {
+                        allMarches = false;
+                        break;
+                      }
+                    }
+                  }
+                  
+                  if (allMarches) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Mode de retrait:',
+                            style: const TextStyle(fontSize: 14)),
+                        Text('Retrait en boutique',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      ],
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Frais de livraison:',
+                          style: const TextStyle(fontSize: 14)),
+                      Text('${globalDeliveryFee.toStringAsFixed(0)} FCFA',
+                          style: const TextStyle(fontSize: 14)),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 4),
               Row(
@@ -657,6 +695,7 @@ class _OrderScreenState extends State<OrderScreen> {
       // 2. CRÉER UN BATCH POUR TOUTES LES OPÉRATIONS
       final batch = _firestore.batch();
       List<String> orderIds = [];
+      final List<Map<String, dynamic>> pendingOrderNotifications = [];
       double runningTotal = 0;
 
       // 3. CRÉER LES COMMANDES POUR CHAQUE BOUTIQUE
@@ -697,7 +736,10 @@ class _OrderScreenState extends State<OrderScreen> {
           }
         }
 
-        final deliveryFee = (boutique['deliveryFee'] ?? 0).toDouble();
+        // Pour les marchés, pas de livraison - uniquement retrait en boutique
+        final categories = boutique['categories']?.toString() ?? '';
+        final isMarche = categories == 'marche';
+        final deliveryFee = isMarche ? 0.0 : (boutique['deliveryFee'] ?? 0).toDouble();
         final total = subtotal + deliveryFee;
         runningTotal += total;
 
@@ -720,6 +762,12 @@ class _OrderScreenState extends State<OrderScreen> {
         };
 
         batch.set(orderRef, orderData);
+        pendingOrderNotifications.add({
+          'orderId': orderRef.id,
+          'boutiqueId': boutiqueId,
+          'boutiqueName': boutique['nom'],
+          'total': total,
+        });
         print('✅ Commande créée pour ${boutique['nom']}: $total FCFA');
 
         // CRÉDITER LA BOUTIQUE
@@ -779,6 +827,15 @@ class _OrderScreenState extends State<OrderScreen> {
       // 6. EXÉCUTER LE BATCH
       await batch.commit();
       print('✅ Batch exécuté avec succès');
+
+      for (final notificationData in pendingOrderNotifications) {
+        await _notificationService.createOrderNotifications(
+          boutiqueId: notificationData['boutiqueId'] as String,
+          orderId: notificationData['orderId'] as String,
+          total: (notificationData['total'] as num).toDouble(),
+          boutiqueName: notificationData['boutiqueName']?.toString(),
+        );
+      }
 
       // 7. METTRE À JOUR L'ÉTAT LOCAL
       setState(() {
@@ -939,6 +996,8 @@ class _OrderScreenState extends State<OrderScreen> {
     double total = 0;
     final selectedProducts = _selectedProductsByBoutique[boutiqueId] ?? {};
     final quantities = _quantitiesByBoutique[boutiqueId] ?? {};
+    final categories = boutique['categories']?.toString() ?? '';
+    final isMarche = categories == 'marche';
 
     for (var product in boutique['products'] as List) {
       if (selectedProducts.contains(product['id'])) {
@@ -954,7 +1013,8 @@ class _OrderScreenState extends State<OrderScreen> {
       }
     }
 
-    if (selectedProducts.isNotEmpty) {
+    // Pour les marchés, pas de livraison - uniquement retrait en boutique
+    if (selectedProducts.isNotEmpty && !isMarche) {
       total += (boutique['deliveryFee'] ?? 0).toDouble();
     }
 

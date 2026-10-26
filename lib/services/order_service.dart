@@ -99,6 +99,8 @@ class OrderService {
       String userId, Commande commande) async {
     try {
       final portefeuilleDoc = _firestore.collection('portefeuille').doc(userId);
+      final now = DateTime.now();
+      final currentMonthStr = '${now.year}-${now.month.toString().padLeft(2, '0')}';
       
       await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(portefeuilleDoc);
@@ -108,6 +110,7 @@ class OrderService {
             'balance': 0.0,
             'monthlyBudget': 655960.0,
             'monthlyExpenses': commande.total,
+            'currentMonth': currentMonthStr,
             'currency': 'XOF',
             'exchangeRate': 655.96,
             'lastUpdated': Timestamp.now(),
@@ -119,7 +122,17 @@ class OrderService {
 
         final data = snapshot.data()!;
         final currentBalance = (data['balance'] ?? 0.0).toDouble();
-        final currentMonthlyExpenses = (data['monthlyExpenses'] ?? 0.0).toDouble();
+        final storedMonth = data['currentMonth']?.toString() ?? '';
+        
+        // Vérifier si nouveau mois - réinitialiser les dépenses si nécessaire
+        double currentMonthlyExpenses;
+        if (storedMonth != currentMonthStr) {
+          // Nouveau mois, réinitialiser les dépenses
+          currentMonthlyExpenses = 0.0;
+          print('🔄 Nouveau mois détecté dans order_service: $storedMonth → $currentMonthStr');
+        } else {
+          currentMonthlyExpenses = (data['monthlyExpenses'] ?? 0.0).toDouble();
+        }
 
         if (currentBalance < commande.total) {
           throw Exception('Solde insuffisant! Vous avez $currentBalance FCFA, besoin de ${commande.total} FCFA');
@@ -131,12 +144,13 @@ class OrderService {
         transaction.update(portefeuilleDoc, {
           'balance': newBalance,
           'monthlyExpenses': newMonthlyExpenses,
+          'currentMonth': currentMonthStr,
           'lastUpdated': Timestamp.now(),
         });
 
         print('💰 Portefeuille mis à jour:');
-        print('   Solde: $currentBalance → $newBalance FCFA');
-        print('   Dépenses: $currentMonthlyExpenses → $newMonthlyExpenses FCFA');
+        print('   Solde: $currentBalance → $newBalance');
+        print('   Dépenses: $currentMonthlyExpenses → $newMonthlyExpenses ($currentMonthStr)');
       });
       
     } catch (e) {
@@ -220,6 +234,8 @@ class OrderService {
   Future<void> _refundOrder(Commande order) async {
     try {
       final portefeuilleDoc = _firestore.collection('portefeuille').doc(order.userId);
+      final now = DateTime.now();
+      final currentMonthStr = '${now.year}-${now.month.toString().padLeft(2, '0')}';
       
       await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(portefeuilleDoc);
@@ -227,7 +243,15 @@ class OrderService {
 
         final data = snapshot.data()!;
         final currentBalance = (data['balance'] ?? 0.0).toDouble();
-        final currentMonthlyExpenses = (data['monthlyExpenses'] ?? 0.0).toDouble();
+        final storedMonth = data['currentMonth']?.toString() ?? '';
+        
+        // Vérifier si nouveau mois
+        double currentMonthlyExpenses;
+        if (storedMonth != currentMonthStr) {
+          currentMonthlyExpenses = 0.0;
+        } else {
+          currentMonthlyExpenses = (data['monthlyExpenses'] ?? 0.0).toDouble();
+        }
 
         final newBalance = currentBalance + order.total;
         final newMonthlyExpenses = currentMonthlyExpenses - order.total;
@@ -235,6 +259,7 @@ class OrderService {
         transaction.update(portefeuilleDoc, {
           'balance': newBalance,
           'monthlyExpenses': newMonthlyExpenses < 0 ? 0.0 : newMonthlyExpenses,
+          'currentMonth': currentMonthStr,
           'lastUpdated': Timestamp.now(),
         });
       });

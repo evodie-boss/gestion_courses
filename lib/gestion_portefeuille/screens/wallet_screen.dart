@@ -108,6 +108,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       isLoading: false,
                       currencySymbol: portefeuille.currencySymbol,
                       monthlyBudget: monthlyBudget,
+                      currentMonthName: portefeuille.currentMonthName,
                     ),
                     const SizedBox(height: 20),
 
@@ -440,7 +441,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: transaction.type == 'depense'
+                      color: transaction.isExpense
                           ? Colors.red.withOpacity(0.1)
                           : Colors.green.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -463,7 +464,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          transaction.type == 'depense' 
+                          transaction.isExpense 
                             ? 'Dépense (commande)'  // MODIFIÉ : Ajout de "commande"
                             : 'Rechargement de solde',
                           style: TextStyle(
@@ -478,11 +479,11 @@ class _WalletScreenState extends State<WalletScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '${transaction.type == 'depense' ? '-' : '+'}${transaction.formattedAmount}',
+                        '${transaction.isExpense ? '-' : '+'}${transaction.formattedAmount}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: transaction.type == 'depense'
+                          color: transaction.isExpense
                               ? Colors.red
                               : Colors.green,
                         ),

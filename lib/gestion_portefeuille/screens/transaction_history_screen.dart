@@ -54,7 +54,11 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
     // Filtrer par type
     if (_filterType != 'tous') {
-      filtered = filtered.where((t) => t.type == _filterType).toList();
+      filtered = filtered.where((t) {
+        if (_filterType == 'depense') return t.isExpense;
+        if (_filterType == 'ajout') return t.isIncome;
+        return true;
+      }).toList();
     }
 
     // Filtrer par mois
@@ -72,10 +76,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   double _calculateTotal(List<my_models.Transaction> transactions) {
     double total = 0;
     for (var transaction in transactions) {
-      if (transaction.type == 'ajout') {
-        total += transaction.amount;
+      if (transaction.isIncome) {
+        total += transaction.absoluteAmount;
       } else {
-        total -= transaction.amount;
+        total -= transaction.absoluteAmount;
       }
     }
     return total;
@@ -414,7 +418,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: transaction.type == 'ajout' 
+                    color: transaction.isIncome 
                       ? Colors.green.withOpacity(0.1) 
                       : Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -422,19 +426,19 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        transaction.type == 'ajout' 
+                        transaction.isIncome 
                           ? Icons.add_circle_outline 
                           : Icons.remove_circle_outline,
-                        color: transaction.type == 'ajout' ? Colors.green : Colors.red,
+                        color: transaction.isIncome ? Colors.green : Colors.red,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          transaction.type == 'ajout'
+                          transaction.isIncome
                             ? 'Cette transaction a augmenté votre solde'
                             : 'Cette transaction a diminué votre solde',
                           style: TextStyle(
-                            color: transaction.type == 'ajout' ? Colors.green : Colors.red,
+                            color: transaction.isIncome ? Colors.green : Colors.red,
                             fontWeight: FontWeight.w500,
                           ),
                         ),

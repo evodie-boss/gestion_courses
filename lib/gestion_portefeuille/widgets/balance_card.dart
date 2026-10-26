@@ -6,7 +6,8 @@ class BalanceCard extends StatelessWidget {
   final double remainingBudget;
   final bool isLoading;
   final String currencySymbol;
-  final double monthlyBudget; // NOUVEAU: Ajout du paramètre
+  final double monthlyBudget;
+  final String currentMonthName; // NOUVEAU: Nom du mois actuel
 
   const BalanceCard({
     super.key,
@@ -15,7 +16,8 @@ class BalanceCard extends StatelessWidget {
     required this.remainingBudget,
     required this.isLoading,
     required this.currencySymbol,
-    required this.monthlyBudget, // NOUVEAU
+    required this.monthlyBudget,
+    required this.currentMonthName, // NOUVEAU
   });
 
   @override
@@ -65,6 +67,25 @@ class BalanceCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
+                
+                // Affichage du mois actuel
+                if (currentMonthName.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      currentMonthName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
                 
                 // NOUVEAU: Affichage du budget mensuel
                 Row(

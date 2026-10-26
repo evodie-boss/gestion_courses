@@ -23,6 +23,7 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
   late String _title;
   late String _description;
   late double _amount;
+  late DateTime _selectedMonth;
   CoursePriority _priority = CoursePriority.low;
   DateTime? _dueDate;
   bool _saving = false;
@@ -53,6 +54,7 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
       _amount = c.amount;
       _priority = c.priority;
       _dueDate = c.dueDate;
+      _selectedMonth = _parseMonthKey(c.monthKey) ?? c.createdAt;
       
       // Initialiser les nouveaux champs
       _quantity = c.quantity;
@@ -68,6 +70,7 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
       _title = '';
       _description = '';
       _amount = 0;
+      _selectedMonth = DateTime.now();
       _quantity = 1;
       _unitPrice = 0;
       _unit = 'pièce';
@@ -80,6 +83,39 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
     setState(() {
       _amount = _quantity * _unitPrice;
     });
+  }
+
+  DateTime? _parseMonthKey(String monthKey) {
+    final parts = monthKey.split('-');
+    if (parts.length != 2) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    if (year == null || month == null || month < 1 || month > 12) {
+      return null;
+    }
+    return DateTime(year, month);
+  }
+
+  String _monthKeyFromDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
+  }
+
+  String _formatSelectedMonth(DateTime date) {
+    const monthNames = <String>[
+      'Janvier',
+      'Fevrier',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Aout',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'Decembre',
+    ];
+    return '${monthNames[date.month - 1]} ${date.year}';
   }
 
   @override
@@ -173,6 +209,9 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
                     const SizedBox(height: 16),
 
                     _buildPriorityField(),
+                    const SizedBox(height: 20),
+
+                    _buildMonthField(),
                     const SizedBox(height: 20),
 
                     _buildDueDateField(),
@@ -704,6 +743,56 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
     );
   }
 
+  Widget _buildMonthField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mois',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: textPrimary,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: ListTile(
+            leading: Icon(Icons.calendar_month, color: primaryColor),
+            title: Text(
+              _formatSelectedMonth(_selectedMonth),
+              style: TextStyle(
+                color: textPrimary,
+                fontSize: 16,
+              ),
+            ),
+            trailing: Container(
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: TextButton(
+                onPressed: _pickMonth,
+                child: Text(
+                  'Choisir',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSaveButton() {
     return SizedBox(
       width: double.infinity,
@@ -768,6 +857,33 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
     if (date != null) setState(() => _dueDate = date);
   }
 
+  void _pickMonth() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedMonth,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+              primary: primaryColor,
+              onPrimary: Colors.white,
+            ),
+            dialogBackgroundColor: cardColor,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null) {
+      setState(() {
+        _selectedMonth = DateTime(pickedDate.year, pickedDate.month);
+      });
+    }
+  }
+
   void _saveCourse() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -797,6 +913,7 @@ class _AddEditCourseScreenState extends State<AddEditCourseScreen> {
     final course = Course(
       id: widget.course?.id ?? '',
       userId: widget.userId,
+      monthKey: _monthKeyFromDate(_selectedMonth),
       title: _title,
       description: _description,
       amount: _amount,

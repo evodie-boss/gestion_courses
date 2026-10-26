@@ -81,18 +81,24 @@ class Transaction {
   }
 
   // Getter pour afficher le type en français
+  bool get isExpense => type == 'depense' || type == 'order_payment' || amount < 0;
+
+  bool get isIncome => !isExpense;
+
+  double get absoluteAmount => amount.abs();
+
   String get typeDisplay {
-    return type == 'depense' ? 'Dépense' : 'Ajout';
+    return isExpense ? 'Dépense' : 'Ajout';
   }
 
   // Getter pour la couleur selon le type
   String get colorType {
-    return type == 'depense' ? '#FF5252' : '#4CAF50';
+    return isExpense ? '#FF5252' : '#4CAF50';
   }
 
   // Getter pour l'icône
   String get icon {
-    return type == 'depense' ? '📉' : '📈';
+    return isExpense ? '📉' : '📈';
   }
 
   // Getter pour le symbole de devise
@@ -103,9 +109,9 @@ class Transaction {
   // Formater le montant avec devise
   String get formattedAmount {
     if (currency == 'XOF') {
-      return '${amount.toStringAsFixed(0)} FCFA';
+      return '${absoluteAmount.toStringAsFixed(0)} FCFA';
     } else {
-      return '${amount.toStringAsFixed(2)} €';
+      return '${absoluteAmount.toStringAsFixed(2)} €';
     }
   }
 

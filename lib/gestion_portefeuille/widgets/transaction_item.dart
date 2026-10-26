@@ -17,7 +17,7 @@ class TransactionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDepense = transaction.type == 'depense';
+    final isDepense = transaction.isExpense;
     
     return GestureDetector(
       onTap: onTap,
@@ -73,7 +73,7 @@ class TransactionItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isDepense ? '-' : '+'}${transaction.amount.toStringAsFixed(2)}€',
+                '${isDepense ? '-' : '+'}${transaction.formattedAmount}',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

@@ -53,6 +53,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _adresseController = TextEditingController();
+  final TextEditingController _deliveryFeeController = TextEditingController();
   final TextEditingController _latitudeController = TextEditingController();
   final TextEditingController _longitudeController = TextEditingController();
 
@@ -80,6 +81,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
   void dispose() {
     _nomController.dispose();
     _adresseController.dispose();
+    _deliveryFeeController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     super.dispose();
@@ -128,6 +130,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
         'nom': _nomController.text.trim(),
         'adresse': _adresseController.text.trim(),
         'categories': _selectedCategory!,
+        'deliveryFee': double.parse(_deliveryFeeController.text.trim()),
         'latitude': double.parse(_latitudeController.text.trim()),
         'longitude': double.parse(_longitudeController.text.trim()),
         'created_at': FieldValue.serverTimestamp(),
@@ -143,6 +146,7 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
       _formKey.currentState!.reset();
       _nomController.clear();
       _adresseController.clear();
+      _deliveryFeeController.clear();
       _latitudeController.clear();
       _longitudeController.clear();
       setState(() {
@@ -345,6 +349,42 @@ class _CreateBoutiquePageState extends State<CreateBoutiquePage> {
                         ),
 
                         const SizedBox(height: 20),
+
+                        TextFormField(
+                          controller: _deliveryFeeController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Prix de livraison *',
+                            hintText: 'Ex: 1500',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.local_shipping,
+                              color: Color(0xFF0F9E99),
+                            ),
+                            suffixText: 'FCFA',
+                            filled: true,
+                            fillColor: const Color(0xFFF5F7FA),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Le prix de livraison est obligatoire';
+                            }
+                            final deliveryFee = double.tryParse(value);
+                            if (deliveryFee == null) {
+                              return 'Veuillez entrer un montant valide';
+                            }
+                            if (deliveryFee < 0) {
+                              return 'Le prix de livraison ne peut pas etre negatif';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 30),
 
                         // Catégorie
                         Column(
